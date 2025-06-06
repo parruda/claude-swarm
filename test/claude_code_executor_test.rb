@@ -298,4 +298,62 @@ class ClaudeCodeExecutorTest < Minitest::Test
     assert_includes command_array, "--dangerously-skip-permissions"
     refute_includes command_array, "--allowedTools"
   end
+
+  def test_log_request_creates_json_entry
+    # Record starting state to avoid pollution from other tests
+    json_path = File.join(@executor.session_path, "session.log.json")
+    initial_count = File.exist?(json_path) ? File.readlines(json_path).length : 0
+    
+    # Call log_request to test JSON logging
+    @executor.send(:log_request, "Test coordinator request")
+
+    # Verify exactly one new line was added
+    assert File.exist?(json_path), "Expected JSON log file to exist"
+    new_lines = File.readlines(json_path, chomp: true)
+    assert_equal initial_count + 1, new_lines.length, "Expected exactly one new JSON log entry"
+
+    # Parse and verify the new entry structure
+    entry = JSON.parse(new_lines.last)
+    
+    # Verify wrapper structure
+    assert_equal "test_instance", entry["instance"]
+    assert_equal "test_caller", entry["calling_instance"]
+    refute_nil entry["timestamp"], "Expected timestamp to be present"
+    
+    # Verify timestamp format (ISO-8601)
+    begin
+      Time.iso8601(entry["timestamp"])
+    rescue ArgumentError
+      flunk "Expected timestamp to be valid ISO-8601 format, got: #{entry["timestamp"]}"
+    end
+    
+    # Verify event structure
+    event = entry["event"]
+    assert_equal "instance_request", event["type"]
+    assert_equal "user", event["message"]["role"]
+    assert_equal "Test coordinator request", event["message"]["content"]
+  end
+
+  def test_log_request_appends_multiple_entries
+    # Verify append behavior by calling log_request twice
+    json_path = File.join(@executor.session_path, "session.log.json")
+    initial_count = File.exist?(json_path) ? File.readlines(json_path).length : 0
+    
+    # Make two requests
+    @executor.send(:log_request, "First request")
+    @executor.send(:log_request, "Second request")
+    
+    # Verify both entries were added
+    new_lines = File.readlines(json_path, chomp: true)
+    assert_equal initial_count + 2, new_lines.length, "Expected two new JSON log entries"
+    
+    # Verify both entries are valid JSON with correct content
+    first_entry = JSON.parse(new_lines[-2])
+    second_entry = JSON.parse(new_lines[-1])
+    
+    assert_equal "First request", first_entry.dig("event", "message", "content")
+    assert_equal "Second request", second_entry.dig("event", "message", "content")
+    assert_equal "instance_request", first_entry.dig("event", "type")
+    assert_equal "instance_request", second_entry.dig("event", "type")
+  end
 end

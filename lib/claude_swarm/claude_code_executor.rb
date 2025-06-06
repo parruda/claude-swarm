@@ -113,6 +113,16 @@ module ClaudeSwarm
 
     def log_request(prompt)
       @logger.info("#{@calling_instance} -> #{@instance_name}: \n---\n#{prompt}\n---")
+      
+      # Also log to JSON for complete audit trail
+      request_event = {
+        type: "instance_request",
+        message: {
+          role: "user",
+          content: prompt
+        }
+      }
+      append_to_session_json(request_event)
     end
 
     def log_response(response)
