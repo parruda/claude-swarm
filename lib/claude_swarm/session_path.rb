@@ -45,6 +45,40 @@ module ClaudeSwarm
       def from_env
         ENV["CLAUDE_SWARM_SESSION_PATH"] or raise "CLAUDE_SWARM_SESSION_PATH not set"
       end
+
+      # Find a session path by ID
+      def find_by_id(session_id)
+        # Check if it's a full path
+        return session_id if File.exist?(File.join(session_id, "config.yml"))
+
+        # Search for the session ID in all projects
+        sessions_dir = File.join(swarm_home, SESSIONS_DIR)
+        return nil unless Dir.exist?(sessions_dir)
+
+        Dir.glob("#{sessions_dir}/*/#{session_id}").each do |path|
+          config_path = File.join(path, "config.yml")
+          return path if File.exist?(config_path)
+        end
+
+        nil
+      end
+
+      # Find the most recent session path
+      def find_most_recent
+        sessions_dir = File.join(swarm_home, SESSIONS_DIR)
+        return nil unless Dir.exist?(sessions_dir)
+
+        # Directly find all session directories with config files
+        # Pattern matches: sessions_dir/project_dir/timestamp_dir/config.yml
+        session_paths = Dir.glob(File.join(sessions_dir, "*", "*", "config.yml"))
+                          .map { |config_file| File.dirname(config_file) }
+                          .uniq
+
+        return nil if session_paths.empty?
+
+        # Sort by timestamp in directory name (newest first)
+        session_paths.sort_by { |path| File.basename(path) }.reverse.first
+      end
     end
   end
 end

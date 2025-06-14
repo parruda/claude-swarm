@@ -3,6 +3,7 @@
 require "thor"
 require "json"
 require_relative "configuration"
+require_relative "session_path"
 require_relative "mcp_generator"
 require_relative "orchestrator"
 require_relative "claude_mcp_server"
@@ -265,6 +266,40 @@ module ClaudeSwarm
       say "  claude-swarm --session-id <session-id>", :cyan
     end
 
+    desc "tail [SESSION_ID]", "Tail session logs in real-time (defaults to most recent session)"
+    method_option :lines, aliases: "-n", type: :numeric, default: 10,
+                          desc: "Number of lines to show initially"
+    def tail(session_id = nil)
+      session_path = nil
+
+      if session_id
+        # Find the specific session
+        session_path = SessionPath.find_by_id(session_id)
+        unless session_path
+          error "Session not found: #{session_id}"
+          exit 1
+        end
+      else
+        # Find the most recent session
+        session_path = SessionPath.find_most_recent
+        unless session_path
+          error "No sessions found"
+          exit 1
+        end
+      end
+
+      # Look for the session.log file
+      log_file = File.join(session_path, "session.log")
+      unless File.exist?(log_file)
+        error "Log file not found for session"
+        exit 1
+      end
+
+      say "Tailing log file: #{log_file}", :green
+      # Execute the tail command
+      exec("tail", "-f", "-n", options[:lines].to_s, log_file)
+    end
+
     desc "tools-mcp", "Start a permission management MCP server for tool access control"
     method_option :allowed_tools, aliases: "-t", type: :string,
                                   desc: "Comma-separated list of allowed tool patterns (supports wildcards)"
@@ -293,7 +328,7 @@ module ClaudeSwarm
       say "Restoring session: #{session_id}", :green
 
       # Find the session path
-      session_path = find_session_path(session_id)
+      session_path = SessionPath.find_by_id(session_id)
       unless session_path
         error "Session not found: #{session_id}"
         exit 1
@@ -344,21 +379,6 @@ module ClaudeSwarm
         error e.backtrace.join("\n") if options[:debug]
         exit 1
       end
-    end
-
-    def find_session_path(session_id)
-      sessions_dir = File.expand_path("~/.claude-swarm/sessions")
-
-      # Check if it's a full path
-      return session_id if File.exist?(File.join(session_id, "config.yml"))
-
-      # Search for the session ID in all projects
-      Dir.glob("#{sessions_dir}/*/#{session_id}").each do |path|
-        config_path = File.join(path, "config.yml")
-        return path if File.exist?(config_path)
-      end
-
-      nil
     end
   end
 end
