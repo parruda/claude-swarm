@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm:*)",
+      "mcp__playwright__(*)",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__playwright_navigate",
+      "mcp__playwright__playwright_screenshot",
+      "mcp__playwright__playwright_console_logs",
+      "mcp__playwright__playwright_get_visible_text",
+      "mcp__playwright__playwright_evaluate",
+      "mcp__playwright__playwright_click",
+      "mcp__playwright__playwright_drag",
+      "WebFetch(domain:reactflow.dev)",
+      "Bash(curl:*)",
+      "WebFetch(domain:vite.dev)",
+      "mcp__playwright__playwright_get_visible_html",
+      "mcp__playwright__playwright_fill",
+      "mcp__playwright__playwright_press_key",
+      "mcp__playwright__playwright_select",
+      "Bash(mv:*)"
+    ],
+    "deny": []
+  }
+}

@@ -10,3 +10,5 @@
 .prompts.md
 .claude-swarm
 *.gem
+
+node_modules/
