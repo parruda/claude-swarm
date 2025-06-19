@@ -636,6 +636,9 @@ claude-swarm show 20250617_235233
 # Watch live logs from a session
 claude-swarm watch 20250617_235233
 
+# Watch live logs from most recent session
+claude-swarm watch 
+
 # Watch logs starting from the last 50 lines
 claude-swarm watch 20250617_235233 -n 50
 
@@ -695,7 +698,8 @@ All session files are organized in `~/.claude-swarm/sessions/{project}/{timestam
 - `{instance_name}.mcp.json`: MCP configuration files
 - `session.log`: Human-readable request/response tracking
 - `session.log.json`: All events in JSONL format (one JSON per line)
-# Note: permissions.log is no longer generated as the permission MCP server has been deprecated
+
+*Note: permissions.log is no longer generated as the permission MCP server has been deprecated*
 
 #### Listing Sessions
 View your previous Claude Swarm sessions:

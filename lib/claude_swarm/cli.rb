@@ -3,6 +3,7 @@
 require "thor"
 require "json"
 require_relative "configuration"
+require_relative "session_path"
 require_relative "mcp_generator"
 require_relative "orchestrator"
 require_relative "claude_mcp_server"
@@ -252,20 +253,15 @@ module ClaudeSwarm
       say "Cleaned #{cleaned} stale session#{"s" unless cleaned == 1}", :green
     end
 
-    desc "watch SESSION_ID", "Watch session logs"
+    desc "watch [SESSION_ID]", "Watch session logs (defaults to most recent session)"
     method_option :lines, aliases: "-n", type: :numeric, default: 100,
                           desc: "Number of lines to show initially"
-    def watch(session_id)
-      # Find session path
-      run_symlink = File.join(File.expand_path("~/.claude-swarm/run"), session_id)
-      session_path = if File.symlink?(run_symlink)
-                       File.readlink(run_symlink)
-                     else
-                       # Search in sessions directory
-                       Dir.glob(File.expand_path("~/.claude-swarm/sessions/*/*")).find do |path|
-                         File.basename(path) == session_id
-                       end
-                     end
+    def watch(session_id = nil)
+      session_path = if session_path
+        SessionPath.find_by_id(session_id)
+      else
+        SessionPath.find_most_recent
+      end
 
       unless session_path && Dir.exist?(session_path)
         error "Session not found: #{session_id}"
@@ -366,7 +362,7 @@ module ClaudeSwarm
       say "Restoring session: #{session_id}", :green
 
       # Find the session path
-      session_path = find_session_path(session_id)
+      session_path = SessionPath.find_by_id(session_id)
       unless session_path
         error "Session not found: #{session_id}"
         exit 1
@@ -429,21 +425,6 @@ module ClaudeSwarm
         error e.backtrace.join("\n") if options[:debug]
         exit 1
       end
-    end
-
-    def find_session_path(session_id)
-      sessions_dir = File.expand_path("~/.claude-swarm/sessions")
-
-      # Check if it's a full path
-      return session_id if File.exist?(File.join(session_id, "config.yml"))
-
-      # Search for the session ID in all projects
-      Dir.glob("#{sessions_dir}/*/#{session_id}").each do |path|
-        config_path = File.join(path, "config.yml")
-        return path if File.exist?(config_path)
-      end
-
-      nil
     end
   end
 end
