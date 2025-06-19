@@ -14,6 +14,20 @@ module ClaudeSwarm
       true
     end
 
+    # Allow extensions to register custom commands
+    def self.method_added(method_name)
+      super
+      # Notify extensions when new methods are added
+      Extensions.run_hooks(ExtensionHooks::REGISTER_COMMANDS, self, method_name)
+    end
+
+    # Initialize CLI and allow extensions to register commands
+    def initialize(*args)
+      super
+      # Allow extensions to register commands during initialization
+      Extensions.run_hooks(ExtensionHooks::REGISTER_COMMANDS, self.class)
+    end
+
     desc "start [CONFIG_FILE]", "Start a Claude Swarm from configuration file"
     method_option :config, aliases: "-c", type: :string, default: "claude-swarm.yml",
                            desc: "Path to configuration file"
@@ -31,9 +45,13 @@ module ClaudeSwarm
                              desc: "Create instances in Git worktrees with the given name (auto-generated if true)",
                              banner: "[NAME]"
     def start(config_file = nil)
+      # Extension hook: before command
+      Extensions.run_hooks(ExtensionHooks::BEFORE_COMMAND, :start, config_file, options)
+
       # Handle session restoration
       if options[:session_id]
         restore_session(options[:session_id])
+        Extensions.run_hooks(ExtensionHooks::AFTER_COMMAND, :start, config_file, options)
         return
       end
 
@@ -68,6 +86,9 @@ module ClaudeSwarm
         error "Unexpected error: #{e.message}"
         error e.backtrace.join("\n") if options[:verbose]
         exit 1
+      ensure
+        # Extension hook: after command (ensure it always runs)
+        Extensions.run_hooks(ExtensionHooks::AFTER_COMMAND, :start, config_file, options)
       end
     end
 

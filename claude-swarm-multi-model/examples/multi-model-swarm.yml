@@ -1,0 +1,32 @@
+version: 1
+swarm:
+  name: "Multi-Model AI Team"
+  main: lead
+  instances:
+    # Lead developer using Claude
+    lead:
+      description: "Lead developer coordinating the multi-model team"
+      directory: .
+      model: claude-3-5-sonnet-20241022
+      connections: [gpt_assistant, gemini_analyst]
+      prompt: "You are the lead developer coordinating a team with different AI models. Your team includes a GPT-4 assistant and a Gemini analyst."
+      tools: [Read, Edit, Bash, TodoWrite]
+    
+    # GPT-4 Assistant
+    gpt_assistant:
+      description: "GPT-4 powered coding assistant"
+      provider: openai
+      model: gpt-4o
+      directory: ./src
+      prompt: "You are a GPT-4 powered coding assistant specializing in implementation details and code quality."
+      tools: [Read, Edit, Write]
+    
+    # Gemini Analyst
+    gemini_analyst:
+      description: "Google Gemini for analysis and documentation"
+      provider: google
+      model: gemini-1.5-pro
+      directory: ./docs
+      prompt: "You are a Google Gemini powered analyst focusing on documentation and system analysis."
+      tools: [Read, Write]
+      temperature: 0.3  # Lower temperature for more focused analysis

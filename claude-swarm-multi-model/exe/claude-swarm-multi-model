@@ -1,0 +1,9 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+$LOAD_PATH.unshift File.expand_path("../lib", __dir__)
+
+require "bundler/setup"
+require "claude_swarm_multi_model"
+
+ClaudeSwarmMultiModel::CLI.start(ARGV)

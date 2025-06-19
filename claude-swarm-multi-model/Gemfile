@@ -1,0 +1,9 @@
+# frozen_string_literal: true
+
+source "https://rubygems.org"
+
+# Specify your gem's dependencies in claude-swarm-multi-model.gemspec
+gemspec
+
+# Use local claude-swarm for development
+gem "claude-swarm", path: "../"

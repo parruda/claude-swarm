@@ -74,6 +74,9 @@ module ClaudeSwarm
         "mcpServers" => mcp_servers
       }
 
+      # Extension hook: modify MCP config
+      config = Extensions.run_hooks(ExtensionHooks::MODIFY_MCP_CONFIG, config, name, instance)
+
       File.write(mcp_config_path(name), JSON.pretty_generate(config))
     end
 
@@ -137,11 +140,14 @@ module ClaudeSwarm
         args.push("--claude-session-id", claude_session_id) if claude_session_id
       end
 
-      {
+      server_config = {
         "type" => "stdio",
         "command" => exe_path,
         "args" => args
       }
+
+      # Extension hook: modify MCP server
+      Extensions.run_hooks(ExtensionHooks::MODIFY_MCP_SERVER, server_config, name, instance)
     end
 
     def load_instance_states

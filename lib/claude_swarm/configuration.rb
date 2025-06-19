@@ -34,10 +34,17 @@ module ClaudeSwarm
 
     def load_and_validate
       @config = YAML.load_file(@config_path)
+
+      # Extension hook: before parsing configuration
+      @config = Extensions.run_hooks(ExtensionHooks::BEFORE_PARSE_CONFIG, @config, @config_path)
+
       validate_version
       validate_swarm
       parse_swarm
       validate_directories
+
+      # Extension hook: after parsing configuration
+      Extensions.run_hooks(ExtensionHooks::AFTER_PARSE_CONFIG, self)
     rescue Errno::ENOENT
       raise Error, "Configuration file not found: #{@config_path}"
     rescue Psych::SyntaxError => e
@@ -74,6 +81,9 @@ module ClaudeSwarm
       end
       validate_connections
       detect_circular_dependencies
+
+      # Extension hook: validate configuration
+      Extensions.run_hooks(ExtensionHooks::VALIDATE_CONFIG, @swarm, @instances)
     end
 
     def parse_instance(name, config)
@@ -86,6 +96,9 @@ module ClaudeSwarm
       validate_tool_field(name, config, "tools")
       validate_tool_field(name, config, "allowed_tools")
       validate_tool_field(name, config, "disallowed_tools")
+
+      # Extension hook: validate instance configuration
+      Extensions.run_hooks(ExtensionHooks::VALIDATE_INSTANCE, name, config)
 
       # Support both 'tools' (deprecated) and 'allowed_tools' for backward compatibility
       allowed_tools = config["allowed_tools"] || config["tools"] || []

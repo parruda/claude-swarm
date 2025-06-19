@@ -1,0 +1,82 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+$LOAD_PATH.unshift File.expand_path("../lib", __dir__)
+
+require "bundler/setup"
+require "claude_swarm_multi_model"
+require "optparse"
+require "json"
+
+options = {
+  provider: ENV["LLM_PROVIDER"] || "openai",
+  model: ENV.fetch("LLM_MODEL", nil),
+  api_key: ENV.fetch("LLM_API_KEY", nil),
+  temperature: 0.7,
+  max_tokens: 4096
+}
+
+OptionParser.new do |opts|
+  opts.banner = "Usage: claude-swarm-llm-mcp [options]"
+
+  opts.on("-p", "--provider PROVIDER", "LLM provider (openai, anthropic, google, cohere)") do |p|
+    options[:provider] = p
+  end
+
+  opts.on("-m", "--model MODEL", "Model to use (e.g., gpt-4, claude-3-opus)") do |m|
+    options[:model] = m
+  end
+
+  opts.on("-k", "--api-key KEY", "API key for the provider") do |k|
+    options[:api_key] = k
+  end
+
+  opts.on("-t", "--temperature TEMP", Float, "Temperature for generation (0.0-2.0)") do |t|
+    options[:temperature] = t
+  end
+
+  opts.on("--max-tokens TOKENS", Integer, "Maximum tokens to generate") do |t|
+    options[:max_tokens] = t
+  end
+
+  opts.on("-s", "--system-prompt PROMPT", "Default system prompt") do |s|
+    options[:system_prompt] = s
+  end
+
+  opts.on("-h", "--help", "Show this help message") do
+    puts opts
+    exit
+  end
+end.parse!
+
+# Set default models if not specified
+unless options[:model]
+  options[:model] = case options[:provider]
+                    when "openai" then "gpt-4o"
+                    when "anthropic" then "claude-3-5-sonnet-20241022"
+                    when "google", "gemini" then "gemini-1.5-pro"
+                    when "cohere" then "command-r-plus"
+                    end
+end
+
+# Validate API key
+unless options[:api_key]
+  api_key_env = "#{options[:provider].upcase}_API_KEY"
+  options[:api_key] = ENV.fetch(api_key_env, nil)
+
+  unless options[:api_key]
+    warn "Error: API key required. Set #{api_key_env} or use --api-key"
+    exit 1
+  end
+end
+
+begin
+  server = ClaudeSwarmMultiModel::MCP::Server.new(options)
+  server.run
+rescue Interrupt
+  warn "\nShutting down MCP server..."
+  exit 0
+rescue StandardError => e
+  warn "Error: #{e.message}"
+  exit 1
+end

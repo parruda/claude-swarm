@@ -34,6 +34,9 @@ module ClaudeSwarm
     end
 
     def start
+      # Extension hook: before setup
+      Extensions.run_hooks(ExtensionHooks::BEFORE_SETUP, self, @config)
+
       if @restore_session_path
         unless @prompt
           puts "🔄 Restoring Claude Swarm: #{@config.swarm_name}"
@@ -127,6 +130,9 @@ module ClaudeSwarm
           puts
         end
 
+        # Extension hook: after MCP generation
+        Extensions.run_hooks(ExtensionHooks::AFTER_MCP_GENERATION, @generator, @config)
+
         # Save swarm config path for restoration
         save_swarm_config_path(session_path)
       end
@@ -153,6 +159,12 @@ module ClaudeSwarm
           puts
         end
       end
+
+      # Extension hook: after setup
+      Extensions.run_hooks(ExtensionHooks::AFTER_SETUP, self, @config)
+
+      # Extension hook: before launch swarm
+      Extensions.run_hooks(ExtensionHooks::BEFORE_LAUNCH_SWARM, @config)
 
       # Launch the main instance (fetch after worktree setup to get modified paths)
       main_instance = @config.main_instance_config
@@ -182,6 +194,9 @@ module ClaudeSwarm
       log_thread = nil
       log_thread = start_log_streaming if @prompt && @stream_logs
 
+      # Extension hook: before launch main
+      Extensions.run_hooks(ExtensionHooks::BEFORE_LAUNCH_MAIN, main_instance, command)
+
       # Execute the main instance - this will cascade to other instances via MCP
       Dir.chdir(main_instance[:directory]) do
         system(*command)
@@ -192,6 +207,9 @@ module ClaudeSwarm
         log_thread.terminate
         log_thread.join
       end
+
+      # Extension hook: after swarm complete
+      Extensions.run_hooks(ExtensionHooks::AFTER_SWARM_COMPLETE, @config)
 
       # Clean up child processes and run symlink
       cleanup_processes

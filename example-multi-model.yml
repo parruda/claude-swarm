@@ -1,0 +1,39 @@
+version: 1
+swarm:
+  name: "Multi-Model Development Team"
+  main: lead
+  instances:
+    lead:
+      description: "Technical lead coordinating the team"
+      directory: .
+      model: opus
+      connections: [gpt_analyst, gemini_coder, local_reviewer]
+      prompt: "You are the technical lead coordinating a multi-model AI team"
+      tools: [Read, Edit, Bash, WebSearch]
+    
+    gpt_analyst:
+      description: "OpenAI GPT-4 analyst for architecture decisions"
+      directory: .
+      provider: openai
+      model: gpt-4-turbo
+      api_key_env: OPENAI_API_KEY
+      prompt: "You are an expert software architect using GPT-4"
+      tools: [Read, Grep]
+    
+    gemini_coder:
+      description: "Google Gemini for code implementation"
+      directory: .
+      provider: gemini
+      model: gemini-1.5-pro
+      api_key_env: GEMINI_API_KEY
+      prompt: "You are an expert coder using Gemini"
+      tools: [Edit, Write]
+    
+    local_reviewer:
+      description: "Local LLM for code review"
+      directory: .
+      provider: local
+      model: codellama:latest
+      base_url_env: LOCAL_LLM_BASE_URL
+      prompt: "You are a code reviewer using a local LLM"
+      tools: [Read]
