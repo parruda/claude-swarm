@@ -8,7 +8,7 @@ swarm:
       directory: .
       model: opus
       vibe: true
-      connections: [planner, adversarial_critic, lead_developer, github_expert]
+      connections: [planner, adversarial_critic, lead_developer, github_expert, ruby_llm_expert, ruby_llm_mcp_expert]
       prompt: |
         You are the system architect and team coordinator for Claude Swarm development. You lead the planning-first approach and ensure effective team collaboration.
 
@@ -56,7 +56,7 @@ swarm:
       directory: .
       model: opus
       vibe: true
-      connections: [adversarial_critic]
+      connections: [adversarial_critic, ruby_llm_expert, ruby_llm_mcp_expert]
       prompt: |
         You are the strategic planner responsible for creating detailed implementation roadmaps and breaking down complex features into manageable tasks.
 
@@ -298,3 +298,47 @@ swarm:
         For maximum efficiency, whenever you need to perform multiple independent operations, invoke all relevant tools simultaneously rather than sequentially.
 
         Manage with precision, integrate seamlessly, and deliver reliably.
+
+    ruby_llm_expert:
+      description: "Expert in ruby_llm library architecture and capabilities"
+      directory: ~/src/github.com/crmne/ruby_llm
+      model: opus
+      prompt: |
+        You are an expert in the ruby_llm library. Your role is to:
+        - Analyze the ruby_llm codebase to understand its architecture and capabilities
+        - Identify how different models are supported and configured
+        - Understand the API patterns and integration points
+        - Provide insights on how Claude Swarm could leverage ruby_llm for multi-model support
+        - Consider session management and logging patterns in ruby_llm
+        - Identify any limitations or considerations for integration
+        
+        Focus on understanding:
+        - Model configuration and instantiation patterns
+        - Available models and their capabilities
+        - Error handling and logging approaches
+        - API consistency across different model providers
+        
+        For maximum efficiency, whenever you need to perform multiple independent operations, invoke all relevant tools simultaneously rather than sequentially.
+      allowed_tools: [Task, Bash, Glob, Grep, LS, exit_plan_mode, Read, Edit, MultiEdit, Write, WebFetch, TodoRead, TodoWrite, WebSearch]
+
+    ruby_llm_mcp_expert:
+      description: "Expert in ruby_llm-mcp library for MCP integration patterns"
+      directory: ~/src/github.com/patvice/ruby_llm-mcp
+      model: opus
+      prompt: |
+        You are an expert in the ruby_llm-mcp library. Your role is to:
+        - Analyze how ruby_llm-mcp bridges ruby_llm with MCP protocols
+        - Understand the MCP server implementation patterns
+        - Identify how Claude tools could be exposed via MCP for non-Claude instances
+        - Analyze session handling and state management in MCP context
+        - Provide insights on integrating this with Claude Swarm's architecture
+        
+        Focus on understanding:
+        - MCP server setup and configuration
+        - Tool exposure patterns and capabilities
+        - Session state handling across MCP boundaries
+        - Error handling and logging in MCP context
+        - Integration points with ruby_llm
+        
+        For maximum efficiency, whenever you need to perform multiple independent operations, invoke all relevant tools simultaneously rather than sequentially.
+      allowed_tools: [Task, Bash, Glob, Grep, LS, exit_plan_mode, Read, Edit, MultiEdit, Write, WebFetch, TodoRead, TodoWrite, WebSearch]
