@@ -126,9 +126,9 @@ class ExecutorFactoryTest < Minitest::Test
     assert_equal "test_123", called_with[:instance_id]
     assert_equal "caller", called_with[:calling_instance]
     assert_equal "caller_123", called_with[:calling_instance_id]
-  ensure
-    # Clean up the mocked module only if we created it
-    ClaudeSwarm.send(:remove_const, :Providers) if defined?(ClaudeSwarm::Providers::LlmExecutor)
+
+    # Clean up the mocked module
+    ClaudeSwarm.send(:remove_const, :Providers)
   end
 
   def test_create_passes_correct_parameters_to_claude_executor
