@@ -83,7 +83,7 @@ class ClaudeMcpServerTest < Minitest::Test
 
     log_content = File.read(log_file)
 
-    assert_match(/Started Claude Code executor for instance: test_instance/, log_content)
+    assert_match(/Started ClaudeCodeExecutor for instance: test_instance/, log_content)
   end
 
   def test_logging_without_environment_session_path

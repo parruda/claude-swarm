@@ -122,6 +122,15 @@ module ClaudeSwarm
 
       args.push("--mcp-config-path", mcp_config_path(name))
 
+      # Add provider-related arguments
+      args.push("--provider", instance[:provider]) if instance[:provider]
+
+      args.push("--api-key-env", instance[:api_key_env]) if instance[:api_key_env]
+
+      args.push("--api-base-env", instance[:api_base_env]) if instance[:api_base_env]
+
+      args.push("--assume-model-exists") if instance[:assume_model_exists]
+
       args.push("--calling-instance", calling_instance) if calling_instance
 
       args.push("--calling-instance-id", calling_instance_id) if calling_instance_id

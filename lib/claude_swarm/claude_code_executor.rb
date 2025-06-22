@@ -2,30 +2,27 @@
 
 require "json"
 require "open3"
-require "logger"
-require "fileutils"
 
 module ClaudeSwarm
-  class ClaudeCodeExecutor
-    attr_reader :session_id, :last_response, :working_directory, :logger, :session_path
-
+  class ClaudeCodeExecutor < BaseExecutor
     def initialize(working_directory: Dir.pwd, model: nil, mcp_config: nil, vibe: false,
                    instance_name: nil, instance_id: nil, calling_instance: nil, calling_instance_id: nil,
                    claude_session_id: nil, additional_directories: [])
-      @working_directory = working_directory
+      # Call parent constructor with common parameters
+      super(
+        working_directory: working_directory,
+        instance_name: instance_name,
+        instance_id: instance_id,
+        calling_instance: calling_instance,
+        calling_instance_id: calling_instance_id,
+        session_id: claude_session_id
+      )
+
+      # Initialize Claude-specific attributes
       @additional_directories = additional_directories
       @model = model
       @mcp_config = mcp_config
       @vibe = vibe
-      @session_id = claude_session_id
-      @last_response = nil
-      @instance_name = instance_name
-      @instance_id = instance_id
-      @calling_instance = calling_instance
-      @calling_instance_id = calling_instance_id
-
-      # Setup logging
-      setup_logging
     end
 
     def execute(prompt, options = {})
@@ -88,15 +85,6 @@ module ClaudeSwarm
       raise
     end
 
-    def reset_session
-      @session_id = nil
-      @last_response = nil
-    end
-
-    def has_session?
-      !@session_id.nil?
-    end
-
     private
 
     def write_instance_state
@@ -118,29 +106,6 @@ module ClaudeSwarm
       @logger.info("Wrote instance state for #{@instance_name} (#{@instance_id}) with session ID: #{@session_id}")
     rescue StandardError => e
       @logger.error("Failed to write instance state for #{@instance_name} (#{@instance_id}): #{e.message}")
-    end
-
-    def setup_logging
-      # Use session path from environment (required)
-      @session_path = SessionPath.from_env
-      SessionPath.ensure_directory(@session_path)
-
-      # Create logger with session.log filename
-      log_filename = "session.log"
-      log_path = File.join(@session_path, log_filename)
-      @logger = Logger.new(log_path)
-      @logger.level = Logger::INFO
-
-      # Custom formatter for better readability
-      @logger.formatter = proc do |severity, datetime, _progname, msg|
-        "[#{datetime.strftime("%Y-%m-%d %H:%M:%S.%L")}] [#{severity}] #{msg}\n"
-      end
-
-      return unless @instance_name
-
-      instance_info = @instance_name
-      instance_info += " (#{@instance_id})" if @instance_id
-      @logger.info("Started Claude Code executor for instance: #{instance_info}")
     end
 
     def log_request(prompt)
@@ -223,34 +188,6 @@ module ClaudeSwarm
       @logger.debug("USER: #{JSON.pretty_generate(content)}")
     end
 
-    def append_to_session_json(event)
-      json_filename = "session.log.json"
-      json_path = File.join(@session_path, json_filename)
-
-      # Use file locking to ensure thread-safe writes
-      File.open(json_path, File::WRONLY | File::APPEND | File::CREAT) do |file|
-        file.flock(File::LOCK_EX)
-
-        # Create entry with metadata
-        entry = {
-          instance: @instance_name,
-          instance_id: @instance_id,
-          calling_instance: @calling_instance,
-          calling_instance_id: @calling_instance_id,
-          timestamp: Time.now.iso8601,
-          event: event
-        }
-
-        # Write as single line JSON (JSONL format)
-        file.puts(entry.to_json)
-
-        file.flock(File::LOCK_UN)
-      end
-    rescue StandardError => e
-      @logger.error("Failed to append to session JSON: #{e.message}")
-      raise
-    end
-
     def build_command_array(prompt, options)
       cmd_array = ["claude"]
 
@@ -307,8 +244,5 @@ module ClaudeSwarm
 
       cmd_array
     end
-
-    class ExecutionError < StandardError; end
-    class ParseError < StandardError; end
   end
 end

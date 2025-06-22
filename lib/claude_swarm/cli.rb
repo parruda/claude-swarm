@@ -100,6 +100,14 @@ module ClaudeSwarm
                                 desc: "Unique ID of this instance"
     method_option :claude_session_id, type: :string,
                                       desc: "Claude session ID to resume"
+    method_option :provider, type: :string, default: "anthropic",
+                             desc: "LLM provider (anthropic, openai, google, etc.)"
+    method_option :api_key_env, type: :string,
+                                desc: "Environment variable name for API key"
+    method_option :api_base_env, type: :string,
+                                 desc: "Environment variable name for custom API base URL"
+    method_option :assume_model_exists, type: :boolean, default: false,
+                                        desc: "Skip model validation (for custom deployments)"
     def mcp_serve
       instance_config = {
         name: options[:name],
@@ -114,7 +122,11 @@ module ClaudeSwarm
         mcp_config_path: options[:mcp_config_path],
         vibe: options[:vibe] || false,
         instance_id: options[:instance_id],
-        claude_session_id: options[:claude_session_id]
+        claude_session_id: options[:claude_session_id],
+        provider: options[:provider],
+        api_key_env: options[:api_key_env],
+        api_base_env: options[:api_base_env],
+        assume_model_exists: options[:assume_model_exists]
       }
 
       begin

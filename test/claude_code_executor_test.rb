@@ -242,7 +242,7 @@ class ClaudeCodeExecutorTest < Minitest::Test
     assert_match(/Processing.../, log_content)
 
     # Check that the logger was started with instance name
-    assert_match(/Started Claude Code executor for instance: test_instance/, log_content)
+    assert_match(/Started ClaudeCodeExecutor for instance: test_instance/, log_content)
   end
 
   def test_logging_on_execution_error

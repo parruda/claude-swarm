@@ -9,4 +9,4 @@
 .hbt/
 .prompts.md
 .claude-swarm
-*.gem
+*.gem.ruby-lsp/

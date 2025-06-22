@@ -14,17 +14,10 @@ module ClaudeSwarm
       @instance_config = instance_config
       @calling_instance = calling_instance
       @calling_instance_id = calling_instance_id
-      @executor = ClaudeCodeExecutor.new(
-        working_directory: instance_config[:directory],
-        model: instance_config[:model],
-        mcp_config: instance_config[:mcp_config_path],
-        vibe: instance_config[:vibe],
-        instance_name: instance_config[:name],
-        instance_id: instance_config[:instance_id],
+      @executor = ExecutorFactory.create(
+        instance_config,
         calling_instance: calling_instance,
-        calling_instance_id: calling_instance_id,
-        claude_session_id: instance_config[:claude_session_id],
-        additional_directories: instance_config[:directories][1..] || []
+        calling_instance_id: calling_instance_id
       )
 
       # Set class variables so tools can access them
