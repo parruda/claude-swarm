@@ -7,4 +7,3 @@
 #
 # All actual provider implementation code lives in the main claude-swarm gem
 # and is conditionally loaded when these dependencies are available.
-
