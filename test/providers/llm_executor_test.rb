@@ -69,7 +69,7 @@ class ProvidersLlmExecutorTest < Minitest::Test
 
       assert_instance_of ClaudeSwarm::Providers::LlmExecutor, executor
     end
-  ensure
+
     ENV.delete("CUSTOM_KEY")
   end
 
@@ -88,7 +88,7 @@ class ProvidersLlmExecutorTest < Minitest::Test
 
       assert_instance_of ClaudeSwarm::Providers::LlmExecutor, executor
     end
-  ensure
+
     ENV.delete("CUSTOM_BASE")
   end
 

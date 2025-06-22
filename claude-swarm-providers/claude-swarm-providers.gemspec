@@ -18,11 +18,10 @@ Gem::Specification.new do |spec|
   spec.metadata["changelog_uri"] = "https://github.com/parruda/claude-swarm/blob/main/CHANGELOG.md"
 
   # This gem has no actual code - it just installs dependencies
-  spec.files = ["lib/claude-swarm-providers.rb"]
+  spec.files = ["lib/claude_swarm_providers.rb"]
 
   # Add runtime dependencies
   spec.add_dependency "claude-swarm", "~> 0.1"
   spec.add_dependency "ruby_llm", "~> 0.1"
   spec.add_dependency "ruby_llm-mcp", "~> 0.1"
 end
-
