@@ -125,8 +125,8 @@ module ClaudeSwarm
       args.push("--session-id", session_id)
       args.push("--session-path", File.join(session_path, "llm_mcp_sessions"))
 
-      # Configure logging
-      args.push("--json-log-path", File.join(session_path, "#{name}_llm_mcp.log.json"))
+      # Configure logging to shared session log file
+      args.push("--json-log-path", File.join(session_path, "session.log.json"))
 
       # Create MCP config for llm-mcp (includes connections, MCPs, and Claude tools)
       llm_mcp_config_path = File.join(session_path, "#{name}_llm_mcp_connections.json")
