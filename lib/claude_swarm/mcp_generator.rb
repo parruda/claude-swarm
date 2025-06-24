@@ -95,6 +95,68 @@ module ClaudeSwarm
     end
 
     def build_instance_mcp_config(name, instance, calling_instance:, calling_instance_id:)
+      # Check if we should use llm-mcp for non-anthropic providers
+      if instance[:provider] && instance[:provider] != "anthropic"
+        build_llm_mcp_config(name, instance, calling_instance: calling_instance, calling_instance_id: calling_instance_id)
+      else
+        build_claude_swarm_config(name, instance, calling_instance: calling_instance, calling_instance_id: calling_instance_id)
+      end
+    end
+
+    def build_llm_mcp_config(name, instance, calling_instance:, calling_instance_id:) # rubocop:disable Lint/UnusedMethodArgument
+      # Build llm-mcp command
+      args = [
+        "mcp-serve",
+        "--provider", instance[:provider],
+        "--model", instance[:model]
+      ]
+
+      # Add base URL if specified
+      args.push("--base-url", instance[:base_url]) if instance[:base_url]
+
+      # Always skip model validation to support custom models
+      args.push("--skip-model-validation")
+
+      # Add system prompt if specified
+      args.push("--append-system-prompt", instance[:prompt]) if instance[:prompt]
+
+      # Configure session management
+      session_id = "#{@instance_ids[name]}_#{Time.now.strftime("%Y%m%d_%H%M%S")}"
+      args.push("--session-id", session_id)
+      args.push("--session-path", File.join(session_path, "llm_mcp_sessions"))
+
+      # Configure logging
+      args.push("--json-log-path", File.join(session_path, "#{name}_llm_mcp.log.json"))
+
+      # Create MCP config for llm-mcp (includes connections, MCPs, and Claude tools)
+      llm_mcp_config_path = File.join(session_path, "#{name}_llm_mcp_connections.json")
+      generate_llm_mcp_connections(name, instance, llm_mcp_config_path)
+      args.push("--mcp-config", llm_mcp_config_path)
+
+      # Add verbose flag for debugging
+      args.push("--verbose") if ENV["DEBUG"]
+
+      config = {
+        "type" => "stdio",
+        "command" => "llm-mcp",
+        "args" => args
+      }
+
+      # Add environment variables if needed
+      env = {}
+      case instance[:provider]
+      when "openai"
+        env["OPENAI_API_KEY"] = ENV["OPENAI_API_KEY"] if ENV["OPENAI_API_KEY"]
+      when "google"
+        env["GEMINI_API_KEY"] = ENV["GEMINI_API_KEY"] if ENV["GEMINI_API_KEY"]
+        env["GOOGLE_API_KEY"] = ENV["GOOGLE_API_KEY"] if ENV["GOOGLE_API_KEY"]
+      end
+
+      config["env"] = env unless env.empty?
+      config
+    end
+
+    def build_claude_swarm_config(name, instance, calling_instance:, calling_instance_id:)
       # Get the path to the claude-swarm executable
       exe_path = "claude-swarm"
 
@@ -141,6 +203,41 @@ module ClaudeSwarm
         "command" => exe_path,
         "args" => args
       }
+    end
+
+    def generate_llm_mcp_connections(name, instance, config_path)
+      # Create MCP configuration for llm-mcp to connect to other instances
+      mcp_servers = {}
+
+      # Add configured MCP servers from the instance
+      instance[:mcps].each do |mcp|
+        mcp_servers[mcp["name"]] = build_mcp_server_config(mcp)
+      end
+
+      # Add connection MCPs for other instances
+      instance[:connections].each do |connection_name|
+        connected_instance = @config.instances[connection_name]
+        # Generate MCP config for each connection
+        mcp_servers[connection_name] = build_instance_mcp_config(
+          connection_name, connected_instance,
+          calling_instance: name, calling_instance_id: @instance_ids[name]
+        )
+      end
+
+      # Add Claude MCP server for non-anthropic providers
+      if instance[:provider] && instance[:provider] != "anthropic"
+        mcp_servers["tools"] = {
+          "type" => "stdio",
+          "command" => "claude",
+          "args" => %w[mcp serve]
+        }
+      end
+
+      config = {
+        "mcpServers" => mcp_servers
+      }
+
+      File.write(config_path, JSON.pretty_generate(config))
     end
 
     def load_instance_states

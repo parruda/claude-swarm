@@ -242,6 +242,8 @@ Each instance can have:
 - **prompt**: Custom system prompt to append to the instance
 - **vibe**: Enable vibe mode (--dangerously-skip-permissions) for this instance (default: false)
 - **worktree**: Configure Git worktree usage for this instance (true/false/string)
+- **provider**: LLM provider to use instead of Claude (e.g., openai, google) - requires llm-mcp gem
+- **base_url**: Custom API endpoint for the provider (optional)
 
 ```yaml
 instance_name:
@@ -453,6 +455,54 @@ swarm:
       allowed_tools: [Read, Write, Edit]
       prompt: "You maintain documentation based on code and examples"
 ```
+
+When using multiple directories:
+- The first directory in the array becomes the working directory
+- Additional directories are added using `--add-dir`
+- All paths should be relative to the location where you run claude-swarm
+
+#### Multi-Model AI Team (Using llm-mcp)
+
+Claude Swarm supports using different LLM providers for instances via the [llm-mcp](https://github.com/parruda/llm-mcp) gem:
+
+```yaml
+version: 1
+swarm:
+  name: "Multi-Model AI Team"
+  main: architect
+  instances:
+    architect:
+      description: "Lead architect using Claude to coordinate the team"
+      directory: .
+      model: sonnet
+      connections: [openai_expert, gemini_analyst]
+      allowed_tools: [Read, Edit, Bash, Write]
+      prompt: "You coordinate a multi-model AI team"
+    
+    openai_expert:
+      description: "OpenAI-powered expert for specialized tasks"
+      directory: ./src
+      provider: openai        # Uses llm-mcp instead of Claude
+      model: gpt-4-turbo
+      allowed_tools: [Read, Edit, Write]
+      prompt: "You are a GPT-4 expert specializing in code generation"
+    
+    gemini_analyst:
+      description: "Google Gemini for data analysis"
+      directory: ./data
+      provider: google        # Uses llm-mcp with Google
+      model: gemini-pro
+      base_url: https://custom-api.example.com/v1  # Optional custom endpoint
+      allowed_tools: [Read, Write, Bash]
+      prompt: "You analyze data using Google's Gemini model"
+```
+
+Requirements for multi-model support:
+- Install llm-mcp: `gem install llm-mcp`
+- Set appropriate environment variables (e.g., `OPENAI_API_KEY`, `GEMINI_API_KEY`)
+- The main instance must use Claude (no provider specified)
+- Connected instances can use any provider supported by llm-mcp
+- Instances with a provider automatically get access to Claude via the `mcp__tools` MCP server
 
 When using multiple directories:
 - The first directory in the array is the primary working directory

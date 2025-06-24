@@ -1,0 +1,31 @@
+version: 1
+swarm:
+  name: "Multi-Provider AI Team"
+  main: lead_developer
+  instances:
+    lead_developer:
+      description: "Lead developer coordinating the team using Claude"
+      directory: .
+      model: sonnet
+      prompt: "You are the lead developer coordinating a multi-provider AI team"
+      allowed_tools: [Read, Edit, Bash]
+      connections: [openai_analyst, custom_assistant]
+    
+    openai_analyst:
+      description: "Data analyst powered by OpenAI o3 model"
+      directory: ./data
+      model: o3
+      provider: openai
+      # Example proxy URL for testing
+      base_url: https://proxy-shopify-ai.local.shop.dev/v1
+      prompt: "You are a data analyst specializing in insights and patterns"
+      allowed_tools: [Read, Bash]
+    
+    custom_assistant:
+      description: "Custom LLM assistant for specialized tasks"
+      directory: ./custom
+      model: custom-model-v2
+      provider: custom
+      base_url: https://api.custom-llm.com/v1
+      prompt: "You are a specialized assistant for domain-specific tasks"
+      allowed_tools: [Read, Write]

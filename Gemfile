@@ -15,3 +15,4 @@ gem "rubocop-minitest"
 gem "rubocop-rake"
 
 gem "headless_browser_tool"
+gem "llm-mcp", path: "/Users/paulo/src/github.com/parruda/llm-mcp"

@@ -1,0 +1,21 @@
+version: 1
+swarm:
+  name: "Multi-Model AI Team"
+  main: architect
+  instances:
+    architect:
+      description: "Lead architect using Claude to coordinate the team"
+      directory: .
+      model: sonnet
+      prompt: "You are the lead architect coordinating a multi-model AI team"
+      allowed_tools: [Read, Edit, Bash, Write]
+      connections: [openai_assistant]
+    
+    openai_assistant:
+      description: "OpenAI-powered assistant for specialized tasks"
+      directory: .
+      provider: openai
+      model: o3
+      base_url: https://proxy-shopify-ai.local.shop.dev/v1
+      prompt: "You are an AI assistant powered by OpenAI, helping with specialized tasks"
+      # Note: llm-mcp does not support allowed_tools - it has its own fixed tools

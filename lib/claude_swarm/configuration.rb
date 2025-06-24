@@ -98,6 +98,8 @@ module ClaudeSwarm
         directory: directories.first, # Keep single directory for backward compatibility
         directories: directories, # New field with all directories
         model: config["model"] || "sonnet",
+        provider: config["provider"], # New field for LLM provider
+        base_url: config["base_url"], # New field for custom API base URL
         connections: Array(config["connections"]),
         tools: Array(allowed_tools), # Keep as 'tools' internally for compatibility
         allowed_tools: Array(allowed_tools),
