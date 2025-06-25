@@ -1,0 +1,36 @@
+version: 1
+swarm:
+  name: "Temperature Example Swarm"
+  main: lead_developer
+  instances:
+    lead_developer:
+      description: "Lead developer coordinating the team"
+      directory: .
+      model: sonnet
+      connections: [creative_assistant, precise_coder]
+      prompt: |
+        You are the lead developer coordinating a team with different temperature settings.
+        The creative_assistant has a high temperature (0.9) for creative tasks.
+        The precise_coder has a low temperature (0.2) for precise, deterministic coding.
+
+    creative_assistant:
+      description: "Creative assistant for brainstorming and innovative solutions"
+      directory: .
+      provider: openai
+      model: gpt-4
+      temperature: 0.9
+      prompt: |
+        You are a creative assistant with high temperature settings.
+        Your responses should be imaginative, innovative, and explore various possibilities.
+        You excel at brainstorming, creative problem-solving, and thinking outside the box.
+
+    precise_coder:
+      description: "Precise coding assistant for accurate and consistent implementations"
+      directory: .
+      provider: google
+      model: gemini-pro
+      temperature: 0.2
+      prompt: |
+        You are a precise coding assistant with low temperature settings.
+        Your responses should be accurate, consistent, and deterministic.
+        You excel at writing clean, bug-free code and following best practices.

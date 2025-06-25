@@ -181,4 +181,104 @@ class McpGeneratorLlmMcpTest < Minitest::Test
     assert llm_mcp_config["mcpServers"].key?("tools"), "Gemini instance should have Claude MCP server"
     refute llm_mcp_config["mcpServers"].key?("leader"), "Gemini instance should not have connection to leader"
   end
+
+  def test_llm_mcp_instance_with_temperature
+    # Create required directories
+    FileUtils.mkdir_p(File.join(@tmpdir, "src"))
+
+    config_content = <<~YAML
+      version: 1
+      swarm:
+        name: "Temperature Test Swarm"
+        main: architect
+        instances:
+          architect:
+            description: "Main architect using Claude"
+            directory: .
+            model: sonnet
+            connections: [creative_writer, precise_coder]
+          creative_writer:
+            description: "Creative writing assistant"
+            directory: ./src
+            provider: openai
+            model: gpt-4
+            temperature: 0.9
+            prompt: "You are a creative writer"
+          precise_coder:
+            description: "Precise coding assistant"
+            directory: ./src
+            provider: google
+            model: gemini-pro
+            temperature: 0.1
+    YAML
+
+    File.write(@config_path, config_content)
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    generator = ClaudeSwarm::McpGenerator.new(config)
+
+    generator.generate_all
+
+    # Check architect's MCP config to see how it connects to creative_writer and precise_coder
+    architect_mcp_path = File.join(@mcp_dir, "architect.mcp.json")
+
+    assert_path_exists architect_mcp_path
+
+    architect_config = JSON.parse(File.read(architect_mcp_path))
+
+    # Check creative_writer connection with temperature 0.9
+    creative_server = architect_config["mcpServers"]["creative_writer"]
+
+    assert_equal "stdio", creative_server["type"]
+    assert_equal "llm-mcp", creative_server["command"]
+    assert_includes creative_server["args"], "--temperature"
+
+    temp_index = creative_server["args"].index("--temperature")
+
+    assert_equal "0.9", creative_server["args"][temp_index + 1]
+
+    # Check precise_coder connection with temperature 0.1
+    precise_server = architect_config["mcpServers"]["precise_coder"]
+
+    assert_includes precise_server["args"], "--temperature"
+
+    temp_index_precise = precise_server["args"].index("--temperature")
+
+    assert_equal "0.1", precise_server["args"][temp_index_precise + 1]
+  end
+
+  def test_llm_mcp_instance_without_temperature
+    config_content = <<~YAML
+      version: 1
+      swarm:
+        name: "No Temperature Swarm"
+        main: architect
+        instances:
+          architect:
+            description: "Main architect"
+            directory: .
+            model: sonnet
+            connections: [assistant]
+          assistant:
+            description: "Assistant without temperature"
+            directory: .
+            provider: openai
+            model: gpt-4
+    YAML
+
+    File.write(@config_path, config_content)
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    generator = ClaudeSwarm::McpGenerator.new(config)
+
+    generator.generate_all
+
+    # Check architect's MCP config to see how it connects to assistant
+    architect_mcp_path = File.join(@mcp_dir, "architect.mcp.json")
+
+    assert_path_exists architect_mcp_path
+
+    architect_config = JSON.parse(File.read(architect_mcp_path))
+    assistant_server = architect_config["mcpServers"]["assistant"]
+
+    refute_includes assistant_server["args"], "--temperature", "Should not include temperature when not specified"
+  end
 end

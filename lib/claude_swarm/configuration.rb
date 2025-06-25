@@ -100,6 +100,7 @@ module ClaudeSwarm
         model: config["model"] || "sonnet",
         provider: config["provider"], # New field for LLM provider
         base_url: config["base_url"], # New field for custom API base URL
+        temperature: config["temperature"], # New field for temperature parameter
         connections: Array(config["connections"]),
         tools: Array(allowed_tools), # Keep as 'tools' internally for compatibility
         allowed_tools: Array(allowed_tools),

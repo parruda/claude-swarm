@@ -423,6 +423,7 @@ class ConfigurationTest < Minitest::Test
     assert_empty lead[:allowed_tools]
     assert_empty lead[:mcps]
     assert_nil lead[:prompt]
+    assert_nil lead[:temperature]
   end
 
   def test_missing_description
@@ -940,5 +941,68 @@ class ConfigurationTest < Minitest::Test
       ClaudeSwarm::Configuration.new(@config_path)
     end
     assert_match(/Invalid worktree value/, error.message)
+  end
+
+  def test_instance_with_temperature
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+            temperature: 0.7
+          creative:
+            description: "Creative instance"
+            temperature: 0.95
+          precise:
+            description: "Precise instance"
+            temperature: 0.1
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_in_delta 0.7, config.instances["lead"][:temperature]
+    assert_in_delta 0.95, config.instances["creative"][:temperature]
+    assert_in_delta 0.1, config.instances["precise"][:temperature]
+  end
+
+  def test_instance_with_provider_and_temperature
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+            provider: openai
+            model: gpt-4
+            temperature: 0.8
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    lead = config.main_instance_config
+
+    assert_equal "openai", lead[:provider]
+    assert_equal "gpt-4", lead[:model]
+    assert_in_delta 0.8, lead[:temperature]
+  end
+
+  def test_instance_without_temperature
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_nil config.main_instance_config[:temperature]
   end
 end

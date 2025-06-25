@@ -114,6 +114,9 @@ module ClaudeSwarm
       # Add base URL if specified
       args.push("--base-url", instance[:base_url]) if instance[:base_url]
 
+      # Add temperature if specified
+      args.push("--temperature", instance[:temperature].to_s) if instance[:temperature]
+
       # Always skip model validation to support custom models
       args.push("--skip-model-validation")
 

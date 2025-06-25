@@ -9,13 +9,20 @@ swarm:
       model: sonnet
       prompt: "You are the lead architect coordinating a multi-model AI team"
       allowed_tools: [Read, Edit, Bash, Write]
-      connections: [openai_assistant]
+      connections: [openai_assistant, friend]
     
     openai_assistant:
       description: "OpenAI-powered assistant for specialized tasks"
       directory: .
       provider: openai
-      model: o3
+      model: google:gemini-2.5-pro
       base_url: https://proxy-shopify-ai.local.shop.dev/v1
-      prompt: "You are an AI assistant powered by OpenAI, helping with specialized tasks"
+      prompt: "You are an AI assistant"
       # Note: llm-mcp does not support allowed_tools - it has its own fixed tools
+    
+    friend:
+      description: "Friendly Opus companion for chat and support"
+      directory: .
+      model: opus
+      prompt: "You are a friendly and helpful companion, always ready to chat and provide support"
+      allowed_tools: [Read]

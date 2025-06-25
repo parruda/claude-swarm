@@ -14,6 +14,7 @@ instances:
     model: gpt-4
     provider: openai
     base_url: https://api.openai.com/v1  # Optional custom API endpoint
+    temperature: 0.7  # Optional temperature for response randomness
     prompt: "You are an OpenAI-powered assistant"
     allowed_tools: [Read, Edit]
 ```
@@ -23,6 +24,28 @@ instances:
 - `provider`: The LLM provider to use (e.g., `openai`, `anthropic`, `custom`)
 - `base_url`: Optional custom API endpoint for the provider
 - `model`: The model name (provider-specific)
+- `temperature`: Optional temperature parameter for controlling randomness (0.0-1.0)
+
+## Temperature Settings
+
+The `temperature` parameter controls the randomness of model responses:
+- **Low temperature (0.0-0.3)**: More deterministic, focused, and consistent responses. Good for coding and precise tasks.
+- **Medium temperature (0.4-0.7)**: Balanced creativity and consistency. Good for general tasks.
+- **High temperature (0.8-1.0)**: More creative, varied, and unpredictable responses. Good for brainstorming and creative writing.
+
+Example use cases:
+```yaml
+instances:
+  precise_coder:
+    provider: openai
+    model: gpt-4
+    temperature: 0.2  # Consistent, deterministic coding
+    
+  creative_writer:
+    provider: openai
+    model: gpt-4
+    temperature: 0.9  # Creative, varied responses
+```
 
 ## How It Works
 
