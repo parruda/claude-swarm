@@ -952,14 +952,21 @@ class ConfigurationTest < Minitest::Test
         instances:
           lead:
             description: "Lead instance"
+            provider: openai
             temperature: 0.7
           creative:
             description: "Creative instance"
+            provider: anthropic
             temperature: 0.95
           precise:
             description: "Precise instance"
+            provider: openai
             temperature: 0.1
     YAML
+
+    # Create required directories
+    Dir.mkdir(File.join(@tmpdir, "creative"))
+    Dir.mkdir(File.join(@tmpdir, "precise"))
 
     config = ClaudeSwarm::Configuration.new(@config_path)
 
@@ -1003,6 +1010,102 @@ class ConfigurationTest < Minitest::Test
 
     config = ClaudeSwarm::Configuration.new(@config_path)
 
+    assert_nil config.main_instance_config[:temperature]
+  end
+
+  def test_temperature_without_provider_raises_error
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+            temperature: 0.7
+    YAML
+
+    error = assert_raises(ClaudeSwarm::Error) do
+      ClaudeSwarm::Configuration.new(@config_path)
+    end
+    assert_equal "Instance 'lead' has temperature field but no provider field. " \
+                 "Temperature can only be used with instances that have a provider.", error.message
+  end
+
+  def test_multiple_instances_temperature_without_provider_raises_error
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+            provider: openai
+            temperature: 0.7
+          backend:
+            description: "Backend instance"
+            temperature: 0.5
+    YAML
+
+    # Create required directory for backend
+    Dir.mkdir(File.join(@tmpdir, "backend"))
+
+    error = assert_raises(ClaudeSwarm::Error) do
+      ClaudeSwarm::Configuration.new(@config_path)
+    end
+    assert_equal "Instance 'backend' has temperature field but no provider field. " \
+                 "Temperature can only be used with instances that have a provider.", error.message
+  end
+
+  def test_temperature_with_provider_is_valid
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+            provider: openai
+            model: gpt-4
+            temperature: 0.7
+          backend:
+            description: "Backend instance"
+            provider: anthropic
+            model: claude-3-opus
+            temperature: 0.9
+    YAML
+
+    # Create required directory for backend
+    Dir.mkdir(File.join(@tmpdir, "backend"))
+
+    # Should not raise any errors
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal "openai", config.instances["lead"][:provider]
+    assert_in_delta 0.7, config.instances["lead"][:temperature]
+    assert_equal "anthropic", config.instances["backend"][:provider]
+    assert_in_delta 0.9, config.instances["backend"][:temperature]
+  end
+
+  def test_provider_without_temperature_is_valid
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+            provider: openai
+            model: gpt-4
+    YAML
+
+    # Should not raise any errors
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal "openai", config.main_instance_config[:provider]
     assert_nil config.main_instance_config[:temperature]
   end
 end

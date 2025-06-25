@@ -73,6 +73,7 @@ module ClaudeSwarm
         @instances[name] = parse_instance(name, config)
       end
       validate_connections
+      validate_temperature_usage
       detect_circular_dependencies
     end
 
@@ -137,6 +138,15 @@ module ClaudeSwarm
       @instances.each do |name, instance|
         instance[:connections].each do |connection|
           raise Error, "Instance '#{name}' has connection to unknown instance '#{connection}'" unless @instances.key?(connection)
+        end
+      end
+    end
+
+    def validate_temperature_usage
+      @instances.each do |name, instance|
+        if instance[:temperature] && !instance[:provider]
+          raise Error, "Instance '#{name}' has temperature field but no provider field. " \
+                       "Temperature can only be used with instances that have a provider."
         end
       end
     end
