@@ -74,6 +74,7 @@ module ClaudeSwarm
       end
       validate_connections
       validate_temperature_usage
+      validate_reasoning_effort_usage
       detect_circular_dependencies
     end
 
@@ -102,6 +103,7 @@ module ClaudeSwarm
         provider: config["provider"], # New field for LLM provider
         base_url: config["base_url"], # New field for custom API base URL
         temperature: config["temperature"], # New field for temperature parameter
+        reasoning_effort: config["reasoning_effort"], # New field for reasoning effort (o3/o4 models)
         connections: Array(config["connections"]),
         tools: Array(allowed_tools), # Keep as 'tools' internally for compatibility
         allowed_tools: Array(allowed_tools),
@@ -147,6 +149,33 @@ module ClaudeSwarm
         if instance[:temperature] && !instance[:provider]
           raise Error, "Instance '#{name}' has temperature field but no provider field. " \
                        "Temperature can only be used with instances that have a provider."
+        end
+      end
+    end
+
+    def validate_reasoning_effort_usage
+      valid_reasoning_effort_values = %w[low medium high]
+      valid_openai_models = %w[o3 o3-pro o4-mini o4-mini-high]
+
+      @instances.each do |name, instance|
+        next unless instance[:reasoning_effort]
+
+        # Check valid values
+        unless valid_reasoning_effort_values.include?(instance[:reasoning_effort])
+          raise Error, "Instance '#{name}' has invalid reasoning_effort value '#{instance[:reasoning_effort]}'. " \
+                       "Valid values are: #{valid_reasoning_effort_values.join(", ")}"
+        end
+
+        # Check provider is openai
+        unless instance[:provider] == "openai"
+          raise Error, "Instance '#{name}' has reasoning_effort field but provider is '#{instance[:provider]}'. " \
+                       "Reasoning effort can only be used with provider 'openai'."
+        end
+
+        # Check model is valid
+        unless valid_openai_models.include?(instance[:model])
+          raise Error, "Instance '#{name}' has reasoning_effort field but model '#{instance[:model]}' doesn't support it. " \
+                       "Reasoning effort can only be used with models: #{valid_openai_models.join(", ")}"
         end
       end
     end

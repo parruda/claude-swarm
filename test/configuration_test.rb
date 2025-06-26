@@ -1108,4 +1108,173 @@ class ConfigurationTest < Minitest::Test
     assert_equal "openai", config.main_instance_config[:provider]
     assert_nil config.main_instance_config[:temperature]
   end
+
+  def test_reasoning_effort_with_valid_openai_model
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+            provider: openai
+            model: o3
+            reasoning_effort: medium
+    YAML
+
+    # Should not raise any errors
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal "openai", config.main_instance_config[:provider]
+    assert_equal "o3", config.main_instance_config[:model]
+    assert_equal "medium", config.main_instance_config[:reasoning_effort]
+  end
+
+  def test_reasoning_effort_with_all_valid_models
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+            provider: openai
+            model: o3
+            reasoning_effort: low
+          assistant1:
+            description: "Assistant 1"
+            provider: openai
+            model: o3-pro
+            reasoning_effort: medium
+          assistant2:
+            description: "Assistant 2"
+            provider: openai
+            model: o4-mini
+            reasoning_effort: high
+          assistant3:
+            description: "Assistant 3"
+            provider: openai
+            model: o4-mini-high
+            reasoning_effort: low
+    YAML
+
+    # Create required directories
+    Dir.mkdir(File.join(@tmpdir, "assistant1"))
+    Dir.mkdir(File.join(@tmpdir, "assistant2"))
+    Dir.mkdir(File.join(@tmpdir, "assistant3"))
+
+    # Should not raise any errors
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal "low", config.instances["lead"][:reasoning_effort]
+    assert_equal "medium", config.instances["assistant1"][:reasoning_effort]
+    assert_equal "high", config.instances["assistant2"][:reasoning_effort]
+    assert_equal "low", config.instances["assistant3"][:reasoning_effort]
+  end
+
+  def test_reasoning_effort_without_provider_raises_error
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+            model: o3
+            reasoning_effort: medium
+    YAML
+
+    error = assert_raises(ClaudeSwarm::Error) do
+      ClaudeSwarm::Configuration.new(@config_path)
+    end
+    assert_equal "Instance 'lead' has reasoning_effort field but provider is ''. " \
+                 "Reasoning effort can only be used with provider 'openai'.", error.message
+  end
+
+  def test_reasoning_effort_with_non_openai_provider_raises_error
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+            provider: anthropic
+            model: claude-3-opus
+            reasoning_effort: medium
+    YAML
+
+    error = assert_raises(ClaudeSwarm::Error) do
+      ClaudeSwarm::Configuration.new(@config_path)
+    end
+    assert_equal "Instance 'lead' has reasoning_effort field but provider is 'anthropic'. " \
+                 "Reasoning effort can only be used with provider 'openai'.", error.message
+  end
+
+  def test_reasoning_effort_with_invalid_model_raises_error
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+            provider: openai
+            model: gpt-4
+            reasoning_effort: medium
+    YAML
+
+    error = assert_raises(ClaudeSwarm::Error) do
+      ClaudeSwarm::Configuration.new(@config_path)
+    end
+    assert_equal "Instance 'lead' has reasoning_effort field but model 'gpt-4' doesn't support it. " \
+                 "Reasoning effort can only be used with models: o3, o3-pro, o4-mini, o4-mini-high", error.message
+  end
+
+  def test_reasoning_effort_with_invalid_value_raises_error
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+            provider: openai
+            model: o3
+            reasoning_effort: very-high
+    YAML
+
+    error = assert_raises(ClaudeSwarm::Error) do
+      ClaudeSwarm::Configuration.new(@config_path)
+    end
+    assert_equal "Instance 'lead' has invalid reasoning_effort value 'very-high'. " \
+                 "Valid values are: low, medium, high", error.message
+  end
+
+  def test_openai_provider_without_reasoning_effort_is_valid
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+            provider: openai
+            model: o3
+    YAML
+
+    # Should not raise any errors
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal "openai", config.main_instance_config[:provider]
+    assert_equal "o3", config.main_instance_config[:model]
+    assert_nil config.main_instance_config[:reasoning_effort]
+  end
 end

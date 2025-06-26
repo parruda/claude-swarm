@@ -117,6 +117,9 @@ module ClaudeSwarm
       # Add temperature if specified
       args.push("--temperature", instance[:temperature].to_s) if instance[:temperature]
 
+      # Add reasoning effort if specified
+      args.push("--reasoning-effort", instance[:reasoning_effort]) if instance[:reasoning_effort]
+
       # Always skip model validation to support custom models
       args.push("--skip-model-validation")
 

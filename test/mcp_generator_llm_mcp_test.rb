@@ -281,4 +281,167 @@ class McpGeneratorLlmMcpTest < Minitest::Test
 
     refute_includes assistant_server["args"], "--temperature", "Should not include temperature when not specified"
   end
+
+  def test_llm_mcp_instance_with_reasoning_effort
+    # Create required directories
+    FileUtils.mkdir_p(File.join(@tmpdir, "src"))
+
+    config_content = <<~YAML
+      version: 1
+      swarm:
+        name: "Reasoning Effort Test Swarm"
+        main: architect
+        instances:
+          architect:
+            description: "Main architect using Claude"
+            directory: .
+            model: sonnet
+            connections: [o3_low, o3_pro_medium, o4_mini_high]
+          o3_low:
+            description: "O3 model with low reasoning effort"
+            directory: ./src
+            provider: openai
+            model: o3
+            reasoning_effort: low
+            prompt: "You are using o3 with low reasoning effort"
+          o3_pro_medium:
+            description: "O3 Pro model with medium reasoning effort"
+            directory: ./src
+            provider: openai
+            model: o3-pro
+            reasoning_effort: medium
+          o4_mini_high:
+            description: "O4 Mini model with high reasoning effort"
+            directory: ./src
+            provider: openai
+            model: o4-mini
+            reasoning_effort: high
+    YAML
+
+    File.write(@config_path, config_content)
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    generator = ClaudeSwarm::McpGenerator.new(config)
+
+    generator.generate_all
+
+    # Check architect's MCP config to see how it connects to the o3/o4 models
+    architect_mcp_path = File.join(@mcp_dir, "architect.mcp.json")
+
+    assert_path_exists architect_mcp_path
+
+    architect_config = JSON.parse(File.read(architect_mcp_path))
+
+    # Check o3_low connection with reasoning effort low
+    o3_low_server = architect_config["mcpServers"]["o3_low"]
+
+    assert_equal "stdio", o3_low_server["type"]
+    assert_equal "llm-mcp", o3_low_server["command"]
+    assert_includes o3_low_server["args"], "--reasoning-effort"
+
+    effort_index = o3_low_server["args"].index("--reasoning-effort")
+
+    assert_equal "low", o3_low_server["args"][effort_index + 1]
+
+    # Check o3_pro_medium connection with reasoning effort medium
+    o3_pro_server = architect_config["mcpServers"]["o3_pro_medium"]
+
+    assert_includes o3_pro_server["args"], "--reasoning-effort"
+
+    effort_index_pro = o3_pro_server["args"].index("--reasoning-effort")
+
+    assert_equal "medium", o3_pro_server["args"][effort_index_pro + 1]
+
+    # Check o4_mini_high connection with reasoning effort high
+    o4_mini_server = architect_config["mcpServers"]["o4_mini_high"]
+
+    assert_includes o4_mini_server["args"], "--reasoning-effort"
+
+    effort_index_mini = o4_mini_server["args"].index("--reasoning-effort")
+
+    assert_equal "high", o4_mini_server["args"][effort_index_mini + 1]
+  end
+
+  def test_llm_mcp_instance_without_reasoning_effort
+    config_content = <<~YAML
+      version: 1
+      swarm:
+        name: "No Reasoning Effort Swarm"
+        main: architect
+        instances:
+          architect:
+            description: "Main architect"
+            directory: .
+            model: sonnet
+            connections: [o3_assistant]
+          o3_assistant:
+            description: "O3 assistant without reasoning effort"
+            directory: .
+            provider: openai
+            model: o3
+    YAML
+
+    File.write(@config_path, config_content)
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    generator = ClaudeSwarm::McpGenerator.new(config)
+
+    generator.generate_all
+
+    # Check architect's MCP config to see how it connects to o3_assistant
+    architect_mcp_path = File.join(@mcp_dir, "architect.mcp.json")
+
+    assert_path_exists architect_mcp_path
+
+    architect_config = JSON.parse(File.read(architect_mcp_path))
+    o3_assistant_server = architect_config["mcpServers"]["o3_assistant"]
+
+    refute_includes o3_assistant_server["args"], "--reasoning-effort", "Should not include reasoning effort when not specified"
+  end
+
+  def test_llm_mcp_instance_with_reasoning_effort_and_temperature
+    config_content = <<~YAML
+      version: 1
+      swarm:
+        name: "Combined Test Swarm"
+        main: architect
+        instances:
+          architect:
+            description: "Main architect"
+            directory: .
+            model: sonnet
+            connections: [o4_assistant]
+          o4_assistant:
+            description: "O4 assistant with both temperature and reasoning effort"
+            directory: .
+            provider: openai
+            model: o4-mini-high
+            temperature: 0.7
+            reasoning_effort: medium
+    YAML
+
+    File.write(@config_path, config_content)
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    generator = ClaudeSwarm::McpGenerator.new(config)
+
+    generator.generate_all
+
+    # Check architect's MCP config
+    architect_mcp_path = File.join(@mcp_dir, "architect.mcp.json")
+
+    assert_path_exists architect_mcp_path
+
+    architect_config = JSON.parse(File.read(architect_mcp_path))
+    o4_server = architect_config["mcpServers"]["o4_assistant"]
+
+    # Should have both temperature and reasoning effort
+    assert_includes o4_server["args"], "--temperature"
+    assert_includes o4_server["args"], "--reasoning-effort"
+
+    temp_index = o4_server["args"].index("--temperature")
+
+    assert_equal "0.7", o4_server["args"][temp_index + 1]
+
+    effort_index = o4_server["args"].index("--reasoning-effort")
+
+    assert_equal "medium", o4_server["args"][effort_index + 1]
+  end
 end

@@ -1,0 +1,62 @@
+version: 1
+swarm:
+  name: "Reasoning Effort Example Swarm"
+  main: project_architect
+  instances:
+    project_architect:
+      description: "Project architect coordinating the reasoning team"
+      directory: .
+      model: sonnet
+      connections: [quick_analyst, balanced_solver, deep_thinker]
+      prompt: |
+        You are the project architect coordinating a team with different reasoning effort levels.
+        - quick_analyst uses low reasoning effort for rapid prototyping
+        - balanced_solver uses medium reasoning effort for standard problem-solving
+        - deep_thinker uses high reasoning effort for complex analytical tasks
+
+    quick_analyst:
+      description: "Quick analyst for rapid prototyping and initial explorations"
+      directory: .
+      provider: openai
+      model: o3
+      reasoning_effort: low
+      prompt: |
+        You are a quick analyst using OpenAI o3 with low reasoning effort.
+        Your focus is on rapid prototyping, quick explorations, and fast iterations.
+        Provide concise, actionable insights without over-analyzing.
+
+    balanced_solver:
+      description: "Balanced problem solver for standard development tasks"
+      directory: .
+      provider: openai
+      model: o3-pro
+      reasoning_effort: medium
+      temperature: 0.5
+      prompt: |
+        You are a balanced problem solver using OpenAI o3-pro with medium reasoning effort.
+        You handle standard development tasks with a good balance of speed and quality.
+        Provide well-thought-out solutions without excessive deliberation.
+
+    deep_thinker:
+      description: "Deep analytical thinker for complex problems"
+      directory: .
+      provider: openai
+      model: o4-mini
+      reasoning_effort: high
+      temperature: 0.3
+      prompt: |
+        You are a deep analytical thinker using OpenAI o4-mini with high reasoning effort.
+        You tackle complex problems requiring thorough analysis and careful consideration.
+        Take the time needed to explore edge cases and provide comprehensive solutions.
+
+    ultra_analyst:
+      description: "Ultra-high quality analyst for critical decisions"
+      directory: .
+      provider: openai
+      model: o4-mini-high
+      reasoning_effort: high
+      temperature: 0.1
+      prompt: |
+        You are an ultra-high quality analyst using OpenAI o4-mini-high with maximum reasoning effort.
+        You handle the most critical decisions requiring the highest quality analysis.
+        Your responses should be meticulously crafted and thoroughly validated.
