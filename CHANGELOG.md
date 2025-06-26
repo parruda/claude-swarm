@@ -1,3 +1,19 @@
+## [0.1.21]
+
+### Added
+- **Swarm execution summary**: Display runtime duration and total cost at the end of each swarm run
+  - Shows total execution time in hours, minutes, and seconds format
+  - Calculates and displays aggregate cost across all instances
+  - Indicates when main instance cost is excluded (e.g., for interactive sessions)
+  - Session metadata now includes end time and duration in seconds
+- **Session cost calculator**: New `SessionCostCalculator` class for aggregating costs from session logs
+  - Processes session.log.json files to calculate total usage costs
+  - Tracks which instances have cost data available
+
+### Changed
+- Session metadata now includes `start_time`, `end_time`, and `duration_seconds` fields
+- Updated `ps` and `show` commands to use the new cost calculation functionality
+
 ## [0.1.20]
 
 ### Added
@@ -26,7 +42,7 @@
   - Checks for Claude CLI installation and provides helpful error message if not found
   - Includes comprehensive initial prompt with Claude Swarm overview, best practices, and common patterns
   - Full README content is included in the prompt within `<full_readme>` tags for complete context
-  - Examples: 
+  - Examples:
     - `claude-swarm generate` - Claude names file based on swarm function
     - `claude-swarm generate -o my-team.yml --model opus` - Custom file and model
 
