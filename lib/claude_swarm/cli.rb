@@ -158,7 +158,8 @@ module ClaudeSwarm
               description: "Lead developer who coordinates the team and makes architectural decisions"
               directory: .
               model: sonnet
-              prompt: "You are the lead developer coordinating the team"
+              prompt: |
+                You are the lead developer coordinating the team
               allowed_tools: [Read, Edit, Bash, Write]
               # connections: [frontend_dev, backend_dev]
 
@@ -168,28 +169,33 @@ module ClaudeSwarm
             #   description: "Frontend developer specializing in React and modern web technologies"
             #   directory: ./frontend
             #   model: sonnet
-            #   prompt: "You specialize in frontend development with React, TypeScript, and modern web technologies"
+            #   prompt: |
+            #     You specialize in frontend development with React, TypeScript, and modern web technologies
             #   allowed_tools: [Read, Edit, Write, "Bash(npm:*)", "Bash(yarn:*)", "Bash(pnpm:*)"]
 
             # backend_dev:
-            #   description: "Backend developer focusing on APIs, databases, and server architecture"
+            #   description: |
+            #     Backend developer focusing on APIs, databases, and server architecture
             #   directory: ../other-app/backend
             #   model: sonnet
-            #   prompt: "You specialize in backend development, APIs, databases, and server architecture"
+            #   prompt: |
+            #     You specialize in backend development, APIs, databases, and server architecture
             #   allowed_tools: [Read, Edit, Write, Bash]
 
             # devops_engineer:
             #   description: "DevOps engineer managing infrastructure, CI/CD, and deployments"
             #   directory: .
             #   model: sonnet
-            #   prompt: "You specialize in infrastructure, CI/CD, containerization, and deployment"
+            #   prompt: |
+            #     You specialize in infrastrujcture, CI/CD, containerization, and deployment
             #   allowed_tools: [Read, Edit, Write, "Bash(docker:*)", "Bash(kubectl:*)", "Bash(terraform:*)"]
 
             # qa_engineer:
             #   description: "QA engineer ensuring quality through comprehensive testing"
             #   directory: ./tests
             #   model: sonnet
-            #   prompt: "You specialize in testing, quality assurance, and test automation"
+            #   prompt: |
+            #     You specialize in testing, quality assurance, and test automation
             #   allowed_tools: [Read, Edit, Write, Bash]
       YAML
 
