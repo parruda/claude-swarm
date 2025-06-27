@@ -15,9 +15,9 @@ swarm:
       description: "OpenAI-powered assistant for specialized tasks"
       directory: .
       provider: openai
-      model: google:gemini-2.5-pro
-      base_url: https://proxy-shopify-ai.local.shop.dev/v1
+      model: o3
       prompt: "You are an AI assistant"
+      temperature: 0.1
       # Note: llm-mcp does not support allowed_tools - it has its own fixed tools
     
     friend:
