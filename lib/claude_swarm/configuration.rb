@@ -82,6 +82,28 @@ module ClaudeSwarm
       # Validate required fields
       raise Error, "Instance '#{name}' missing required 'description' field" unless config["description"]
 
+      # Parse provider (optional, defaults to claude)
+      provider = config["provider"]
+
+      # Validate provider value if specified
+      if provider && !%w[claude openai].include?(provider)
+        raise Error, "Instance '#{name}' has invalid provider '#{provider}'. Must be 'claude' or 'openai'"
+      end
+
+      # Validate OpenAI-specific fields only when provider is "openai"
+      if provider != "openai"
+        openai_fields = %w[temperature api_version openai_token_env base_url]
+        invalid_fields = openai_fields & config.keys
+        unless invalid_fields.empty?
+          raise Error, "Instance '#{name}' has OpenAI-specific fields #{invalid_fields.join(", ")} but provider is not 'openai'"
+        end
+      end
+
+      # Validate api_version if specified
+      if config["api_version"] && !%w[chat_completion responses].include?(config["api_version"])
+        raise Error, "Instance '#{name}' has invalid api_version '#{config["api_version"]}'. Must be 'chat_completion' or 'responses'"
+      end
+
       # Validate tool fields are arrays if present
       validate_tool_field(name, config, "tools")
       validate_tool_field(name, config, "allowed_tools")
@@ -93,7 +115,7 @@ module ClaudeSwarm
       # Parse directory field - support both string and array
       directories = parse_directories(config["directory"])
 
-      {
+      instance_config = {
         name: name,
         directory: directories.first, # Keep single directory for backward compatibility
         directories: directories, # New field with all directories
@@ -105,9 +127,25 @@ module ClaudeSwarm
         mcps: parse_mcps(config["mcps"] || []),
         prompt: config["prompt"],
         description: config["description"],
-        vibe: config["vibe"] || false,
-        worktree: parse_worktree_value(config["worktree"])
+        vibe: config["vibe"],
+        worktree: parse_worktree_value(config["worktree"]),
+        provider: provider # nil means Claude (default)
       }
+
+      # Add OpenAI-specific fields only when provider is "openai"
+      if provider == "openai"
+        instance_config[:temperature] = config["temperature"] || 0.3
+        instance_config[:api_version] = config["api_version"] || "chat_completion"
+        instance_config[:openai_token_env] = config["openai_token_env"] || "OPENAI_API_KEY"
+        instance_config[:base_url] = config["base_url"]
+        # Default vibe to true for OpenAI instances if not specified
+        instance_config[:vibe] = true if config["vibe"].nil?
+      else
+        # Default vibe to false for Claude instances if not specified
+        instance_config[:vibe] = false if config["vibe"].nil?
+      end
+
+      instance_config
     end
 
     def parse_mcps(mcps)

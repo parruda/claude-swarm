@@ -101,6 +101,16 @@ module ClaudeSwarm
                                 desc: "Unique ID of this instance"
     method_option :claude_session_id, type: :string,
                                       desc: "Claude session ID to resume"
+    method_option :provider, type: :string,
+                             desc: "Provider to use (claude or openai)"
+    method_option :temperature, type: :numeric,
+                                desc: "Temperature for OpenAI models"
+    method_option :api_version, type: :string,
+                                desc: "API version for OpenAI (chat_completion or responses)"
+    method_option :openai_token_env, type: :string,
+                                     desc: "Environment variable name for OpenAI API key"
+    method_option :base_url, type: :string,
+                             desc: "Base URL for OpenAI API"
     def mcp_serve
       instance_config = {
         name: options[:name],
@@ -115,7 +125,12 @@ module ClaudeSwarm
         mcp_config_path: options[:mcp_config_path],
         vibe: options[:vibe] || false,
         instance_id: options[:instance_id],
-        claude_session_id: options[:claude_session_id]
+        claude_session_id: options[:claude_session_id],
+        provider: options[:provider],
+        temperature: options[:temperature],
+        api_version: options[:api_version],
+        openai_token_env: options[:openai_token_env],
+        base_url: options[:base_url]
       }
 
       begin

@@ -1,0 +1,24 @@
+version: 1
+swarm:
+  name: "Mixed AI Team"
+  main: lead_developer
+  instances:
+    lead_developer:
+      description: "Claude lead developer coordinating the team"
+      directory: .
+      model: opus
+      prompt: "You are the lead developer coordinating a mixed AI team"
+      allowed_tools: [Read, Edit, Bash, Write]
+      connections: [openai_assistant]
+      
+    openai_assistant:
+      description: "OpenAI-powered assistant for creative tasks"
+      directory: .
+      provider: openai
+      model: gpt-4o
+      temperature: 0.7
+      base_url: https://proxy-shopify-ai.local.shop.dev/v1
+      api_version: responses
+      prompt: "You are a creative frontend developer using React and modern web technologies"
+      # OpenAI instances default to vibe: true
+      

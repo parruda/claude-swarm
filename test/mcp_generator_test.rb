@@ -415,4 +415,68 @@ class McpGeneratorTest < Minitest::Test
       assert_equal frontend_config["instance_id"], frontend_shared_connection["args"][frontend_calling_id_index]
     end
   end
+
+  def test_openai_instance_gets_claude_tools_mcp
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: openai_assistant
+        instances:
+          openai_assistant:
+            description: "OpenAI instance"
+            directory: .
+            provider: openai
+            model: gpt-4o
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    generator = ClaudeSwarm::McpGenerator.new(config)
+    
+    Dir.chdir(@tmpdir) do
+      generator.generate_all
+
+      # Check that OpenAI instance has claude_tools MCP server
+      config_json = read_mcp_config("openai_assistant")
+
+      assert config_json["mcpServers"].key?("claude_tools"), "OpenAI instance should have claude_tools MCP server"
+      
+      claude_tools_config = config_json["mcpServers"]["claude_tools"]
+      assert_equal "stdio", claude_tools_config["type"]
+      assert_equal "claude", claude_tools_config["command"]
+      assert_equal ["mcp", "serve"], claude_tools_config["args"]
+    end
+  end
+
+  def test_claude_instance_no_claude_tools_mcp
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: claude_assistant
+        instances:
+          claude_assistant:
+            description: "Claude instance"
+            directory: .
+            model: opus
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    generator = ClaudeSwarm::McpGenerator.new(config)
+    
+    Dir.chdir(@tmpdir) do
+      generator.generate_all
+
+      # Check that Claude instance does NOT have claude_tools MCP server
+      config_json = read_mcp_config("claude_assistant")
+
+      refute config_json["mcpServers"].key?("claude_tools"), "Claude instance should NOT have claude_tools MCP server"
+    end
+  end
+
+  private
+
+  def read_mcp_config(instance_name)
+    JSON.parse(File.read(File.join(@session_path, "#{instance_name}.mcp.json")))
+  end
 end

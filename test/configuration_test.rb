@@ -941,4 +941,192 @@ class ConfigurationTest < Minitest::Test
     end
     assert_match(/Invalid worktree value/, error.message)
   end
+
+  # OpenAI provider tests
+
+  def test_openai_provider_with_defaults
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: ai_assistant
+        instances:
+          ai_assistant:
+            description: "OpenAI-powered assistant"
+            provider: openai
+            model: gpt-4o
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    assistant = config.main_instance_config
+
+    assert_equal "openai", assistant[:provider]
+    assert_in_delta(0.3, assistant[:temperature])
+    assert_equal "chat_completion", assistant[:api_version]
+    assert_equal "OPENAI_API_KEY", assistant[:openai_token_env]
+    assert_nil assistant[:base_url]
+    assert assistant[:vibe], "OpenAI instances should default to vibe: true"
+  end
+
+  def test_openai_provider_with_custom_values
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: ai_assistant
+        instances:
+          ai_assistant:
+            description: "OpenAI-powered assistant"
+            provider: openai
+            model: gpt-4
+            temperature: 0.7
+            api_version: responses
+            openai_token_env: CUSTOM_OPENAI_KEY
+            base_url: https://custom.openai.com/v1
+            vibe: false
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    assistant = config.main_instance_config
+
+    assert_equal "openai", assistant[:provider]
+    assert_in_delta(0.7, assistant[:temperature])
+    assert_equal "responses", assistant[:api_version]
+    assert_equal "CUSTOM_OPENAI_KEY", assistant[:openai_token_env]
+    assert_equal "https://custom.openai.com/v1", assistant[:base_url]
+    refute assistant[:vibe], "Should respect explicit vibe: false"
+  end
+
+  def test_claude_provider_default
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: claude_assistant
+        instances:
+          claude_assistant:
+            description: "Claude-powered assistant"
+            model: opus
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    assistant = config.main_instance_config
+
+    assert_nil assistant[:provider], "Provider should be nil for Claude (default)"
+    assert_nil assistant[:temperature]
+    assert_nil assistant[:api_version]
+    assert_nil assistant[:openai_token_env]
+    assert_nil assistant[:base_url]
+    refute assistant[:vibe], "Claude instances should default to vibe: false"
+  end
+
+  def test_invalid_provider
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: assistant
+        instances:
+          assistant:
+            description: "Assistant"
+            provider: anthropic
+    YAML
+
+    error = assert_raises(ClaudeSwarm::Error) do
+      ClaudeSwarm::Configuration.new(@config_path)
+    end
+    assert_equal "Instance 'assistant' has invalid provider 'anthropic'. Must be 'claude' or 'openai'", error.message
+  end
+
+  def test_openai_fields_without_openai_provider
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: assistant
+        instances:
+          assistant:
+            description: "Claude assistant"
+            temperature: 0.5
+    YAML
+
+    error = assert_raises(ClaudeSwarm::Error) do
+      ClaudeSwarm::Configuration.new(@config_path)
+    end
+    assert_equal "Instance 'assistant' has OpenAI-specific fields temperature but provider is not 'openai'", error.message
+  end
+
+  def test_multiple_openai_fields_without_provider
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: assistant
+        instances:
+          assistant:
+            description: "Claude assistant"
+            temperature: 0.5
+            api_version: chat_completion
+            base_url: https://api.openai.com/v1
+    YAML
+
+    error = assert_raises(ClaudeSwarm::Error) do
+      ClaudeSwarm::Configuration.new(@config_path)
+    end
+    assert_match(/Instance 'assistant' has OpenAI-specific fields/, error.message)
+    assert_match(/temperature/, error.message)
+    assert_match(/api_version/, error.message)
+    assert_match(/base_url/, error.message)
+  end
+
+  def test_invalid_api_version
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: assistant
+        instances:
+          assistant:
+            description: "OpenAI assistant"
+            provider: openai
+            api_version: completions
+    YAML
+
+    error = assert_raises(ClaudeSwarm::Error) do
+      ClaudeSwarm::Configuration.new(@config_path)
+    end
+    assert_equal "Instance 'assistant' has invalid api_version 'completions'. Must be 'chat_completion' or 'responses'", error.message
+  end
+
+  def test_mixed_claude_and_openai_instances
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Mixed Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Claude lead"
+            model: opus
+            connections: [openai_helper]
+          openai_helper:
+            description: "OpenAI helper"
+            provider: openai
+            model: gpt-4o
+            temperature: 0.5
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    lead = config.instances["lead"]
+    helper = config.instances["openai_helper"]
+
+    assert_nil lead[:provider]
+    assert_nil lead[:temperature]
+    refute lead[:vibe]
+
+    assert_equal "openai", helper[:provider]
+    assert_in_delta(0.5, helper[:temperature])
+    assert helper[:vibe]
+  end
 end

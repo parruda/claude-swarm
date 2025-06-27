@@ -18,7 +18,8 @@ require "zeitwerk"
 loader = Zeitwerk::Loader.for_gem
 loader.ignore("#{__dir__}/claude_swarm/templates")
 loader.inflector.inflect(
-  "cli" => "CLI"
+  "cli" => "CLI",
+  "openai_executor" => "OpenAIExecutor"
 )
 loader.setup
 

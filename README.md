@@ -242,6 +242,18 @@ Each instance can have:
 - **prompt**: Custom system prompt to append to the instance
 - **vibe**: Enable vibe mode (--dangerously-skip-permissions) for this instance (default: false)
 - **worktree**: Configure Git worktree usage for this instance (true/false/string)
+- **provider**: AI provider to use - "claude" (default) or "openai"
+
+#### OpenAI Provider Configuration
+
+When using `provider: openai`, the following additional fields are available:
+
+- **temperature**: Temperature for OpenAI models (default: 0.3)
+- **api_version**: API version to use - "chat_completion" (default) or "responses"
+- **openai_token_env**: Environment variable name for OpenAI API key (default: "OPENAI_API_KEY")
+- **base_url**: Custom base URL for OpenAI API (optional)
+
+Note: OpenAI instances default to `vibe: true` and use MCP for tool access.
 
 ```yaml
 instance_name:
@@ -268,6 +280,16 @@ instance_name:
       args: ["arg1", "arg2"]
       env:
         VAR1: value1
+
+# OpenAI instance example
+openai_instance:
+  description: "OpenAI-powered creative assistant"
+  provider: openai
+  model: gpt-4o
+  temperature: 0.7
+  api_version: chat_completion
+  openai_token_env: OPENAI_API_KEY
+  prompt: "You are a creative assistant specializing in content generation"
 ```
 
 ### MCP Server Types
@@ -458,6 +480,43 @@ When using multiple directories:
 - The first directory in the array is the primary working directory
 - Additional directories are accessible via the `--add-dir` flag in Claude
 - All directories must exist or the configuration will fail validation
+
+#### Mixed AI Provider Team
+
+Combine Claude and OpenAI instances in a single swarm:
+
+```yaml
+version: 1
+swarm:
+  name: "Mixed AI Development Team"
+  main: lead_developer
+  instances:
+    lead_developer:
+      description: "Claude lead developer coordinating the team"
+      directory: .
+      model: opus
+      connections: [creative_assistant, backend_dev]
+      prompt: "You are the lead developer coordinating a mixed AI team"
+      allowed_tools: [Read, Edit, Bash, Write]
+      
+    creative_assistant:
+      description: "OpenAI-powered assistant for creative and UI/UX tasks"
+      provider: openai
+      model: gpt-4o
+      temperature: 0.7
+      directory: ./frontend
+      prompt: "You are a creative frontend developer specializing in UI/UX design"
+      # OpenAI instances default to vibe: true
+      
+    backend_dev:
+      description: "Claude backend developer for system architecture"
+      directory: ./backend
+      model: sonnet
+      prompt: "You specialize in backend development and system architecture"
+      allowed_tools: [Read, Edit, Write, Bash]
+```
+
+Note: OpenAI instances require the API key to be set in the environment variable (default: `OPENAI_API_KEY`).
 
 #### Before Commands
 

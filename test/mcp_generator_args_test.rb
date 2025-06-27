@@ -92,4 +92,97 @@ class McpGeneratorArgsTest < Minitest::Test
       end
     end
   end
+
+  def test_mcp_config_with_openai_provider_args
+    openai_config = <<~YAML
+      version: 1
+      swarm:
+        name: "OpenAI Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+            directory: .
+            model: opus
+            connections: [ai_helper]
+          ai_helper:
+            description: "AI helper using OpenAI"
+            directory: .
+            provider: openai
+            model: gpt-4o
+            temperature: 0.7
+            api_version: responses
+            openai_token_env: CUSTOM_OPENAI_KEY
+            base_url: https://custom.openai.com/v1
+    YAML
+
+    Dir.mktmpdir do |tmpdir|
+      Dir.chdir(tmpdir) do
+        # Write the config file
+        File.write("claude-swarm.yml", openai_config)
+
+        # Create the configuration and generator
+        config = ClaudeSwarm::Configuration.new("claude-swarm.yml")
+        generator = ClaudeSwarm::McpGenerator.new(config)
+
+        # Generate MCP configs
+        generator.generate_all
+
+        # Read the lead instance MCP config
+        lead_config = read_mcp_config("lead")
+
+        # Check that ai_helper connection includes OpenAI provider args
+        ai_helper_mcp = lead_config["mcpServers"]["ai_helper"]
+        args = ai_helper_mcp["args"]
+
+        # Should include provider and OpenAI-specific args
+        assert_includes args, "--provider"
+        assert_includes args, "openai"
+        assert_includes args, "--temperature"
+        assert_includes args, "0.7"
+        assert_includes args, "--api-version"
+        assert_includes args, "responses"
+        assert_includes args, "--openai-token-env"
+        assert_includes args, "CUSTOM_OPENAI_KEY"
+        assert_includes args, "--base-url"
+        assert_includes args, "https://custom.openai.com/v1"
+
+        # Should have vibe flag for OpenAI instances
+        assert_includes args, "--vibe"
+      end
+    end
+  end
+
+  def test_mcp_config_without_provider_no_openai_args
+    Dir.mktmpdir do |tmpdir|
+      Dir.chdir(tmpdir) do
+        # Write the config file (default Claude provider)
+        File.write("claude-swarm.yml", @config_content)
+
+        # Create required directories
+        Dir.mkdir("backend")
+
+        # Create the configuration and generator
+        config = ClaudeSwarm::Configuration.new("claude-swarm.yml")
+        generator = ClaudeSwarm::McpGenerator.new(config)
+
+        # Generate MCP configs
+        generator.generate_all
+
+        # Read the lead instance MCP config
+        lead_config = read_mcp_config("lead")
+
+        # Check that backend connection doesn't have OpenAI args
+        backend_mcp = lead_config["mcpServers"]["backend"]
+        args = backend_mcp["args"]
+
+        # Should NOT include OpenAI-specific args
+        refute_includes args, "--provider"
+        refute_includes args, "--temperature"
+        refute_includes args, "--api-version"
+        refute_includes args, "--openai-token-env"
+        refute_includes args, "--base-url"
+      end
+    end
+  end
 end
