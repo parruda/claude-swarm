@@ -17,6 +17,7 @@ Gem::Specification.new do |spec|
     agents for frontend, backend, testing, DevOps, or research tasks.
   DESC
   spec.homepage = "https://github.com/parruda/claude-swarm"
+  spec.license = "MIT"
   spec.required_ruby_version = ">= 3.2.0"
 
   spec.metadata["homepage_uri"] = spec.homepage
