@@ -34,7 +34,7 @@ swarm:
 
     codex_cli_expert:
       description: "Codex CLI expert providing detailed information about Codex CLI architecture and integration points"
-      directory: /Users/paulo/src/github.com/openai/codex
+      directory: ~/src/github.com/openai/codex
       model: opus
       vibe: true
       prompt: |
