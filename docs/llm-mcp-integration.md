@@ -25,6 +25,7 @@ instances:
 - `base_url`: Optional custom API endpoint for the provider
 - `model`: The model name (provider-specific)
 - `temperature`: Optional temperature parameter for controlling randomness (0.0-1.0)
+- `reasoning_effort`: Optional reasoning effort level for OpenAI o3/o4 models (low, medium, high)
 
 ## Temperature Settings
 
@@ -45,6 +46,36 @@ instances:
     provider: openai
     model: gpt-4
     temperature: 0.9  # Creative, varied responses
+```
+
+## Reasoning Effort (OpenAI o3/o4 Models)
+
+The `reasoning_effort` parameter controls the computational effort for OpenAI's o3 and o4 series models:
+- **low**: Faster responses with less computational effort
+- **medium**: Balanced performance and quality
+- **high**: Maximum quality with more computational effort
+
+This parameter is only available for the following OpenAI models:
+- `o3`
+- `o3-pro`
+- `o4-mini`
+- `o4-mini-high`
+
+Example configuration:
+```yaml
+instances:
+  reasoning_assistant:
+    provider: openai
+    model: o3
+    reasoning_effort: medium
+    description: "Assistant using OpenAI o3 with medium reasoning effort"
+    
+  high_quality_analyst:
+    provider: openai
+    model: o3-pro
+    reasoning_effort: high
+    temperature: 0.3
+    description: "High-quality analysis with maximum reasoning effort"
 ```
 
 ## How It Works
