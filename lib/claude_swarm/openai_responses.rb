@@ -8,7 +8,7 @@ module ClaudeSwarm
   class OpenAIResponses
     MAX_TURNS_WITH_TOOLS = 100_000 # virtually infinite
 
-    def initialize(openai_client:, mcp_client:, available_tools:, logger:, instance_name:, model:, temperature: 0.3)
+    def initialize(openai_client:, mcp_client:, available_tools:, logger:, instance_name:, model:, temperature: 0.3, reasoning_effort: nil)
       @openai_client = openai_client
       @mcp_client = mcp_client
       @available_tools = available_tools
@@ -16,6 +16,7 @@ module ClaudeSwarm
       @instance_name = instance_name
       @model = model
       @temperature = temperature
+      @reasoning_effort = reasoning_effort
       @system_prompt = nil
     end
 
@@ -47,6 +48,9 @@ module ClaudeSwarm
       parameters = {
         model: @model,
       }
+
+      # Add reasoning_effort if specified (for o3 and o3-pro models)
+      parameters[:reasoning_effort] = @reasoning_effort if @reasoning_effort
 
       # On first call, use string input (can include system prompt)
       # On subsequent calls with function results, use array input

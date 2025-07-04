@@ -17,7 +17,7 @@ module ClaudeSwarm
       instance_name: nil, instance_id: nil, calling_instance: nil, calling_instance_id: nil,
       claude_session_id: nil, additional_directories: [],
       temperature: 0.3, api_version: "chat_completion", openai_token_env: "OPENAI_API_KEY",
-      base_url: nil)
+      base_url: nil, reasoning_effort: nil)
       @working_directory = working_directory
       @additional_directories = additional_directories
       @model = model
@@ -32,6 +32,7 @@ module ClaudeSwarm
       @temperature = temperature
       @api_version = api_version
       @base_url = base_url
+      @reasoning_effort = reasoning_effort
 
       # Conversation state for maintaining context
       @conversation_messages = []
@@ -55,6 +56,7 @@ module ClaudeSwarm
         instance_name: @instance_name,
         model: @model,
         temperature: @temperature,
+        reasoning_effort: @reasoning_effort,
       )
 
       @responses_handler = OpenAIResponses.new(
@@ -65,6 +67,7 @@ module ClaudeSwarm
         instance_name: @instance_name,
         model: @model,
         temperature: @temperature,
+        reasoning_effort: @reasoning_effort,
       )
     end
 

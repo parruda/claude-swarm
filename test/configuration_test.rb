@@ -1309,4 +1309,220 @@ class ConfigurationTest < Minitest::Test
 
     assert_nil(assistant[:provider])
   end
+
+  # reasoning_effort tests
+
+  def test_reasoning_effort_with_o3_model
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: ai_assistant
+        instances:
+          ai_assistant:
+            description: "OpenAI o3 assistant"
+            provider: openai
+            model: o3
+            reasoning_effort: medium
+    YAML
+
+    # Set environment variable for test
+    ENV["OPENAI_API_KEY"] = "sk-test-key"
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    assistant = config.main_instance_config
+
+    assert_equal("openai", assistant[:provider])
+    assert_equal("o3", assistant[:model])
+    assert_equal("medium", assistant[:reasoning_effort])
+  ensure
+    ENV.delete("OPENAI_API_KEY")
+  end
+
+  def test_reasoning_effort_with_o3_pro_model
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: ai_assistant
+        instances:
+          ai_assistant:
+            description: "OpenAI o3-pro assistant"
+            provider: openai
+            model: o3-pro
+            reasoning_effort: high
+    YAML
+
+    # Set environment variable for test
+    ENV["OPENAI_API_KEY"] = "sk-test-key"
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    assistant = config.main_instance_config
+
+    assert_equal("openai", assistant[:provider])
+    assert_equal("o3-pro", assistant[:model])
+    assert_equal("high", assistant[:reasoning_effort])
+  ensure
+    ENV.delete("OPENAI_API_KEY")
+  end
+
+  def test_reasoning_effort_all_valid_values
+    ["low", "medium", "high"].each do |effort|
+      write_config(<<~YAML)
+        version: 1
+        swarm:
+          name: "Test Swarm"
+          main: ai_assistant
+          instances:
+            ai_assistant:
+              description: "OpenAI o3 assistant"
+              provider: openai
+              model: o3
+              reasoning_effort: #{effort}
+      YAML
+
+      # Set environment variable for test
+      ENV["OPENAI_API_KEY"] = "sk-test-key"
+
+      config = ClaudeSwarm::Configuration.new(@config_path)
+      assistant = config.main_instance_config
+
+      assert_equal(effort, assistant[:reasoning_effort])
+    ensure
+      ENV.delete("OPENAI_API_KEY")
+    end
+  end
+
+  def test_reasoning_effort_with_invalid_value
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: ai_assistant
+        instances:
+          ai_assistant:
+            description: "OpenAI o3 assistant"
+            provider: openai
+            model: o3
+            reasoning_effort: extreme
+    YAML
+
+    # Set environment variable for test
+    ENV["OPENAI_API_KEY"] = "sk-test-key"
+
+    error = assert_raises(ClaudeSwarm::Error) do
+      ClaudeSwarm::Configuration.new(@config_path)
+    end
+    assert_equal("Instance 'ai_assistant' has invalid reasoning_effort 'extreme'. Must be 'low', 'medium', or 'high'", error.message)
+  ensure
+    ENV.delete("OPENAI_API_KEY")
+  end
+
+  def test_reasoning_effort_with_non_o3_model
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: ai_assistant
+        instances:
+          ai_assistant:
+            description: "OpenAI gpt-4 assistant"
+            provider: openai
+            model: gpt-4
+            reasoning_effort: medium
+    YAML
+
+    # Set environment variable for test
+    ENV["OPENAI_API_KEY"] = "sk-test-key"
+
+    error = assert_raises(ClaudeSwarm::Error) do
+      ClaudeSwarm::Configuration.new(@config_path)
+    end
+    assert_equal("Instance 'ai_assistant' has reasoning_effort but model 'gpt-4' is not 'o3' or 'o3-pro'", error.message)
+  ensure
+    ENV.delete("OPENAI_API_KEY")
+  end
+
+  def test_reasoning_effort_without_openai_provider
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: ai_assistant
+        instances:
+          ai_assistant:
+            description: "Claude assistant"
+            model: opus
+            reasoning_effort: medium
+    YAML
+
+    error = assert_raises(ClaudeSwarm::Error) do
+      ClaudeSwarm::Configuration.new(@config_path)
+    end
+    assert_equal("Instance 'ai_assistant' has OpenAI-specific fields reasoning_effort but provider is not 'openai'", error.message)
+  end
+
+  def test_reasoning_effort_with_claude_provider
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: ai_assistant
+        instances:
+          ai_assistant:
+            description: "Claude assistant"
+            provider: claude
+            model: opus
+            reasoning_effort: medium
+    YAML
+
+    error = assert_raises(ClaudeSwarm::Error) do
+      ClaudeSwarm::Configuration.new(@config_path)
+    end
+    assert_equal("Instance 'ai_assistant' has OpenAI-specific fields reasoning_effort but provider is not 'openai'", error.message)
+  end
+
+  def test_reasoning_effort_is_optional_for_o3_models
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: ai_assistant
+        instances:
+          ai_assistant:
+            description: "OpenAI o3 assistant"
+            provider: openai
+            model: o3
+    YAML
+
+    # Set environment variable for test
+    ENV["OPENAI_API_KEY"] = "sk-test-key"
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    assistant = config.main_instance_config
+
+    assert_equal("openai", assistant[:provider])
+    assert_equal("o3", assistant[:model])
+    assert_nil(assistant[:reasoning_effort])
+  ensure
+    ENV.delete("OPENAI_API_KEY")
+  end
+
+  def test_reasoning_effort_included_in_openai_specific_fields_check
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: assistant
+        instances:
+          assistant:
+            description: "Claude assistant"
+            reasoning_effort: medium
+    YAML
+
+    error = assert_raises(ClaudeSwarm::Error) do
+      ClaudeSwarm::Configuration.new(@config_path)
+    end
+    assert_equal("Instance 'assistant' has OpenAI-specific fields reasoning_effort but provider is not 'openai'", error.message)
+  end
 end
