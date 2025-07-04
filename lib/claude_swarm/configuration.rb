@@ -93,7 +93,7 @@ module ClaudeSwarm
 
       # Validate OpenAI-specific fields only when provider is "openai"
       if provider != "openai"
-        openai_fields = ["temperature", "api_version", "openai_token_env", "base_url"]
+        openai_fields = ["temperature", "api_version", "openai_token_env", "base_url", "reasoning_effort"]
         invalid_fields = openai_fields & config.keys
         unless invalid_fields.empty?
           raise Error, "Instance '#{name}' has OpenAI-specific fields #{invalid_fields.join(", ")} but provider is not 'openai'"
@@ -103,6 +103,25 @@ module ClaudeSwarm
       # Validate api_version if specified
       if config["api_version"] && !["chat_completion", "responses"].include?(config["api_version"])
         raise Error, "Instance '#{name}' has invalid api_version '#{config["api_version"]}'. Must be 'chat_completion' or 'responses'"
+      end
+
+      # Validate reasoning_effort for OpenAI provider
+      if config["reasoning_effort"]
+        # Ensure it's only used with OpenAI provider
+        if provider != "openai"
+          raise Error, "Instance '#{name}' has reasoning_effort but provider is not 'openai'"
+        end
+
+        # Validate the value
+        unless ["low", "medium", "high"].include?(config["reasoning_effort"])
+          raise Error, "Instance '#{name}' has invalid reasoning_effort '#{config["reasoning_effort"]}'. Must be 'low', 'medium', or 'high'"
+        end
+
+        # Validate it's only used with o3 or o3-pro models
+        model = config["model"]
+        unless model && ["o3", "o3-pro"].include?(model)
+          raise Error, "Instance '#{name}' has reasoning_effort but model '#{model}' is not 'o3' or 'o3-pro'"
+        end
       end
 
       # Validate tool fields are arrays if present
@@ -139,6 +158,7 @@ module ClaudeSwarm
         instance_config[:api_version] = config["api_version"] || "chat_completion"
         instance_config[:openai_token_env] = config["openai_token_env"] || "OPENAI_API_KEY"
         instance_config[:base_url] = config["base_url"]
+        instance_config[:reasoning_effort] = config["reasoning_effort"] if config["reasoning_effort"]
         # Default vibe to true for OpenAI instances if not specified
         instance_config[:vibe] = true if config["vibe"].nil?
       elsif config["vibe"].nil?
