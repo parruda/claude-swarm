@@ -105,13 +105,13 @@ class CLITest < Minitest::Test
       #{"      "}
     YAML
 
-    @cli.options = { config: "custom.yml" }
+    @cli.options = {}
 
     orchestrator_mock = Minitest::Mock.new
     orchestrator_mock.expect(:start, nil)
 
     ClaudeSwarm::Orchestrator.stub(:new, orchestrator_mock) do
-      capture_cli_output { @cli.start }
+      capture_cli_output { @cli.start("custom.yml") }
     end
 
     orchestrator_mock.verify
@@ -428,13 +428,13 @@ class CLITest < Minitest::Test
       #{"      "}
     YAML
 
-    @cli.options = { config: "valid.yml", verbose: false }
+    @cli.options = { verbose: false }
 
     ClaudeSwarm::Configuration.stub(:new, lambda { |_, _|
       raise StandardError, "Unexpected test error"
     }) do
       out, = capture_cli_output do
-        assert_raises(SystemExit) { @cli.start }
+        assert_raises(SystemExit) { @cli.start("valid.yml") }
       end
 
       assert_match(/Unexpected error: Unexpected test error/, out)
@@ -454,13 +454,13 @@ class CLITest < Minitest::Test
       #{"      "}
     YAML
 
-    @cli.options = { config: "valid.yml", verbose: true }
+    @cli.options = { verbose: true }
 
     ClaudeSwarm::Configuration.stub(:new, lambda { |_, _|
       raise StandardError, "Unexpected test error"
     }) do
       out, = capture_cli_output do
-        assert_raises(SystemExit) { @cli.start }
+        assert_raises(SystemExit) { @cli.start("valid.yml") }
       end
 
       assert_match(/Unexpected error: Unexpected test error/, out)
