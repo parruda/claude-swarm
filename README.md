@@ -225,6 +225,37 @@ swarm:
     # Instance definitions...
 ```
 
+#### Environment Variable Interpolation
+
+Claude Swarm supports environment variable interpolation in all configuration values using the `${ENV_VAR_NAME}` syntax:
+
+```yaml
+version: 1
+swarm:
+  name: "${APP_NAME} Development Team"
+  main: lead
+  instances:
+    lead:
+      description: "Lead developer for ${APP_NAME}"
+      directory: "${PROJECT_ROOT}"
+      model: "${CLAUDE_MODEL}"
+      prompt: "You are developing ${APP_NAME} version ${APP_VERSION}"
+      allowed_tools: ["${TOOL_1}", "${TOOL_2}", "Bash"]
+      mcps:
+        - name: github
+          type: stdio
+          command: "${MCP_GITHUB_PATH}"
+          env:
+            GITHUB_TOKEN: "${GITHUB_TOKEN}"
+```
+
+Features:
+- Variables are interpolated recursively in strings, arrays, and nested structures
+- Multiple variables can be used in the same string
+- Partial string interpolation is supported (e.g., `"prefix-${VAR}-suffix"`)
+- If a referenced environment variable is not set, Claude Swarm will exit with a clear error message
+- Non-matching patterns like `$VAR` or `{VAR}` are preserved as-is
+
 #### Instance Configuration
 
 Each instance must have:
