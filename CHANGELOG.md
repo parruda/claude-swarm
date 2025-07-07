@@ -1,6 +1,13 @@
 ## [Unreleased]
 
 ### Changed
+- **Session restoration command**: Session restoration now uses a dedicated `restore` command instead of the `--session-id` flag
+  - Previous: `claude-swarm start --session-id SESSION_ID`
+  - New: `claude-swarm restore SESSION_ID`
+  - More intuitive command structure following standard CLI patterns
+- **Removed redundant -c flag**: The `-c/--config` option has been removed from the `start` command
+  - Config file can still be specified as a positional argument: `claude-swarm start my-config.yml`
+  - Default remains `claude-swarm.yml` when no file is specified
 - **Session ID format**: Session IDs now use UUIDs instead of timestamp format
   - Previous format: `YYYYMMDD_HHMMSS` (e.g., `20250707_181341`)
   - New format: UUID v4 (e.g., `550e8400-e29b-41d4-a716-446655440000`)

@@ -690,8 +690,8 @@ swarm:
 claude-swarm
 
 # Specify a different configuration file
-claude-swarm --config my-swarm.yml
-claude-swarm -c team-config.yml
+claude-swarm my-swarm.yml
+claude-swarm team-config.yml
 
 # Run with --dangerously-skip-permissions for all instances
 claude-swarm --vibe
@@ -826,11 +826,7 @@ Output shows:
 Resume a previous session with all instances restored to their Claude session states:
 
 ```bash
-# Resume by session ID
-claude-swarm --session-id 550e8400-e29b-41d4-a716-446655440000
-
-# Resume by full path
-claude-swarm --session-id ~/.claude-swarm/sessions/my-project/550e8400-e29b-41d4-a716-446655440000
+claude-swarm restore 550e8400-e29b-41d4-a716-446655440000
 ```
 
 This will:

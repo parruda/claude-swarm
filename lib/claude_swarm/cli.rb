@@ -10,11 +10,6 @@ module ClaudeSwarm
     end
 
     desc "start [CONFIG_FILE]", "Start a Claude Swarm from configuration file"
-    method_option :config,
-      aliases: "-c",
-      type: :string,
-      default: "claude-swarm.yml",
-      desc: "Path to configuration file"
     method_option :vibe,
       type: :boolean,
       default: false,
@@ -31,22 +26,13 @@ module ClaudeSwarm
       type: :boolean,
       default: false,
       desc: "Enable debug output"
-    method_option :session_id,
-      type: :string,
-      desc: "Resume a previous session by ID or path"
     method_option :worktree,
       type: :string,
       aliases: "-w",
       desc: "Create instances in Git worktrees with the given name (auto-generated if true)",
       banner: "[NAME]"
     def start(config_file = nil)
-      # Handle session restoration
-      if options[:session_id]
-        restore_session(options[:session_id])
-        return
-      end
-
-      config_path = config_file || options[:config]
+      config_path = config_file || "claude-swarm.yml"
       unless File.exist?(config_path)
         error("Configuration file not found: #{config_path}")
         exit(1)
@@ -371,6 +357,11 @@ module ClaudeSwarm
       end
     end
 
+    desc "restore SESSION_ID", "Restore a previous session by ID"
+    def restore(session_id)
+      restore_session(session_id)
+    end
+
     desc "watch SESSION_ID", "Watch session logs"
     method_option :lines,
       aliases: "-n",
@@ -476,7 +467,7 @@ module ClaudeSwarm
       end
 
       say("\nTo resume a session, run:", :bold)
-      say("  claude-swarm --session-id <session-id>", :cyan)
+      say("  claude-swarm restore <session-id>", :cyan)
     end
 
     default_task :start
@@ -561,9 +552,6 @@ module ClaudeSwarm
 
     def find_session_path(session_id)
       sessions_dir = File.expand_path("~/.claude-swarm/sessions")
-
-      # Check if it's a full path
-      return session_id if File.exist?(File.join(session_id, "config.yml"))
 
       # Search for the session ID in all projects
       Dir.glob("#{sessions_dir}/*/#{session_id}").each do |path|
