@@ -37,6 +37,7 @@ module ClaudeSwarm
           api_version: instance_config[:api_version],
           openai_token_env: instance_config[:openai_token_env],
           base_url: instance_config[:base_url],
+          reasoning_effort: instance_config[:reasoning_effort],
         )
       else
         # Default Claude behavior (existing code)

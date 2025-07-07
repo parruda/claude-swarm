@@ -152,6 +152,7 @@ module ClaudeSwarm
 
         # Add OpenAI-specific parameters
         if instance[:provider] == "openai"
+          args.push("--reasoning-effort", instance[:reasoning_effort]) if instance[:reasoning_effort]
           args.push("--temperature", instance[:temperature].to_s) if instance[:temperature]
           args.push("--api-version", instance[:api_version]) if instance[:api_version]
           args.push("--openai-token-env", instance[:openai_token_env]) if instance[:openai_token_env]

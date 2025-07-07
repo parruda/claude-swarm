@@ -162,7 +162,33 @@ module ClaudeSwarm
     method_option :base_url,
       type: :string,
       desc: "Base URL for OpenAI API"
+    method_option :reasoning_effort,
+      type: :string,
+      desc: "Reasoning effort for OpenAI models"
     def mcp_serve
+      # Validate reasoning_effort if provided
+      if options[:reasoning_effort]
+        # Only validate if provider is openai (or not specified, since it could be set elsewhere)
+        if options[:provider] && options[:provider] != "openai"
+          error("reasoning_effort is only supported for OpenAI models")
+          exit(1)
+        end
+
+        # Validate it's used with an o-series model
+        model = options[:model]
+        unless model&.match?(ClaudeSwarm::Configuration::O_SERIES_MODEL_PATTERN)
+          error("reasoning_effort is only supported for o-series models (o1, o1 Preview, o1-mini, o1-pro, o3, o3-mini, o3-pro, o3-deep-research, o4-mini, o4-mini-deep-research, etc.)")
+          error("Current model: #{model}")
+          exit(1)
+        end
+
+        # Validate the value
+        unless ClaudeSwarm::Configuration::VALID_REASONING_EFFORTS.include?(options[:reasoning_effort])
+          error("reasoning_effort must be 'low', 'medium', or 'high'")
+          exit(1)
+        end
+      end
+
       instance_config = {
         name: options[:name],
         directory: options[:directory],
@@ -182,6 +208,7 @@ module ClaudeSwarm
         api_version: options[:api_version],
         openai_token_env: options[:openai_token_env],
         base_url: options[:base_url],
+        reasoning_effort: options[:reasoning_effort],
       }
 
       begin

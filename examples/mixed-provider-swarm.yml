@@ -18,6 +18,7 @@ swarm:
       model: o3-pro
       temperature: 1
       api_version: responses
+      reasoning_effort: high  # Optional: low, medium, or high
       prompt: "You are a creative frontend developer using React and modern web technologies"
       # OpenAI instances default to vibe: true
       
