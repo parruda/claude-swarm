@@ -74,8 +74,8 @@ class OrchestratorWorktreeIntegrationTest < Minitest::Test
         capture_io { orchestrator.start }
       end
 
-      # Verify worktree name was auto-generated with session ID
-      assert_match(/^worktree-\d{8}_\d{6}$/, worktree_name)
+      # Verify worktree name was auto-generated with session ID (UUID format)
+      assert_match(/^worktree-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/, worktree_name)
 
       # Worktree name should have been captured
       assert(worktree_name, "Worktree name should be captured")
