@@ -421,8 +421,12 @@ class McpGeneratorTest < Minitest::Test
       version: 1
       swarm:
         name: "Test Swarm"
-        main: openai_assistant
+        main: lead
         instances:
+          lead:
+            description: "Claude lead"
+            directory: .
+            connections: [openai_assistant]
           openai_assistant:
             description: "OpenAI instance"
             directory: .

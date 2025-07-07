@@ -951,8 +951,11 @@ class ConfigurationTest < Minitest::Test
       version: 1
       swarm:
         name: "Test Swarm"
-        main: ai_assistant
+        main: lead
         instances:
+          lead:
+            description: "Claude lead"
+            connections: [ai_assistant]
           ai_assistant:
             description: "OpenAI-powered assistant"
             provider: openai
@@ -963,7 +966,7 @@ class ConfigurationTest < Minitest::Test
     ENV["OPENAI_API_KEY"] = "sk-test-key"
 
     config = ClaudeSwarm::Configuration.new(@config_path)
-    assistant = config.main_instance_config
+    assistant = config.instances["ai_assistant"]
 
     assert_equal("openai", assistant[:provider])
     assert_in_delta(0.3, assistant[:temperature])
@@ -980,8 +983,11 @@ class ConfigurationTest < Minitest::Test
       version: 1
       swarm:
         name: "Test Swarm"
-        main: ai_assistant
+        main: lead
         instances:
+          lead:
+            description: "Claude lead"
+            connections: [ai_assistant]
           ai_assistant:
             description: "OpenAI-powered assistant"
             provider: openai
@@ -997,7 +1003,7 @@ class ConfigurationTest < Minitest::Test
     ENV["CUSTOM_OPENAI_KEY"] = "sk-custom-test-key"
 
     config = ClaudeSwarm::Configuration.new(@config_path)
-    assistant = config.main_instance_config
+    assistant = config.instances["ai_assistant"]
 
     assert_equal("openai", assistant[:provider])
     assert_in_delta(0.7, assistant[:temperature])
@@ -1152,8 +1158,11 @@ class ConfigurationTest < Minitest::Test
       version: 1
       swarm:
         name: "Test Swarm"
-        main: ai_assistant
+        main: lead
         instances:
+          lead:
+            description: "Claude lead"
+            connections: [ai_assistant]
           ai_assistant:
             description: "OpenAI-powered assistant"
             provider: openai
@@ -1174,8 +1183,11 @@ class ConfigurationTest < Minitest::Test
       version: 1
       swarm:
         name: "Test Swarm"
-        main: ai_assistant
+        main: lead
         instances:
+          lead:
+            description: "Claude lead"
+            connections: [ai_assistant]
           ai_assistant:
             description: "OpenAI-powered assistant"
             provider: openai
@@ -1193,13 +1205,104 @@ class ConfigurationTest < Minitest::Test
     ENV.delete("OPENAI_API_KEY")
   end
 
+  def test_main_instance_must_be_claude
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Main instance with OpenAI provider"
+            provider: openai
+            model: gpt-4o
+    YAML
+
+    # Set the required environment variable
+    ENV["OPENAI_API_KEY"] = "test-key"
+
+    error = assert_raises(ClaudeSwarm::Error) do
+      ClaudeSwarm::Configuration.new(@config_path)
+    end
+    assert_equal("Main instance 'lead' cannot have a provider setting. Main instances must use Claude.", error.message)
+  ensure
+    ENV.delete("OPENAI_API_KEY")
+  end
+
+  def test_main_instance_with_explicit_claude_provider
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Main instance with explicit Claude provider"
+            provider: claude
+    YAML
+
+    # Should raise an error because main instance can't have provider
+    error = assert_raises(ClaudeSwarm::Error) do
+      ClaudeSwarm::Configuration.new(@config_path)
+    end
+    assert_equal("Main instance 'lead' cannot have a provider setting. Main instances must use Claude.", error.message)
+  end
+
+  def test_main_instance_without_provider_defaults_to_claude
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Main instance without provider"
+    YAML
+
+    # Should not raise an error
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_nil(config.main_instance_config[:provider])
+  end
+
+  def test_non_main_instance_can_use_openai_provider
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Main instance with Claude"
+            connections: [assistant]
+          assistant:
+            description: "Assistant with OpenAI provider"
+            provider: openai
+            model: gpt-4o
+    YAML
+
+    # Set the required environment variable
+    ENV["OPENAI_API_KEY"] = "test-key"
+
+    # Should not raise an error
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_nil(config.main_instance_config[:provider])
+    assert_equal("openai", config.instances["assistant"][:provider])
+  ensure
+    ENV.delete("OPENAI_API_KEY")
+  end
+
   def test_openai_instance_with_whitespace_api_key_env_var
     write_config(<<~YAML)
       version: 1
       swarm:
         name: "Test Swarm"
-        main: ai_assistant
+        main: lead
         instances:
+          lead:
+            description: "Claude lead"
+            connections: [ai_assistant]
           ai_assistant:
             description: "OpenAI-powered assistant"
             provider: openai
@@ -1222,8 +1325,10 @@ class ConfigurationTest < Minitest::Test
       version: 1
       swarm:
         name: "Test Swarm"
-        main: ai_assistant
+        main: lead
         instances:
+          lead:
+            description: "Claude lead"
           ai_assistant:
             description: "OpenAI-powered assistant"
             provider: openai
@@ -1245,8 +1350,11 @@ class ConfigurationTest < Minitest::Test
       version: 1
       swarm:
         name: "Test Swarm"
-        main: ai_assistant
+        main: lead
         instances:
+          lead:
+            description: "Claude lead"
+            connections: [ai_assistant]
           ai_assistant:
             description: "OpenAI-powered assistant"
             provider: openai
@@ -1258,7 +1366,7 @@ class ConfigurationTest < Minitest::Test
 
     # Should not raise any errors
     config = ClaudeSwarm::Configuration.new(@config_path)
-    assistant = config.main_instance_config
+    assistant = config.instances["ai_assistant"]
 
     assert_equal("openai", assistant[:provider])
   ensure
@@ -1611,8 +1719,11 @@ class ConfigurationTest < Minitest::Test
       version: 1
       swarm:
         name: "Test Swarm"
-        main: assistant
+        main: lead
         instances:
+          lead:
+            description: "Claude lead"
+            connections: [assistant]
           assistant:
             description: "OpenAI assistant"
             provider: openai
@@ -1622,7 +1733,7 @@ class ConfigurationTest < Minitest::Test
     YAML
 
     config = ClaudeSwarm::Configuration.new(@config_path)
-    assistant = config.main_instance_config
+    assistant = config.instances["assistant"]
 
     assert_equal("CUSTOM_API_KEY", assistant[:openai_token_env])
     assert_equal("https://custom.openai.com/v1", assistant[:base_url])

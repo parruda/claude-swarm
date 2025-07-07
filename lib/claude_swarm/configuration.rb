@@ -97,6 +97,7 @@ module ClaudeSwarm
       @swarm["instances"].each do |name, config|
         @instances[name] = parse_instance(name, config)
       end
+      validate_main_instance_provider
       validate_connections
       detect_circular_dependencies
       validate_openai_env_vars
@@ -274,6 +275,13 @@ module ClaudeSwarm
         unless ENV.key?(env_var) && !ENV[env_var].to_s.strip.empty?
           raise Error, "Environment variable '#{env_var}' is not set. OpenAI provider instances require an API key."
         end
+      end
+    end
+
+    def validate_main_instance_provider
+      main_config = @instances[@main_instance]
+      if main_config[:provider]
+        raise Error, "Main instance '#{@main_instance}' cannot have a provider setting. Main instances must use Claude."
       end
     end
   end
