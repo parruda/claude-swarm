@@ -281,7 +281,7 @@ module ClaudeSwarm
     def validate_main_instance_provider
       main_config = @instances[@main_instance]
       if main_config[:provider]
-        raise Error, "Main instance '#{@main_instance}' cannot have a provider setting. Main instances must use Claude."
+        raise Error, "Main instance '#{@main_instance}' cannot have a provider setting"
       end
     end
   end

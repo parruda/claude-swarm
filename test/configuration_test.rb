@@ -1224,7 +1224,7 @@ class ConfigurationTest < Minitest::Test
     error = assert_raises(ClaudeSwarm::Error) do
       ClaudeSwarm::Configuration.new(@config_path)
     end
-    assert_equal("Main instance 'lead' cannot have a provider setting. Main instances must use Claude.", error.message)
+    assert_equal("Main instance 'lead' cannot have a provider setting", error.message)
   ensure
     ENV.delete("OPENAI_API_KEY")
   end
@@ -1245,7 +1245,7 @@ class ConfigurationTest < Minitest::Test
     error = assert_raises(ClaudeSwarm::Error) do
       ClaudeSwarm::Configuration.new(@config_path)
     end
-    assert_equal("Main instance 'lead' cannot have a provider setting. Main instances must use Claude.", error.message)
+    assert_equal("Main instance 'lead' cannot have a provider setting", error.message)
   end
 
   def test_main_instance_without_provider_defaults_to_claude
