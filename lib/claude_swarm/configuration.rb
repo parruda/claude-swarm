@@ -14,10 +14,11 @@ module ClaudeSwarm
 
     attr_reader :config, :config_path, :swarm, :swarm_name, :main_instance, :instances
 
-    def initialize(config_path, base_dir: nil)
+    def initialize(config_path, base_dir: nil, options: {})
       @config_path = Pathname.new(config_path).expand_path
       @config_dir = @config_path.dirname
       @base_dir = base_dir || @config_dir
+      @options = options
       load_and_validate
     end
 
@@ -104,6 +105,7 @@ module ClaudeSwarm
       @swarm["instances"].each do |name, config|
         @instances[name] = parse_instance(name, config)
       end
+      validate_main_instance_provider
       validate_connections
       detect_circular_dependencies
       validate_openai_env_vars
@@ -301,6 +303,16 @@ module ClaudeSwarm
         unless ENV.key?(env_var) && !ENV[env_var].to_s.strip.empty?
           raise Error, "Environment variable '#{env_var}' is not set. OpenAI provider instances require an API key."
         end
+      end
+    end
+
+    def validate_main_instance_provider
+      # Only validate in interactive mode (when no prompt is provided)
+      return if @options[:prompt]
+
+      main_config = @instances[@main_instance]
+      if main_config[:provider]
+        raise Error, "Main instance '#{@main_instance}' cannot have a provider setting in interactive mode"
       end
     end
   end
