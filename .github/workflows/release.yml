@@ -38,3 +38,15 @@ jobs:
         gem push *.gem
       env:
         GEM_HOST_API_KEY: ${{secrets.RUBYGEMS_AUTH_TOKEN}}
+    
+    - name: Build wrapper gem
+      run: |
+        cd claude-swarm-wrapper
+        gem build *.gemspec
+    
+    - name: Push wrapper gem to RubyGems
+      run: |
+        cd claude-swarm-wrapper
+        gem push *.gem
+      env:
+        GEM_HOST_API_KEY: ${{secrets.RUBYGEMS_AUTH_TOKEN}}
