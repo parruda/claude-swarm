@@ -34,6 +34,7 @@ module ClaudeSwarm
 
     def load_and_validate
       @config = YAML.load_file(@config_path)
+      interpolate_env_vars!(@config)
       validate_version
       validate_swarm
       parse_swarm
@@ -42,6 +43,30 @@ module ClaudeSwarm
       raise Error, "Configuration file not found: #{@config_path}"
     rescue Psych::SyntaxError => e
       raise Error, "Invalid YAML syntax: #{e.message}"
+    end
+
+    def interpolate_env_vars!(obj)
+      case obj
+      when String
+        interpolate_env_string(obj)
+      when Hash
+        obj.transform_values! { |v| interpolate_env_vars!(v) }
+      when Array
+        obj.map! { |v| interpolate_env_vars!(v) }
+      else
+        obj
+      end
+    end
+
+    def interpolate_env_string(str)
+      str.gsub(/\$\{([^}]+)\}/) do |_match|
+        env_var = Regexp.last_match(1)
+        if ENV.key?(env_var)
+          ENV[env_var]
+        else
+          raise Error, "Environment variable '#{env_var}' is not set"
+        end
+      end
     end
 
     def validate_version
