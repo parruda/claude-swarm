@@ -718,4 +718,124 @@ class OrchestratorTest < Minitest::Test
 
     refute(system_called, "Main instance should not be launched when before commands fail")
   end
+
+  def test_orchestrator_accepts_session_id_parameter
+    config = create_test_config
+    generator = ClaudeSwarm::McpGenerator.new(config)
+
+    # Test that orchestrator accepts session_id parameter
+    orchestrator = ClaudeSwarm::Orchestrator.new(
+      config,
+      generator,
+      session_id: "my-custom-session-123",
+    )
+
+    assert_instance_of(ClaudeSwarm::Orchestrator, orchestrator)
+  end
+
+  def test_orchestrator_uses_provided_session_id
+    config = create_test_config
+    generator = ClaudeSwarm::McpGenerator.new(config)
+    custom_session_id = "test-session-abc123"
+
+    orchestrator = ClaudeSwarm::Orchestrator.new(
+      config,
+      generator,
+      session_id: custom_session_id,
+    )
+
+    # Mock system to prevent actual execution
+    orchestrator.stub(:system!, true) do
+      capture_io { orchestrator.start }
+    end
+
+    # Check that the session path contains our custom session ID
+    session_path = ENV["CLAUDE_SWARM_SESSION_PATH"]
+
+    assert(session_path)
+    assert(session_path.end_with?(custom_session_id), "Session path should end with custom session ID")
+  end
+
+  def test_orchestrator_generates_uuid_when_no_session_id_provided
+    config = create_test_config
+    generator = ClaudeSwarm::McpGenerator.new(config)
+
+    orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
+
+    # Mock system to prevent actual execution
+    orchestrator.stub(:system!, true) do
+      capture_io { orchestrator.start }
+    end
+
+    # Check that the session path contains a UUID
+    session_path = ENV["CLAUDE_SWARM_SESSION_PATH"]
+
+    assert(session_path)
+    session_id = File.basename(session_path)
+
+    assert_match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, session_id)
+  end
+
+  def test_session_id_with_worktree
+    config = create_test_config
+    generator = ClaudeSwarm::McpGenerator.new(config)
+    custom_session_id = "worktree-session-999"
+
+    # Mock WorktreeManager to prevent actual worktree operations
+    mock_worktree_manager = Minitest::Mock.new
+    mock_worktree_manager.expect(:setup_worktrees, nil, [Array])
+    mock_worktree_manager.expect(:worktree_name, "feature-branch")
+    mock_worktree_manager.expect(:session_metadata, { "enabled" => true, "shared_name" => "feature-branch" })
+    mock_worktree_manager.expect(:cleanup_worktrees, nil)
+
+    ClaudeSwarm::WorktreeManager.stub(:new, mock_worktree_manager) do
+      orchestrator = ClaudeSwarm::Orchestrator.new(
+        config,
+        generator,
+        session_id: custom_session_id,
+        worktree: "feature-branch",
+      )
+
+      # Mock system to prevent actual execution
+      orchestrator.stub(:system!, true) do
+        capture_io { orchestrator.start }
+      end
+
+      # Verify session ID is used correctly even with worktree
+      session_path = ENV["CLAUDE_SWARM_SESSION_PATH"]
+
+      assert(session_path)
+      assert(session_path.end_with?(custom_session_id), "Session path should end with custom session ID even with worktree")
+    end
+
+    mock_worktree_manager.verify
+  end
+
+  def test_session_id_saved_in_metadata
+    config = create_test_config
+    generator = ClaudeSwarm::McpGenerator.new(config)
+    custom_session_id = "metadata-test-456"
+
+    orchestrator = ClaudeSwarm::Orchestrator.new(
+      config,
+      generator,
+      session_id: custom_session_id,
+    )
+
+    # Mock system to prevent actual execution
+    orchestrator.stub(:system!, true) do
+      capture_io { orchestrator.start }
+    end
+
+    # Check metadata file contains the session ID
+    session_path = ENV["CLAUDE_SWARM_SESSION_PATH"]
+    metadata_file = File.join(session_path, "session_metadata.json")
+
+    assert_path_exists(metadata_file)
+
+    metadata = JSON.parse(File.read(metadata_file))
+
+    assert_equal(Dir.pwd, metadata["start_directory"])
+    assert_equal("Test Swarm", metadata["swarm_name"])
+  end
 end
