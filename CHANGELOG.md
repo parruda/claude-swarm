@@ -1,5 +1,12 @@
 ## [Unreleased]
 
+### Changed
+- **Session ID format**: Session IDs now use UUIDs instead of timestamp format
+  - Previous format: `YYYYMMDD_HHMMSS` (e.g., `20250707_181341`)
+  - New format: UUID v4 (e.g., `550e8400-e29b-41d4-a716-446655440000`)
+  - Provides globally unique identifiers suitable for external application integration
+  - Sessions remain sorted by file creation time, not by ID
+
 ### Added
 - **Environment variable interpolation in configuration**: Claude Swarm now supports environment variable interpolation in all YAML configuration values
   - Use `${ENV_VAR_NAME}` syntax to reference environment variables
