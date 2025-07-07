@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "claude_swarm/cli"
 
 module ClaudeSwarm
   class CLICommandsTest < Minitest::Test

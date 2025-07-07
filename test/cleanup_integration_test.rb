@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "tmpdir"
-require "timeout"
 
 class CleanupIntegrationTest < Minitest::Test
   def setup

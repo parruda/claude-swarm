@@ -1,10 +1,6 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "claude_swarm/claude_code_executor"
-require "tmpdir"
-require "fileutils"
-require "stringio"
 
 class ClaudeCodeExecutorTest < Minitest::Test
   def setup

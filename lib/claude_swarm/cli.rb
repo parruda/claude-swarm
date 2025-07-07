@@ -1,9 +1,5 @@
 # frozen_string_literal: true
 
-require "thor"
-require "json"
-require "erb"
-
 module ClaudeSwarm
   class CLI < Thor
     include SystemUtils

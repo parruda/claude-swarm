@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require "fast_mcp_annotations"
-require "json"
-
 module ClaudeSwarm
   class ClaudeMcpServer
     # Class variables to share state with tool classes

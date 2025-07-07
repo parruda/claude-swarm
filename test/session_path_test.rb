@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "claude_swarm/session_path"
 
 class SessionPathTest < Minitest::Test
   def test_project_folder_name_unix_path

@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require "yaml"
-require "pathname"
-
 module ClaudeSwarm
   class Configuration
     attr_reader :config, :config_path, :swarm, :swarm_name, :main_instance, :instances

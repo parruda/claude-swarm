@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "fileutils"
-
 module ClaudeSwarm
   module SessionPath
     SESSIONS_DIR = "sessions"

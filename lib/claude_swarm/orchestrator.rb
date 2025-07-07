@@ -1,11 +1,5 @@
 # frozen_string_literal: true
 
-require "English"
-require "shellwords"
-require "json"
-require "fileutils"
-require_relative "session_cost_calculator"
-
 module ClaudeSwarm
   class Orchestrator
     include SystemUtils

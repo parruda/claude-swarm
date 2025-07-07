@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "claude_swarm/openai_chat_completion"
-require "claude_swarm/openai_responses"
 
 class OpenAIIntegrationTest < Minitest::Test
   def test_chat_completion_simple_message
