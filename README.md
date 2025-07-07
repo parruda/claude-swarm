@@ -573,16 +573,18 @@ swarm:
 
 The `before` commands:
 - Are executed in sequence before launching any Claude instances
+- Execute in the main instance's directory (including worktree if enabled)
 - Must all succeed for the swarm to launch (exit code 0)
 - Are only executed on initial swarm launch, not when restoring sessions
 - Have their output logged to the session log file
 - Will abort the swarm launch if any command fails
 
 This is useful for:
-- Installing dependencies
+- Installing dependencies in the isolated worktree environment
 - Starting required services (databases, Docker containers, etc.)
 - Setting up the development environment
 - Running any prerequisite setup scripts
+- Ensuring setup commands affect only the working directory, not the original repository
 
 
 #### Mixed Permission Modes

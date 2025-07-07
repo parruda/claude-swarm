@@ -6,6 +6,10 @@
   - New format: UUID v4 (e.g., `550e8400-e29b-41d4-a716-446655440000`)
   - Provides globally unique identifiers suitable for external application integration
   - Sessions remain sorted by file creation time, not by ID
+- **BREAKING CHANGE: Before commands now execute in main instance directory**: The `before` commands specified in swarm configuration now run after changing to the main instance's directory (including worktrees when enabled), rather than in the original working directory
+  - This ensures commands like `npm install` or `bundle install` affect only the isolated worktree
+  - Makes behavior more intuitive and consistent with user expectations
+  - Existing swarms relying on before commands running in the original directory will need to be updated
 
 ### Added
 - **Environment variable interpolation in configuration**: Claude Swarm now supports environment variable interpolation in all YAML configuration values

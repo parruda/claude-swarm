@@ -634,4 +634,88 @@ class OrchestratorTest < Minitest::Test
 
     assert_equal(Process.pid.to_s, pid_content, "main_pid should contain current process PID")
   end
+
+  def test_before_commands_execute_in_main_instance_directory
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test"
+        main: lead
+        before:
+          - "pwd > before_pwd.txt"
+        instances:
+          lead:
+            description: "Test instance"
+            directory: ./test_dir
+    YAML
+
+    test_dir = File.join(@tmpdir, "test_dir")
+    FileUtils.mkdir_p(test_dir)
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    generator = ClaudeSwarm::McpGenerator.new(config)
+    orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
+
+    # Mock system! to prevent actual execution
+    orchestrator.stub(:system!, true) do
+      Dir.chdir(@tmpdir) do
+        capture_io { orchestrator.start }
+      end
+    end
+
+    # Verify the before command was executed in the main instance directory
+    pwd_file = File.join(test_dir, "before_pwd.txt")
+
+    assert_path_exists(pwd_file, "before_pwd.txt should be created in main instance directory")
+
+    # Check that the recorded pwd matches the expected directory
+    recorded_pwd = File.read(pwd_file).strip
+    expected_pwd = File.expand_path(test_dir)
+    # Normalize both paths to handle symlink resolution differences
+    assert_equal(File.realpath(expected_pwd), File.realpath(recorded_pwd), "Before commands should execute in main instance directory")
+  end
+
+  def test_before_commands_fail_stops_execution
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test"
+        main: lead
+        before:
+          - "exit 1"
+        instances:
+          lead:
+            description: "Test instance"
+            directory: .
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    generator = ClaudeSwarm::McpGenerator.new(config)
+    orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
+
+    system_called = false
+    orchestrator.stub(:system!, lambda { |*_args|
+      system_called = true
+      true
+    }) do
+      orchestrator.stub(:cleanup_processes, nil) do
+        orchestrator.stub(:cleanup_run_symlink, nil) do
+          orchestrator.stub(:cleanup_worktrees, nil) do
+            orchestrator.stub(:exit, lambda { |code|
+              assert_equal(1, code, "Should exit with code 1 when before commands fail")
+              raise SystemExit, "exit(#{code})"
+            }) do
+              Dir.chdir(@tmpdir) do
+                assert_raises(SystemExit) do
+                  capture_io { orchestrator.start }
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+
+    refute(system_called, "Main instance should not be launched when before commands fail")
+  end
 end
