@@ -7,10 +7,11 @@ module ClaudeSwarm
   class Configuration
     attr_reader :config, :config_path, :swarm, :swarm_name, :main_instance, :instances
 
-    def initialize(config_path, base_dir: nil)
+    def initialize(config_path, base_dir: nil, options: {})
       @config_path = Pathname.new(config_path).expand_path
       @config_dir = @config_path.dirname
       @base_dir = base_dir || @config_dir
+      @options = options
       load_and_validate
     end
 
@@ -279,9 +280,12 @@ module ClaudeSwarm
     end
 
     def validate_main_instance_provider
+      # Only validate in interactive mode (when no prompt is provided)
+      return if @options[:prompt]
+
       main_config = @instances[@main_instance]
       if main_config[:provider]
-        raise Error, "Main instance '#{@main_instance}' cannot have a provider setting"
+        raise Error, "Main instance '#{@main_instance}' cannot have a provider setting in interactive mode"
       end
     end
   end

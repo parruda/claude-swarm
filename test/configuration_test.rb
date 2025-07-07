@@ -1205,7 +1205,7 @@ class ConfigurationTest < Minitest::Test
     ENV.delete("OPENAI_API_KEY")
   end
 
-  def test_main_instance_must_be_claude
+  def test_main_instance_cannot_have_provider_in_interactive_mode
     write_config(<<~YAML)
       version: 1
       swarm:
@@ -1221,10 +1221,35 @@ class ConfigurationTest < Minitest::Test
     # Set the required environment variable
     ENV["OPENAI_API_KEY"] = "test-key"
 
+    # Test in interactive mode (no prompt)
     error = assert_raises(ClaudeSwarm::Error) do
-      ClaudeSwarm::Configuration.new(@config_path)
+      ClaudeSwarm::Configuration.new(@config_path, options: {})
     end
-    assert_equal("Main instance 'lead' cannot have a provider setting", error.message)
+    assert_equal("Main instance 'lead' cannot have a provider setting in interactive mode", error.message)
+  ensure
+    ENV.delete("OPENAI_API_KEY")
+  end
+
+  def test_main_instance_can_have_provider_in_non_interactive_mode
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Main instance with OpenAI provider"
+            provider: openai
+            model: gpt-4o
+    YAML
+
+    # Set the required environment variable
+    ENV["OPENAI_API_KEY"] = "test-key"
+
+    # Test in non-interactive mode (with prompt)
+    config = ClaudeSwarm::Configuration.new(@config_path, options: { prompt: "Do something" })
+
+    assert_equal("openai", config.main_instance_config[:provider])
   ensure
     ENV.delete("OPENAI_API_KEY")
   end
@@ -1241,11 +1266,11 @@ class ConfigurationTest < Minitest::Test
             provider: claude
     YAML
 
-    # Should raise an error because main instance can't have provider
+    # Should raise an error in interactive mode because main instance can't have provider
     error = assert_raises(ClaudeSwarm::Error) do
-      ClaudeSwarm::Configuration.new(@config_path)
+      ClaudeSwarm::Configuration.new(@config_path, options: {})
     end
-    assert_equal("Main instance 'lead' cannot have a provider setting", error.message)
+    assert_equal("Main instance 'lead' cannot have a provider setting in interactive mode", error.message)
   end
 
   def test_main_instance_without_provider_defaults_to_claude
