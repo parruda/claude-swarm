@@ -613,4 +613,30 @@ class OrchestratorTest < Minitest::Test
       end
     end
   end
+
+  def test_main_pid_file_creation
+    config = create_test_config
+    generator = ClaudeSwarm::McpGenerator.new(config)
+    orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
+
+    # Mock system! to prevent actual execution
+    orchestrator.stub(:system!, true) do
+      capture_io { orchestrator.start }
+    end
+
+    # Get the session path that was created
+    session_path = orchestrator.instance_variable_get(:@session_path)
+
+    assert(session_path, "Session path should be set")
+
+    # Verify main_pid file was created
+    main_pid_file = File.join(session_path, "main_pid")
+
+    assert_path_exists(main_pid_file, "main_pid file should exist")
+
+    # The PID should be the current process PID
+    pid_content = File.read(main_pid_file).strip
+
+    assert_equal(Process.pid.to_s, pid_content, "main_pid should contain current process PID")
+  end
 end

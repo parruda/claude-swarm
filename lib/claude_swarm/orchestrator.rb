@@ -186,6 +186,10 @@ module ClaudeSwarm
       log_thread = nil
       log_thread = start_log_streaming if @prompt && @stream_logs
 
+      # Write the current process PID (orchestrator) to a file for easy access
+      main_pid_file = File.join(@session_path, "main_pid")
+      File.write(main_pid_file, Process.pid.to_s)
+
       # Execute the main instance - this will cascade to other instances via MCP
       Dir.chdir(main_instance[:directory]) do
         system!(*command)

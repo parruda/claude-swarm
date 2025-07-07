@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 ### Added
+- **Main process PID tracking**: The orchestrator now writes its process ID to `SESSION_PATH/main_pid` for external monitoring and management
 - **Swarm execution summary**: Display runtime duration and total cost at the end of each swarm run [@claudenm]
   - Shows total execution time in hours, minutes, and seconds format
   - Calculates and displays aggregate cost across all instances
