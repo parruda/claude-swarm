@@ -1,13 +1,6 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "claude_swarm/claude_mcp_server"
-require "claude_swarm/task_tool"
-require "claude_swarm/session_info_tool"
-require "claude_swarm/reset_session_tool"
-require "tmpdir"
-require "fileutils"
-require "stringio"
 
 class ClaudeMcpServerTest < Minitest::Test
   def setup

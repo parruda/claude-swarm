@@ -1,10 +1,5 @@
 # frozen_string_literal: true
 
-require "json"
-require "open3"
-require "logger"
-require "fileutils"
-
 module ClaudeSwarm
   class ClaudeCodeExecutor
     attr_reader :session_id, :last_response, :working_directory, :logger, :session_path

@@ -1,17 +1,29 @@
 # frozen_string_literal: true
 
-# External dependencies
-require "time"
-require "thor"
-require "yaml"
-require "json"
-require "fileutils"
+# Standard library dependencies
+require "digest"
+require "English"
 require "erb"
-require "tmpdir"
-require "open3"
-require "timeout"
-require "pty"
+require "fileutils"
 require "io/console"
+require "json"
+require "logger"
+require "open3"
+require "pathname"
+require "pty"
+require "securerandom"
+require "set"
+require "shellwords"
+require "time"
+require "timeout"
+require "tmpdir"
+require "yaml"
+
+# External dependencies
+require "fast_mcp_annotations"
+require "mcp_client"
+require "openai"
+require "thor"
 
 # Zeitwerk setup
 require "zeitwerk"

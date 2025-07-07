@@ -1,10 +1,5 @@
 # frozen_string_literal: true
 
-require "yaml"
-require "json"
-require "time"
-require_relative "../session_cost_calculator"
-
 module ClaudeSwarm
   module Commands
     class Show

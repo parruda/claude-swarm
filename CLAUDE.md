@@ -152,3 +152,47 @@ The gem includes comprehensive tests covering:
 
 - **thor** (~> 1.3): Command-line interface framework
 - **yaml**: Built-in Ruby YAML parser (no explicit dependency needed)
+
+## Zeitwerk Autoloading
+
+This project uses Zeitwerk for automatic class loading. Important guidelines:
+
+### Require Statement Rules
+
+1. **DO NOT include any require statements for lib files**: Zeitwerk automatically loads all classes under `lib/claude_swarm/`. Never use `require`, `require_relative`, or `require "claude_swarm/..."` for internal project files.
+
+2. **All dependencies must be consolidated in lib/claude_swarm.rb**: Both standard library and external gem dependencies are required at the top of `lib/claude_swarm.rb`. This includes:
+   - Standard library dependencies (json, yaml, fileutils, etc.)
+   - External gem dependencies (thor, openai, mcp_client, fast_mcp_annotations)
+
+3. **No requires in other lib files**: Individual files in `lib/claude_swarm/` should not have any require statements. They rely on:
+   - Dependencies loaded in `lib/claude_swarm.rb`
+   - Other classes autoloaded by Zeitwerk
+
+### Example
+
+```ruby
+# ✅ CORRECT - lib/claude_swarm.rb
+# Standard library dependencies
+require "json"
+require "yaml"
+require "fileutils"
+# ... other standard libraries
+
+# External dependencies
+require "thor"
+require "openai"
+# ... other gems
+
+# Zeitwerk setup
+require "zeitwerk"
+loader = Zeitwerk::Loader.for_gem
+loader.setup
+
+# ❌ INCORRECT - lib/claude_swarm/some_class.rb
+require "json"  # Don't do this!
+require_relative "other_class"  # Don't do this!
+require "claude_swarm/configuration"  # Don't do this!
+```
+
+This approach ensures clean dependency management and leverages Ruby's modern autoloading capabilities.

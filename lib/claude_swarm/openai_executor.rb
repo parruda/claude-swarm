@@ -1,14 +1,5 @@
 # frozen_string_literal: true
 
-require "json"
-require "logger"
-require "fileutils"
-require "openai"
-require "mcp_client"
-require "securerandom"
-require_relative "openai_chat_completion"
-require_relative "openai_responses"
-
 module ClaudeSwarm
   class OpenAIExecutor
     attr_reader :session_id, :last_response, :working_directory, :logger, :session_path

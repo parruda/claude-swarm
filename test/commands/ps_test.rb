@@ -1,11 +1,6 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "claude_swarm/commands/ps"
-require "fileutils"
-require "yaml"
-require "json"
-
 module ClaudeSwarm
   module Commands
     class PsTest < Minitest::Test

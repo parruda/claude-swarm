@@ -1,11 +1,6 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "claude_swarm/configuration"
-require "claude_swarm/mcp_generator"
-require "tmpdir"
-require "fileutils"
-require "json"
 
 class McpGeneratorTest < Minitest::Test
   def setup

@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "fileutils"
-
 module ClaudeSwarm
   class ProcessTracker
     PIDS_DIR = "pids"

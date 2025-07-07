@@ -1,9 +1,6 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "claude_swarm/cli"
-require "tmpdir"
-require "fileutils"
 
 class CLITest < Minitest::Test
   def setup

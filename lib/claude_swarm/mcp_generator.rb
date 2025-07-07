@@ -1,10 +1,5 @@
 # frozen_string_literal: true
 
-require "json"
-require "fileutils"
-require "shellwords"
-require "securerandom"
-
 module ClaudeSwarm
   class McpGenerator
     def initialize(configuration, vibe: false, restore_session_path: nil)

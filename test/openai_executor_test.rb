@@ -1,9 +1,6 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "claude_swarm/openai_executor"
-require "tmpdir"
-require "fileutils"
 
 class OpenAIExecutorTest < Minitest::Test
   def setup

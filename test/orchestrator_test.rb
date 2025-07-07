@@ -1,11 +1,6 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "claude_swarm/orchestrator"
-require "claude_swarm/configuration"
-require "claude_swarm/mcp_generator"
-require "tmpdir"
-require "fileutils"
 
 class OrchestratorTest < Minitest::Test
   def setup

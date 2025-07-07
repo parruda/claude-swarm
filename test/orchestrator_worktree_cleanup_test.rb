@@ -1,10 +1,6 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../lib/claude_swarm/orchestrator"
-require_relative "../lib/claude_swarm/configuration"
-require_relative "../lib/claude_swarm/mcp_generator"
-require "digest"
 
 class OrchestratorWorktreeCleanupTest < Minitest::Test
   def setup

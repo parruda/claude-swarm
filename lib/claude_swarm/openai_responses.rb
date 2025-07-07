@@ -1,9 +1,5 @@
 # frozen_string_literal: true
 
-require "json"
-require "logger"
-require "securerandom"
-
 module ClaudeSwarm
   class OpenAIResponses
     MAX_TURNS_WITH_TOOLS = 100_000 # virtually infinite

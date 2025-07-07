@@ -1,9 +1,6 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "claude_swarm/configuration"
-require "tmpdir"
-require "fileutils"
 
 class ConfigurationTest < Minitest::Test
   def setup

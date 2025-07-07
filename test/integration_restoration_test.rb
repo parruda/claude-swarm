@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "tmpdir"
-require "json"
 
 class IntegrationRestorationTest < Minitest::Test
   def setup

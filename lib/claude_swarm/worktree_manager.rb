@@ -1,12 +1,5 @@
 # frozen_string_literal: true
 
-require "open3"
-require "fileutils"
-require "json"
-require "pathname"
-require "securerandom"
-require "digest"
-
 module ClaudeSwarm
   class WorktreeManager
     include SystemUtils

@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../lib/claude_swarm/worktree_manager"
-require "digest"
 
 class WorktreeManagerTest < Minitest::Test
   def setup

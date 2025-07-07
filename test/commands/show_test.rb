@@ -1,9 +1,6 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "claude_swarm/commands/show"
-require "fileutils"
-require "yaml"
 
 module ClaudeSwarm
   module Commands

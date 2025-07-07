@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require "json"
-require "set"
-
 module ClaudeSwarm
   module SessionCostCalculator
     extend self
