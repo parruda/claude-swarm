@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+### Changed
+- **BREAKING CHANGE: Before commands now execute in main instance directory**: The `before` commands specified in swarm configuration now run after changing to the main instance's directory (including worktrees when enabled), rather than in the original working directory
+  - This ensures commands like `npm install` or `bundle install` affect only the isolated worktree
+  - Makes behavior more intuitive and consistent with user expectations
+  - Existing swarms relying on before commands running in the original directory will need to be updated
+
 ### Added
 - **Environment variable interpolation in configuration**: Claude Swarm now supports environment variable interpolation in all YAML configuration values
   - Use `${ENV_VAR_NAME}` syntax to reference environment variables

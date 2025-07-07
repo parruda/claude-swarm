@@ -129,29 +129,6 @@ module ClaudeSwarm
         save_swarm_config_path(session_path)
       end
 
-      # Execute before commands if specified
-      before_commands = @config.before_commands
-      if before_commands.any? && !@restore_session_path
-        unless @prompt
-          puts "⚙️  Executing before commands..."
-          puts
-        end
-
-        success = execute_before_commands?(before_commands)
-        unless success
-          puts "❌ Before commands failed. Aborting swarm launch." unless @prompt
-          cleanup_processes
-          cleanup_run_symlink
-          cleanup_worktrees
-          exit(1)
-        end
-
-        unless @prompt
-          puts "✓ Before commands completed successfully"
-          puts
-        end
-      end
-
       # Launch the main instance (fetch after worktree setup to get modified paths)
       main_instance = @config.main_instance_config
       unless @prompt
@@ -186,6 +163,29 @@ module ClaudeSwarm
 
       # Execute the main instance - this will cascade to other instances via MCP
       Dir.chdir(main_instance[:directory]) do
+        # Execute before commands if specified
+        before_commands = @config.before_commands
+        if before_commands.any? && !@restore_session_path
+          unless @prompt
+            puts "⚙️  Executing before commands..."
+            puts
+          end
+
+          success = execute_before_commands?(before_commands)
+          unless success
+            puts "❌ Before commands failed. Aborting swarm launch." unless @prompt
+            cleanup_processes
+            cleanup_run_symlink
+            cleanup_worktrees
+            exit(1)
+          end
+
+          unless @prompt
+            puts "✓ Before commands completed successfully"
+            puts
+          end
+        end
+
         system!(*command)
       end
 
