@@ -16,3 +16,4 @@ build/
 .claude/settings.local.json
 .react-router/
 .vite/
+.DS_Store
