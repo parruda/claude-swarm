@@ -1,6 +1,11 @@
 ## [Unreleased]
 
 ### Added
+- **Environment variable interpolation in configuration**: Claude Swarm now supports environment variable interpolation in all YAML configuration values
+  - Use `${ENV_VAR_NAME}` syntax to reference environment variables
+  - Variables are interpolated recursively in strings, arrays, and nested structures
+  - Fails with clear error message if referenced environment variable is not set
+  - Supports multiple variables in the same string and partial string interpolation
 - **Session path display in show command**: The `claude-swarm show SESSION_ID` command now displays the session path for easier access to session files
 - **Main process PID tracking**: The orchestrator now writes its process ID to `SESSION_PATH/main_pid` for external monitoring and management
 - **Swarm execution summary**: Display runtime duration and total cost at the end of each swarm run [@claudenm]

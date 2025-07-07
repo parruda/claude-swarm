@@ -13,6 +13,8 @@ class ConfigurationTest < Minitest::Test
 
   def teardown
     FileUtils.rm_rf(@tmpdir)
+    # Clean up any test environment variables
+    ENV.keys.select { |k| k.start_with?("TEST_ENV_") }.each { |k| ENV.delete(k) }
   end
 
   def write_config(content)
@@ -1308,5 +1310,323 @@ class ConfigurationTest < Minitest::Test
     assistant = config.main_instance_config
 
     assert_nil(assistant[:provider])
+  end
+
+  # Environment variable interpolation tests
+
+  def test_env_var_interpolation_in_swarm_name
+    ENV["TEST_ENV_SWARM_NAME"] = "Production Swarm"
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "${TEST_ENV_SWARM_NAME}"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal("Production Swarm", config.swarm_name)
+  end
+
+  def test_env_var_interpolation_in_instance_description
+    ENV["TEST_ENV_DESCRIPTION"] = "Senior developer with expertise"
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "${TEST_ENV_DESCRIPTION}"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal("Senior developer with expertise", config.main_instance_config[:description])
+  end
+
+  def test_env_var_interpolation_in_model
+    ENV["TEST_ENV_MODEL"] = "opus"
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+            model: "${TEST_ENV_MODEL}"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal("opus", config.main_instance_config[:model])
+  end
+
+  def test_env_var_interpolation_in_prompt
+    ENV["TEST_ENV_PROMPT"] = "You are an expert Ruby developer"
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+            prompt: "${TEST_ENV_PROMPT}"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal("You are an expert Ruby developer", config.main_instance_config[:prompt])
+  end
+
+  def test_env_var_interpolation_in_directory
+    env_dir = File.join(@tmpdir, "custom_dir")
+    FileUtils.mkdir_p(env_dir)
+    ENV["TEST_ENV_DIRECTORY"] = env_dir
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+            directory: "${TEST_ENV_DIRECTORY}"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal(env_dir, config.main_instance_config[:directory])
+  end
+
+  def test_env_var_interpolation_in_arrays
+    ENV["TEST_ENV_TOOL1"] = "Read"
+    ENV["TEST_ENV_TOOL2"] = "Edit"
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+            allowed_tools: ["${TEST_ENV_TOOL1}", "${TEST_ENV_TOOL2}", "Bash"]
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal(["Read", "Edit", "Bash"], config.main_instance_config[:allowed_tools])
+  end
+
+  def test_env_var_interpolation_in_mcp_config
+    ENV["TEST_ENV_MCP_NAME"] = "github-expert"
+    ENV["TEST_ENV_MCP_COMMAND"] = "mcp-server-github"
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+            mcps:
+              - name: "${TEST_ENV_MCP_NAME}"
+                type: stdio
+                command: "${TEST_ENV_MCP_COMMAND}"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    mcp = config.main_instance_config[:mcps].first
+
+    assert_equal("github-expert", mcp["name"])
+    assert_equal("mcp-server-github", mcp["command"])
+  end
+
+  def test_env_var_interpolation_multiple_in_same_string
+    ENV["TEST_ENV_PREFIX"] = "Senior"
+    ENV["TEST_ENV_ROLE"] = "Developer"
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "${TEST_ENV_PREFIX} ${TEST_ENV_ROLE} with expertise"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal("Senior Developer with expertise", config.main_instance_config[:description])
+  end
+
+  def test_env_var_interpolation_partial_string
+    ENV["TEST_ENV_VERSION"] = "2.0"
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "MyApp v${TEST_ENV_VERSION} Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead for version ${TEST_ENV_VERSION}"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal("MyApp v2.0 Swarm", config.swarm_name)
+    assert_equal("Lead for version 2.0", config.main_instance_config[:description])
+  end
+
+  def test_env_var_not_set_raises_error
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "${UNDEFINED_ENV_VAR}"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+    YAML
+
+    error = assert_raises(ClaudeSwarm::Error) do
+      ClaudeSwarm::Configuration.new(@config_path)
+    end
+    assert_equal("Environment variable 'UNDEFINED_ENV_VAR' is not set", error.message)
+  end
+
+  def test_env_var_interpolation_in_nested_structure
+    ENV["TEST_ENV_URL"] = "https://api.example.com"
+    ENV["TEST_ENV_ARG"] = "--verbose"
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+            mcps:
+              - name: "api-server"
+                type: sse
+                url: "${TEST_ENV_URL}"
+                args:
+                  - "${TEST_ENV_ARG}"
+                  - "--port=8080"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    mcp = config.main_instance_config[:mcps].first
+
+    assert_equal("https://api.example.com", mcp["url"])
+    assert_equal(["--verbose", "--port=8080"], mcp["args"])
+  end
+
+  def test_env_var_interpolation_in_before_commands
+    ENV["TEST_ENV_INSTALL_CMD"] = "npm install"
+    ENV["TEST_ENV_BUILD_CMD"] = "npm run build"
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        before:
+          - "${TEST_ENV_INSTALL_CMD}"
+          - "${TEST_ENV_BUILD_CMD}"
+          - "echo 'Setup complete'"
+        instances:
+          lead:
+            description: "Lead instance"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal(["npm install", "npm run build", "echo 'Setup complete'"], config.before_commands)
+  end
+
+  def test_env_var_interpolation_with_special_characters
+    ENV["TEST_ENV_SPECIAL"] = "Value with $pecial & ch@rs!"
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "${TEST_ENV_SPECIAL}"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal("Value with $pecial & ch@rs!", config.swarm_name)
+  end
+
+  def test_env_var_interpolation_preserves_non_env_syntax
+    ENV["TEST_ENV_REAL"] = "interpolated"
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test with ${TEST_ENV_REAL} and $NOT_ENV and {ALSO_NOT}"
+        main: lead
+        instances:
+          lead:
+            description: "Has ${TEST_ENV_REAL} value"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal("Test with interpolated and $NOT_ENV and {ALSO_NOT}", config.swarm_name)
+    assert_equal("Has interpolated value", config.main_instance_config[:description])
+  end
+
+  def test_env_var_interpolation_empty_value
+    ENV["TEST_ENV_EMPTY"] = ""
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test${TEST_ENV_EMPTY}Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal("TestSwarm", config.swarm_name)
+  end
+
+  def test_env_var_interpolation_in_openai_config
+    ENV["TEST_ENV_OPENAI_KEY"] = "CUSTOM_API_KEY"
+    ENV["TEST_ENV_BASE_URL"] = "https://custom.openai.com/v1"
+    ENV["CUSTOM_API_KEY"] = "sk-test-key"
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: assistant
+        instances:
+          assistant:
+            description: "OpenAI assistant"
+            provider: openai
+            model: gpt-4o
+            openai_token_env: "${TEST_ENV_OPENAI_KEY}"
+            base_url: "${TEST_ENV_BASE_URL}"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    assistant = config.main_instance_config
+
+    assert_equal("CUSTOM_API_KEY", assistant[:openai_token_env])
+    assert_equal("https://custom.openai.com/v1", assistant[:base_url])
+  ensure
+    ENV.delete("CUSTOM_API_KEY")
   end
 end
