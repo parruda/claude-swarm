@@ -24,10 +24,10 @@ module ClaudeSwarm
         path.gsub(%r{[/\\]}, "+")
       end
 
-      # Generate a full session path for a given directory and timestamp
-      def generate(working_dir: Dir.pwd, timestamp: Time.now.strftime("%Y%m%d_%H%M%S"))
+      # Generate a full session path for a given directory and session ID
+      def generate(working_dir: Dir.pwd, session_id: SecureRandom.uuid)
         project_name = project_folder_name(working_dir)
-        File.join(swarm_home, SESSIONS_DIR, project_name, timestamp)
+        File.join(swarm_home, SESSIONS_DIR, project_name, session_id)
       end
 
       # Ensure the session directory exists

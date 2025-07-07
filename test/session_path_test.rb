@@ -28,15 +28,22 @@ class SessionPathTest < Minitest::Test
   end
 
   def test_generate_session_path
-    timestamp = "20240101_120000"
+    session_id = "550e8400-e29b-41d4-a716-446655440000"
     result = ClaudeSwarm::SessionPath.generate(
       working_dir: "/Users/paulo/test",
-      timestamp: timestamp,
+      session_id: session_id,
     )
 
-    expected = File.join(ClaudeSwarm::SessionPath.swarm_home, "sessions/Users+paulo+test/20240101_120000")
+    expected = File.join(ClaudeSwarm::SessionPath.swarm_home, "sessions/Users+paulo+test/550e8400-e29b-41d4-a716-446655440000")
 
     assert_equal(expected, result)
+  end
+
+  def test_generate_session_path_with_default_uuid
+    result = ClaudeSwarm::SessionPath.generate(working_dir: "/Users/paulo/test")
+
+    # Check that the path includes a UUID-formatted session ID
+    assert_match(%r{sessions/Users\+paulo\+test/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$}, result)
   end
 
   def test_from_env_with_path_set

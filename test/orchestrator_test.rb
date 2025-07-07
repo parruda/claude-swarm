@@ -72,7 +72,7 @@ class OrchestratorTest < Minitest::Test
 
     assert(ENV.fetch("CLAUDE_SWARM_SESSION_PATH", nil))
     assert(ENV.fetch("CLAUDE_SWARM_START_DIR", nil))
-    assert_match(%r{/sessions/.+/\d{8}_\d{6}}, ENV.fetch("CLAUDE_SWARM_SESSION_PATH", nil))
+    assert_match(%r{/sessions/.+/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}, ENV.fetch("CLAUDE_SWARM_SESSION_PATH", nil))
   end
 
   def test_start_generates_mcp_configs
@@ -107,7 +107,7 @@ class OrchestratorTest < Minitest::Test
     end
 
     assert_match(/🐝 Starting Claude Swarm: Test Swarm/, output)
-    assert_match(%r{📝 Session files will be saved to:.*/sessions/.+/\d{8}_\d{6}}, output)
+    assert_match(%r{📝 Session files will be saved to:.*/sessions/.+/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}, output)
     assert_match(/✓ Generated MCP configurations/, output)
     assert_match(/🚀 Launching main instance: lead/, output)
     assert_match(/Model: opus/, output)
