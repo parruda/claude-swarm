@@ -49,7 +49,7 @@ class ProcessTrackerTest < Minitest::Test
     @tracker.track_pid(12_345, "test_process")
 
     assert_path_exists(@pids_dir)
-    @tracker.cleanup_all
+    capture_io { @tracker.cleanup_all }
 
     refute_path_exists(@pids_dir, "pids directory should be removed after cleanup")
   end

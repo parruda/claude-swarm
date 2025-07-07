@@ -23,6 +23,7 @@ class CleanupIntegrationTest < Minitest::Test
         main: leader
         instances:
           leader:
+            description: "Test leader instance"
             directory: #{@temp_dir}
             model: sonnet
             prompt: "You are a test leader"
@@ -34,15 +35,11 @@ class CleanupIntegrationTest < Minitest::Test
 
     # Start the swarm in a subprocess
     pid = fork do
-      # Redirect output to avoid cluttering test output
-      $stdout = File.open(File::NULL, "w")
-      $stderr = File.open(File::NULL, "w")
-
       # Set up a simple test environment
       ENV["CLAUDE_SWARM_TEST"] = "1"
 
       # Run claude-swarm with a prompt that exits immediately
-      system("bundle", "exec", "claude-swarm", "-c", @config_file, "-p", "exit")
+      system("bundle", "exec", "claude-swarm", "-c", @config_file, "-p", "exit", out: File::NULL, err: File::NULL)
     end
 
     # Give it time to start
