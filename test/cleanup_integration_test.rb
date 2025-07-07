@@ -32,12 +32,12 @@ class CleanupIntegrationTest < Minitest::Test
     File.write(@config_file, config_content)
 
     # Start the swarm in a subprocess
-    pid = fork do
-      # Set up a simple test environment
-      ENV["CLAUDE_SWARM_TEST"] = "1"
-
-      # Run claude-swarm with a prompt that exits immediately
-      system("bundle", "exec", "claude-swarm", "-c", @config_file, "-p", "exit", out: File::NULL, err: File::NULL)
+    pid = nil
+    capture_subprocess_io do
+      pid = fork do
+        # Run claude-swarm with a prompt that exits immediately
+        system("bundle", "exec", "claude-swarm", "-c", @config_file, "-p", "exit", out: File::NULL, err: File::NULL)
+      end
     end
 
     # Give it time to start
