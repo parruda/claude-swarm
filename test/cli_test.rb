@@ -658,4 +658,74 @@ class CLITest < Minitest::Test
     # Test that README content is included
     assert_match(%r{<full_readme>.*Test README content.*</full_readme>}m, prompt)
   end
+
+  def test_start_with_session_id_option
+    write_config("valid.yml", <<~YAML)
+      version: 1
+      swarm:
+        name: "Test"
+        main: lead
+        instances:
+          lead:
+            description: "Test instance"
+    YAML
+
+    @cli.options = { session_id: "custom-session-456" }
+
+    orchestrator_mock = Minitest::Mock.new
+    orchestrator_mock.expect(:start, nil)
+
+    generator_mock = Minitest::Mock.new
+
+    # Verify that session_id is passed to orchestrator
+    ClaudeSwarm::McpGenerator.stub(:new, generator_mock) do
+      ClaudeSwarm::Orchestrator.stub(:new, lambda { |_config, _generator, **options|
+        assert_equal("custom-session-456", options[:session_id])
+        orchestrator_mock
+      }) do
+        capture_cli_output { @cli.start("valid.yml") }
+      end
+    end
+
+    orchestrator_mock.verify
+  end
+
+  def test_start_with_multiple_options_including_session_id
+    write_config("valid.yml", <<~YAML)
+      version: 1
+      swarm:
+        name: "Test"
+        main: lead
+        instances:
+          lead:
+            description: "Test instance"
+    YAML
+
+    @cli.options = {
+      session_id: "multi-option-test-789",
+      vibe: true,
+      prompt: "Test with multiple options",
+      debug: true,
+    }
+
+    orchestrator_mock = Minitest::Mock.new
+    orchestrator_mock.expect(:start, nil)
+
+    generator_mock = Minitest::Mock.new
+
+    # Verify all options are passed correctly
+    ClaudeSwarm::McpGenerator.stub(:new, generator_mock) do
+      ClaudeSwarm::Orchestrator.stub(:new, lambda { |_config, _generator, **options|
+        assert_equal("multi-option-test-789", options[:session_id])
+        assert(options[:vibe])
+        assert_equal("Test with multiple options", options[:prompt])
+        assert(options[:debug])
+        orchestrator_mock
+      }) do
+        capture_cli_output { @cli.start("valid.yml") }
+      end
+    end
+
+    orchestrator_mock.verify
+  end
 end

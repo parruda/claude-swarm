@@ -31,6 +31,9 @@ module ClaudeSwarm
       aliases: "-w",
       desc: "Create instances in Git worktrees with the given name (auto-generated if true)",
       banner: "[NAME]"
+    method_option :session_id,
+      type: :string,
+      desc: "Use a specific session ID instead of generating one"
     def start(config_file = nil)
       config_path = config_file || "claude-swarm.yml"
       unless File.exist?(config_path)
@@ -57,6 +60,7 @@ module ClaudeSwarm
           stream_logs: options[:stream_logs],
           debug: options[:debug],
           worktree: options[:worktree],
+          session_id: options[:session_id],
         )
         orchestrator.start
       rescue Error => e
@@ -541,6 +545,7 @@ module ClaudeSwarm
           debug: options[:debug],
           restore_session_path: session_path,
           worktree: worktree_name,
+          session_id: options[:session_id],
         )
         orchestrator.start
       rescue StandardError => e

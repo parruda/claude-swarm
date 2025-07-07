@@ -19,6 +19,10 @@
   - Existing swarms relying on before commands running in the original directory will need to be updated
 
 ### Added
+- **Custom session ID support**: Added `--session-id` option to the `start` command to allow users to specify their own session ID
+  - Use `claude-swarm start --session-id my-custom-id` to use a custom session ID
+  - If not provided, a UUID is generated automatically
+  - Useful for integrating with external systems that need predictable session identifiers
 - **Environment variable interpolation in configuration**: Claude Swarm now supports environment variable interpolation in all YAML configuration values
   - Use `${ENV_VAR_NAME}` syntax to reference environment variables
   - Variables are interpolated recursively in strings, arrays, and nested structures
