@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 ### Added
+- **Session path display in show command**: The `claude-swarm show SESSION_ID` command now displays the session path for easier access to session files
 - **Main process PID tracking**: The orchestrator now writes its process ID to `SESSION_PATH/main_pid` for external monitoring and management
 - **Swarm execution summary**: Display runtime duration and total cost at the end of each swarm run [@claudenm]
   - Shows total execution time in hours, minutes, and seconds format

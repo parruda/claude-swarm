@@ -38,6 +38,7 @@ module ClaudeSwarm
         output = capture_io { Commands::Show.new.execute("test-session-123") }.first
 
         assert_match(/Session: test-session-123/, output)
+        assert_match(/Session Path: #{Regexp.escape(@test_session_dir)}/, output)
         assert_match(/Swarm: Test Swarm/, output)
         assert_match(/Total Cost: \$0\.3579/, output)
         assert_match(/Instance Hierarchy/, output)
@@ -109,6 +110,16 @@ module ClaudeSwarm
         output = capture_io { Commands::Show.new.execute("test-session-123") }.first
 
         assert_match(/Session: test-session-123/, output)
+        assert_match(/Session Path: #{Regexp.escape(@test_session_dir)}/, output)
+      end
+
+      def test_session_path_display
+        setup_test_session_with_hierarchy
+
+        output = capture_io { Commands::Show.new.execute("test-session-123") }.first
+
+        # Verify that the session path is displayed correctly
+        assert_match(/Session Path: #{Regexp.escape(@test_session_dir)}/, output)
       end
 
       def test_display_complex_hierarchy

@@ -33,6 +33,7 @@ module ClaudeSwarm
 
         # Display session info
         puts "Session: #{session_id}"
+        puts "Session Path: #{session_path}"
         puts "Swarm: #{config.dig("swarm", "name")}"
 
         # Display runtime if available
