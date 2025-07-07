@@ -18,6 +18,23 @@ bin/setup              # Install dependencies
 rake test             # Run the Minitest test suite
 ```
 
+**Important**: Tests should not generate any output to stdout or stderr. When writing tests:
+- Capture or suppress all stdout/stderr output from tested methods
+- Use `capture_io` or `capture_subprocess_io` for Minitest
+- Redirect output streams to `StringIO` or `/dev/null` when necessary
+- Mock or stub methods that produce console output
+- Ensure clean test output for better CI/CD integration
+
+Example:
+```ruby
+def test_command_with_output
+  output, err = capture_io do
+    # Code that produces output
+  end
+  # Test assertions here
+end
+```
+
 ### Linting
 ```bash
 rake rubocop -A       # Run RuboCop linter to auto fix problems

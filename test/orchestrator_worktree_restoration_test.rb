@@ -129,7 +129,7 @@ class OrchestratorWorktreeRestorationTest < Minitest::Test
         worktree_dir_used = Dir.pwd
         true
       }) do
-        orchestrator.start
+        capture_io { orchestrator.start }
       end
 
       # Verify the main instance started in the external worktree
@@ -171,7 +171,7 @@ class OrchestratorWorktreeRestorationTest < Minitest::Test
         dir_used = Dir.pwd
         true
       }) do
-        orchestrator.start
+        capture_io { orchestrator.start }
       end
 
       # Verify the main instance started in the regular directory

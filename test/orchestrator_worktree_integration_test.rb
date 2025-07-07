@@ -35,7 +35,7 @@ class OrchestratorWorktreeIntegrationTest < Minitest::Test
 
       # Start the orchestrator and capture the worktree path
       orchestrator.stub(:system, true) do
-        orchestrator.start
+        capture_io { orchestrator.start }
       end
 
       # Get the worktree info from the manager
@@ -75,7 +75,7 @@ class OrchestratorWorktreeIntegrationTest < Minitest::Test
         worktree_name = orchestrator.instance_variable_get(:@worktree_manager).worktree_name
         true
       }) do
-        orchestrator.start
+        capture_io { orchestrator.start }
       end
 
       # Verify worktree name was auto-generated with session ID
@@ -93,7 +93,7 @@ class OrchestratorWorktreeIntegrationTest < Minitest::Test
       )
 
       orchestrator.stub(:system, true) do
-        orchestrator.start
+        capture_io { orchestrator.start }
       end
 
       # Check no worktrees were created
@@ -128,7 +128,7 @@ class OrchestratorWorktreeIntegrationTest < Minitest::Test
         end
         true
       }) do
-        orchestrator.start
+        capture_io { orchestrator.start }
       end
 
       assert(cleanup_called, "Worktree cleanup should be called")

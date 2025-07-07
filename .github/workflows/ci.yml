@@ -15,12 +15,15 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
     
     - name: Set up Ruby ${{ matrix.ruby-version }}
       uses: ruby/setup-ruby@v1
       with:
         ruby-version: ${{ matrix.ruby-version }}
         bundler-cache: true
+    - name: Install Claude Code
+      run: npm install -g @anthropic-ai/claude-code
     
     - name: Run tests and linter
       run: bundle exec rake

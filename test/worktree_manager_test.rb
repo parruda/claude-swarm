@@ -13,10 +13,20 @@ class WorktreeManagerTest < Minitest::Test
     # Create test Git repositories
     setup_git_repo(@repo_dir)
     setup_git_repo(@other_repo_dir)
+
+    # Suppress output during tests
+    @original_prompt = ENV["CLAUDE_SWARM_PROMPT"]
+    ENV["CLAUDE_SWARM_PROMPT"] = "true"
   end
 
   def teardown
     FileUtils.rm_rf(@test_dir)
+    # Restore original environment
+    if @original_prompt
+      ENV["CLAUDE_SWARM_PROMPT"] = @original_prompt
+    else
+      ENV.delete("CLAUDE_SWARM_PROMPT")
+    end
   end
 
   def test_initialize_with_custom_name
@@ -380,8 +390,14 @@ class WorktreeManagerTest < Minitest::Test
 
     File.write(File.join(worktree_path, "new_file.txt"), "uncommitted content")
 
+    # Temporarily unset the prompt suppression for this test
+    ENV.delete("CLAUDE_SWARM_PROMPT")
+
     # Capture output during cleanup
     output = capture_io { manager.cleanup_worktrees }.join
+
+    # Restore the prompt suppression
+    ENV["CLAUDE_SWARM_PROMPT"] = "true"
 
     # Verify worktree was NOT removed
     assert_path_exists(worktree_path, "Worktree with uncommitted changes should not be removed")
@@ -408,8 +424,14 @@ class WorktreeManagerTest < Minitest::Test
       system("git", "commit", "-m", "Unpushed commit", out: File::NULL, err: File::NULL)
     end
 
+    # Temporarily unset the prompt suppression for this test
+    ENV.delete("CLAUDE_SWARM_PROMPT")
+
     # Capture output during cleanup
     output = capture_io { manager.cleanup_worktrees }.join
+
+    # Restore the prompt suppression
+    ENV["CLAUDE_SWARM_PROMPT"] = "true"
 
     # Verify worktree was NOT removed
     assert_path_exists(worktree_path, "Worktree with unpushed commits should not be removed")
