@@ -212,6 +212,7 @@ class CLITest < Minitest::Test
       api_version: nil,
       openai_token_env: nil,
       base_url: nil,
+      reasoning_effort: nil,
     }
 
     ClaudeSwarm::ClaudeMcpServer.stub(:new, lambda { |config, calling_instance:, calling_instance_id: nil| # rubocop:disable Lint/UnusedBlockArgument
@@ -255,6 +256,7 @@ class CLITest < Minitest::Test
       api_version: nil,
       openai_token_env: nil,
       base_url: nil,
+      reasoning_effort: nil,
     }
 
     ClaudeSwarm::ClaudeMcpServer.stub(:new, lambda { |config, calling_instance:, calling_instance_id: nil| # rubocop:disable Lint/UnusedBlockArgument
@@ -307,6 +309,110 @@ class CLITest < Minitest::Test
 
       assert_match(/Error starting MCP server: Test error/, out)
       assert_match(/cli_test\.rb/, out) # Should show backtrace
+    end
+  end
+
+  def test_mcp_serve_with_reasoning_effort_valid_o_series_model
+    @cli.options = {
+      name: "test",
+      directory: ".",
+      model: "o3-pro",
+      provider: "openai",
+      reasoning_effort: "medium",
+      calling_instance: "test_caller",
+    }
+
+    server_mock = Minitest::Mock.new
+    server_mock.expect(:start, nil)
+
+    ClaudeSwarm::ClaudeMcpServer.stub(:new, lambda { |config, calling_instance:, calling_instance_id: nil| # rubocop:disable Lint/UnusedBlockArgument
+      assert_equal("medium", config[:reasoning_effort])
+      assert_equal("o3-pro", config[:model])
+      server_mock
+    }) do
+      @cli.mcp_serve
+    end
+
+    server_mock.verify
+  end
+
+  def test_mcp_serve_with_reasoning_effort_invalid_model
+    @cli.options = {
+      name: "test",
+      directory: ".",
+      model: "gpt-4",
+      provider: "openai",
+      reasoning_effort: "high",
+      calling_instance: "test_caller",
+    }
+
+    out, = capture_cli_output do
+      assert_raises(SystemExit) { @cli.mcp_serve }
+    end
+
+    assert_match(/reasoning_effort is only supported for o-series models/, out)
+    assert_match(/Current model: gpt-4/, out)
+  end
+
+  def test_mcp_serve_with_reasoning_effort_invalid_provider
+    @cli.options = {
+      name: "test",
+      directory: ".",
+      model: "sonnet",
+      provider: "claude",
+      reasoning_effort: "low",
+      calling_instance: "test_caller",
+    }
+
+    out, = capture_cli_output do
+      assert_raises(SystemExit) { @cli.mcp_serve }
+    end
+
+    assert_match(/reasoning_effort is only supported for OpenAI models/, out)
+  end
+
+  def test_mcp_serve_with_reasoning_effort_invalid_value
+    @cli.options = {
+      name: "test",
+      directory: ".",
+      model: "o3",
+      provider: "openai",
+      reasoning_effort: "extreme",
+      calling_instance: "test_caller",
+    }
+
+    out, = capture_cli_output do
+      assert_raises(SystemExit) { @cli.mcp_serve }
+    end
+
+    assert_match(/reasoning_effort must be 'low', 'medium', or 'high'/, out)
+  end
+
+  def test_mcp_serve_with_reasoning_effort_all_valid_o_series_models
+    valid_models = ["o1", "o1 Preview", "o1-mini", "o1-pro", "o3", "o3-mini", "o3-pro", "o3-deep-research", "o4-mini", "o4-mini-deep-research"]
+
+    valid_models.each do |model|
+      @cli.options = {
+        name: "test",
+        directory: ".",
+        model: model,
+        provider: "openai",
+        reasoning_effort: "low",
+        calling_instance: "test_caller",
+      }
+
+      server_mock = Minitest::Mock.new
+      server_mock.expect(:start, nil)
+
+      ClaudeSwarm::ClaudeMcpServer.stub(:new, lambda { |config, calling_instance:, calling_instance_id: nil| # rubocop:disable Lint/UnusedBlockArgument
+        assert_equal("low", config[:reasoning_effort])
+        assert_equal(model, config[:model])
+        server_mock
+      }) do
+        @cli.mcp_serve
+      end
+
+      server_mock.verify
     end
   end
 

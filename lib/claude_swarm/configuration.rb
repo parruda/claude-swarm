@@ -2,6 +2,16 @@
 
 module ClaudeSwarm
   class Configuration
+    # Frozen constants for validation
+    VALID_PROVIDERS = ["claude", "openai"].freeze
+    OPENAI_SPECIFIC_FIELDS = ["temperature", "api_version", "openai_token_env", "base_url", "reasoning_effort"].freeze
+    VALID_API_VERSIONS = ["chat_completion", "responses"].freeze
+    VALID_REASONING_EFFORTS = ["low", "medium", "high"].freeze
+
+    # Regex patterns
+    ENV_VAR_PATTERN = /\$\{([^}]+)\}/
+    O_SERIES_MODEL_PATTERN = /^o\d+(\s+(Preview|preview))?(-pro|-mini|-deep-research|-mini-deep-research)?$/
+
     attr_reader :config, :config_path, :swarm, :swarm_name, :main_instance, :instances
 
     def initialize(config_path, base_dir: nil)
@@ -56,7 +66,7 @@ module ClaudeSwarm
     end
 
     def interpolate_env_string(str)
-      str.gsub(/\$\{([^}]+)\}/) do |_match|
+      str.gsub(ENV_VAR_PATTERN) do |_match|
         env_var = Regexp.last_match(1)
         if ENV.key?(env_var)
           ENV[env_var]
@@ -109,22 +119,41 @@ module ClaudeSwarm
       provider = config["provider"]
 
       # Validate provider value if specified
-      if provider && !["claude", "openai"].include?(provider)
+      if provider && !VALID_PROVIDERS.include?(provider)
         raise Error, "Instance '#{name}' has invalid provider '#{provider}'. Must be 'claude' or 'openai'"
       end
 
       # Validate OpenAI-specific fields only when provider is "openai"
       if provider != "openai"
-        openai_fields = ["temperature", "api_version", "openai_token_env", "base_url"]
-        invalid_fields = openai_fields & config.keys
+        invalid_fields = OPENAI_SPECIFIC_FIELDS & config.keys
         unless invalid_fields.empty?
           raise Error, "Instance '#{name}' has OpenAI-specific fields #{invalid_fields.join(", ")} but provider is not 'openai'"
         end
       end
 
       # Validate api_version if specified
-      if config["api_version"] && !["chat_completion", "responses"].include?(config["api_version"])
+      if config["api_version"] && !VALID_API_VERSIONS.include?(config["api_version"])
         raise Error, "Instance '#{name}' has invalid api_version '#{config["api_version"]}'. Must be 'chat_completion' or 'responses'"
+      end
+
+      # Validate reasoning_effort for OpenAI provider
+      if config["reasoning_effort"]
+        # Ensure it's only used with OpenAI provider
+        if provider != "openai"
+          raise Error, "Instance '#{name}' has reasoning_effort but provider is not 'openai'"
+        end
+
+        # Validate the value
+        unless VALID_REASONING_EFFORTS.include?(config["reasoning_effort"])
+          raise Error, "Instance '#{name}' has invalid reasoning_effort '#{config["reasoning_effort"]}'. Must be 'low', 'medium', or 'high'"
+        end
+
+        # Validate it's only used with o-series models
+        model = config["model"]
+        # Support patterns like: o1, o1-mini, o1-pro, o1 Preview, o3-deep-research, o4-mini-deep-research, etc.
+        unless model&.match?(O_SERIES_MODEL_PATTERN)
+          raise Error, "Instance '#{name}' has reasoning_effort but model '#{model}' is not an o-series model (o1, o1 Preview, o1-mini, o1-pro, o3, o3-mini, o3-pro, o3-deep-research, o4-mini, o4-mini-deep-research, etc.)"
+        end
       end
 
       # Validate tool fields are arrays if present
@@ -161,6 +190,7 @@ module ClaudeSwarm
         instance_config[:api_version] = config["api_version"] || "chat_completion"
         instance_config[:openai_token_env] = config["openai_token_env"] || "OPENAI_API_KEY"
         instance_config[:base_url] = config["base_url"]
+        instance_config[:reasoning_effort] = config["reasoning_effort"] if config["reasoning_effort"]
         # Default vibe to true for OpenAI instances if not specified
         instance_config[:vibe] = true if config["vibe"].nil?
       elsif config["vibe"].nil?

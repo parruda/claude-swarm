@@ -43,6 +43,136 @@ class OpenAIIntegrationTest < Minitest::Test
     mock_openai_client.verify
   end
 
+  def test_chat_completion_with_reasoning_effort
+    # Create a logger that accepts anything
+    mock_logger = Minitest::Mock.new
+    def mock_logger.info(*args); end
+    def mock_logger.error(*args); end
+    def mock_logger.log(*args); end
+
+    mock_mcp_client = Minitest::Mock.new
+    mock_openai_client = Minitest::Mock.new
+
+    api = ClaudeSwarm::OpenAIChatCompletion.new(
+      openai_client: mock_openai_client,
+      mcp_client: mock_mcp_client,
+      available_tools: [],
+      logger: mock_logger,
+      instance_name: "test",
+      model: "o3-pro",
+      reasoning_effort: "high",
+    )
+
+    # Mock the chat call - verify reasoning_effort appears in request
+    mock_response = {
+      "choices" => [{
+        "message" => {
+          "role" => "assistant",
+          "content" => "Hello world with reasoning!",
+        },
+      }],
+    }
+
+    mock_openai_client.expect(:chat, mock_response) do |params|
+      # Verify request contains reasoning_effort parameter and message content
+      params[:parameters][:messages].last[:content] == "Hello" &&
+        params[:parameters][:reasoning_effort] == "high"
+    end
+
+    result = api.execute("Hello")
+
+    # Verify response is properly processed
+    assert_equal("Hello world with reasoning!", result)
+
+    mock_openai_client.verify
+  end
+
+  def test_chat_completion_with_all_o_series_models
+    ["o1", "o1 Preview", "o1-mini", "o1-pro", "o3", "o3-mini", "o3-pro", "o3-deep-research", "o4-mini", "o4-mini-deep-research"].each do |model|
+      # Create a logger that accepts anything
+      mock_logger = Minitest::Mock.new
+      def mock_logger.info(*args); end
+      def mock_logger.error(*args); end
+      def mock_logger.log(*args); end
+
+      mock_mcp_client = Minitest::Mock.new
+      mock_openai_client = Minitest::Mock.new
+
+      api = ClaudeSwarm::OpenAIChatCompletion.new(
+        openai_client: mock_openai_client,
+        mcp_client: mock_mcp_client,
+        available_tools: [],
+        logger: mock_logger,
+        instance_name: "test",
+        model: model,
+        reasoning_effort: "medium",
+      )
+
+      # Mock the chat call - verify reasoning_effort appears in request
+      mock_response = {
+        "choices" => [{
+          "message" => {
+            "role" => "assistant",
+            "content" => "Response from #{model}",
+          },
+        }],
+      }
+
+      mock_openai_client.expect(:chat, mock_response) do |params|
+        params[:parameters][:model] == model &&
+          params[:parameters][:reasoning_effort] == "medium"
+      end
+
+      result = api.execute("Test")
+
+      assert_equal("Response from #{model}", result)
+
+      mock_openai_client.verify
+    end
+  end
+
+  def test_chat_completion_without_reasoning_effort_parameter
+    # Create a logger that accepts anything
+    mock_logger = Minitest::Mock.new
+    def mock_logger.info(*args); end
+    def mock_logger.error(*args); end
+    def mock_logger.log(*args); end
+
+    mock_mcp_client = Minitest::Mock.new
+    mock_openai_client = Minitest::Mock.new
+
+    api = ClaudeSwarm::OpenAIChatCompletion.new(
+      openai_client: mock_openai_client,
+      mcp_client: mock_mcp_client,
+      available_tools: [],
+      logger: mock_logger,
+      instance_name: "test",
+      model: "gpt-4o",
+      reasoning_effort: nil,
+    )
+
+    # Mock the chat call - verify reasoning_effort is NOT in request
+    mock_response = {
+      "choices" => [{
+        "message" => {
+          "role" => "assistant",
+          "content" => "Hello world!",
+        },
+      }],
+    }
+
+    mock_openai_client.expect(:chat, mock_response) do |params|
+      params[:parameters][:messages].last[:content] == "Hello" &&
+        !params[:parameters].key?(:reasoning_effort)
+    end
+
+    result = api.execute("Hello")
+
+    assert_equal("Hello world!", result)
+
+    mock_openai_client.verify
+  end
+
   def test_responses_api_simple_message
     # Create a logger that accepts anything
     mock_logger = Minitest::Mock.new
@@ -88,6 +218,156 @@ class OpenAIIntegrationTest < Minitest::Test
 
     mock_openai_client.verify
     mock_responses_api.verify
+  end
+
+  def test_responses_api_with_reasoning_effort
+    # Create a logger that accepts anything
+    mock_logger = Minitest::Mock.new
+    def mock_logger.info(*args); end
+    def mock_logger.error(*args); end
+    def mock_logger.log(*args); end
+
+    mock_mcp_client = Minitest::Mock.new
+    mock_openai_client = Minitest::Mock.new
+    mock_responses_api = Minitest::Mock.new
+
+    # Set up OpenAI client to return responses API
+    mock_openai_client.expect(:responses, mock_responses_api)
+
+    api = ClaudeSwarm::OpenAIResponses.new(
+      openai_client: mock_openai_client,
+      mcp_client: mock_mcp_client,
+      available_tools: [],
+      logger: mock_logger,
+      instance_name: "test",
+      model: "o3-pro",
+      reasoning_effort: "medium",
+    )
+
+    # Mock the create call
+    mock_response = {
+      "id" => "resp_123",
+      "output" => [{
+        "type" => "message",
+        "content" => [{
+          "type" => "text",
+          "text" => "Hello from responses API with reasoning!",
+        }],
+      }],
+    }
+
+    mock_responses_api.expect(:create, mock_response) do |params|
+      # Verify request contains reasoning parameter with correct format for responses API
+      params[:parameters][:input] == "Hello" &&
+        params[:parameters][:reasoning] == { effort: "medium" }
+    end
+
+    result = api.execute("Hello")
+
+    assert_equal("Hello from responses API with reasoning!", result)
+
+    mock_openai_client.verify
+    mock_responses_api.verify
+  end
+
+  def test_responses_api_without_reasoning_effort_parameter
+    # Create a logger that accepts anything
+    mock_logger = Minitest::Mock.new
+    def mock_logger.info(*args); end
+    def mock_logger.error(*args); end
+    def mock_logger.log(*args); end
+
+    mock_mcp_client = Minitest::Mock.new
+    mock_openai_client = Minitest::Mock.new
+    mock_responses_api = Minitest::Mock.new
+
+    # Set up OpenAI client to return responses API
+    mock_openai_client.expect(:responses, mock_responses_api)
+
+    api = ClaudeSwarm::OpenAIResponses.new(
+      openai_client: mock_openai_client,
+      mcp_client: mock_mcp_client,
+      available_tools: [],
+      logger: mock_logger,
+      instance_name: "test",
+      model: "o3-pro",
+      reasoning_effort: nil,
+    )
+
+    # Mock the create call
+    mock_response = {
+      "id" => "resp_123",
+      "output" => [{
+        "type" => "message",
+        "content" => [{
+          "type" => "text",
+          "text" => "Hello from responses API!",
+        }],
+      }],
+    }
+
+    mock_responses_api.expect(:create, mock_response) do |params|
+      params[:parameters][:input] == "Hello" &&
+        !params[:parameters].key?(:reasoning)
+    end
+
+    result = api.execute("Hello")
+
+    assert_equal("Hello from responses API!", result)
+
+    mock_openai_client.verify
+    mock_responses_api.verify
+  end
+
+  def test_responses_api_with_all_o_series_models
+    ["o1", "o1 Preview", "o1-mini", "o1-pro", "o3", "o3-mini", "o3-pro", "o3-deep-research", "o4-mini", "o4-mini-deep-research"].each do |model|
+      # Create a logger that accepts anything
+      mock_logger = Minitest::Mock.new
+      def mock_logger.info(*args); end
+      def mock_logger.error(*args); end
+      def mock_logger.log(*args); end
+
+      mock_mcp_client = Minitest::Mock.new
+      mock_openai_client = Minitest::Mock.new
+      mock_responses_api = Minitest::Mock.new
+
+      # Set up OpenAI client to return responses API
+      mock_openai_client.expect(:responses, mock_responses_api)
+
+      api = ClaudeSwarm::OpenAIResponses.new(
+        openai_client: mock_openai_client,
+        mcp_client: mock_mcp_client,
+        available_tools: [],
+        logger: mock_logger,
+        instance_name: "test",
+        model: model,
+        reasoning_effort: "low",
+      )
+
+      # Mock the create call
+      mock_response = {
+        "id" => "resp_#{model}",
+        "output" => [{
+          "type" => "message",
+          "content" => [{
+            "type" => "text",
+            "text" => "Response from #{model} with reasoning",
+          }],
+        }],
+      }
+
+      mock_responses_api.expect(:create, mock_response) do |params|
+        params[:parameters][:model] == model &&
+          params[:parameters][:reasoning] == { effort: "low" }
+      end
+
+      result = api.execute("Test")
+
+      assert_equal("Response from #{model} with reasoning", result)
+
+      mock_openai_client.verify
+      mock_responses_api.verify
+    end
   end
 
   def test_chat_completion_with_tools
@@ -181,6 +461,100 @@ class OpenAIIntegrationTest < Minitest::Test
     mock_mcp_client.verify
   end
 
+  def test_chat_completion_with_tools_and_reasoning_effort
+    # Create a flexible logger
+    mock_logger = Minitest::Mock.new
+    def mock_logger.info(*args); end
+    def mock_logger.error(*args); end
+    def mock_logger.log(*args); end
+    def mock_logger.debug(*args); end
+
+    mock_mcp_client = Minitest::Mock.new
+    mock_openai_client = Minitest::Mock.new
+
+    # Create a mock tool
+    mock_tool = Struct.new(:name, :description, :schema).new(
+      "TestTool",
+      "A test tool",
+      { "type" => "object", "properties" => {} },
+    )
+
+    api = ClaudeSwarm::OpenAIChatCompletion.new(
+      openai_client: mock_openai_client,
+      mcp_client: mock_mcp_client,
+      available_tools: [mock_tool],
+      logger: mock_logger,
+      instance_name: "test",
+      model: "o3",
+      reasoning_effort: "low",
+    )
+
+    # Mock MCP client's to_openai_tools method (called multiple times)
+    2.times do
+      mock_mcp_client.expect(:to_openai_tools, [{
+        type: "function",
+        function: {
+          name: "TestTool",
+          description: "A test tool",
+          parameters: { "type" => "object", "properties" => {} },
+        },
+      }])
+    end
+
+    # First response with tool call
+    first_response = {
+      "choices" => [{
+        "message" => {
+          "role" => "assistant",
+          "tool_calls" => [{
+            "id" => "call_123",
+            "type" => "function",
+            "function" => {
+              "name" => "TestTool",
+              "arguments" => "{}",
+            },
+          }],
+        },
+      }],
+    }
+
+    mock_openai_client.expect(:chat, first_response) do |params|
+      params[:parameters][:tools]&.any? &&
+        params[:parameters][:reasoning_effort] == "low"
+    end
+
+    # Mock tool execution
+    mock_mcp_client.expect(
+      :call_tool,
+      {
+        "content" => [{ "type" => "text", "text" => "Tool result" }],
+      },
+      ["TestTool", {}],
+    )
+
+    # Second response after tool execution
+    second_response = {
+      "choices" => [{
+        "message" => {
+          "role" => "assistant",
+          "content" => "Tool executed successfully with reasoning",
+        },
+      }],
+    }
+
+    mock_openai_client.expect(:chat, second_response) do |params|
+      params[:parameters][:messages].any? { |m| m[:role] == "tool" } &&
+        params[:parameters][:reasoning_effort] == "low"
+    end
+
+    result = api.execute("Use the test tool")
+
+    assert_equal("Tool executed successfully with reasoning", result)
+
+    mock_openai_client.verify
+    mock_mcp_client.verify
+  end
+
   def test_responses_api_with_tools
     # Create a flexible logger
     mock_logger = Minitest::Mock.new
@@ -261,6 +635,95 @@ class OpenAIIntegrationTest < Minitest::Test
     result = api.execute("Use the test tool")
 
     assert_equal("Tool executed via responses API", result)
+
+    mock_openai_client.verify
+    mock_responses_api.verify
+    mock_mcp_client.verify
+  end
+
+  def test_responses_api_with_tools_and_reasoning_effort
+    # Create a flexible logger
+    mock_logger = Minitest::Mock.new
+    def mock_logger.info(*args); end
+    def mock_logger.error(*args); end
+    def mock_logger.log(*args); end
+    def mock_logger.debug(*args); end
+
+    mock_mcp_client = Minitest::Mock.new
+    mock_openai_client = Minitest::Mock.new
+    mock_responses_api = Minitest::Mock.new
+
+    # Set up OpenAI client to return responses API (called twice - once in init, once per API call)
+    2.times do
+      mock_openai_client.expect(:responses, mock_responses_api)
+    end
+
+    # Create a mock tool
+    mock_tool = Struct.new(:name, :description, :schema).new(
+      "TestTool",
+      "A test tool",
+      { "type" => "object", "properties" => {} },
+    )
+
+    api = ClaudeSwarm::OpenAIResponses.new(
+      openai_client: mock_openai_client,
+      mcp_client: mock_mcp_client,
+      available_tools: [mock_tool],
+      logger: mock_logger,
+      instance_name: "test",
+      model: "o3-pro",
+      reasoning_effort: "high",
+    )
+
+    # First response with function call
+    first_response = {
+      "id" => "resp_1",
+      "output" => [{
+        "type" => "function_call",
+        "name" => "TestTool",
+        "arguments" => "{}",
+        "call_id" => "call_123",
+        "id" => "fc_123",
+      }],
+    }
+
+    mock_responses_api.expect(:create, first_response) do |params|
+      params[:parameters][:tools]&.any? &&
+        params[:parameters][:reasoning] == { effort: "high" }
+    end
+
+    # Mock tool execution
+    mock_mcp_client.expect(
+      :call_tool,
+      {
+        "content" => [{ "type" => "text", "text" => "Tool result" }],
+      },
+      ["TestTool", {}],
+    )
+
+    # Second response after tool execution
+    second_response = {
+      "id" => "resp_2",
+      "output" => [{
+        "type" => "message",
+        "content" => [{
+          "type" => "text",
+          "text" => "Tool executed via responses API with reasoning",
+        }],
+      }],
+      "previous_response_id" => "resp_1",
+    }
+
+    mock_responses_api.expect(:create, second_response) do |actual_params|
+      # Just check that it has the right structure
+      actual_params[:parameters][:input].is_a?(Array) &&
+        actual_params[:parameters][:previous_response_id] == "resp_1" &&
+        actual_params[:parameters][:reasoning] == { effort: "high" }
+    end
+
+    result = api.execute("Use the test tool")
+
+    assert_equal("Tool executed via responses API with reasoning", result)
 
     mock_openai_client.verify
     mock_responses_api.verify
