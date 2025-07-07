@@ -6,7 +6,7 @@ module ClaudeSwarm
     RUN_DIR = File.expand_path("~/.claude-swarm/run")
 
     def initialize(configuration, mcp_generator, vibe: false, prompt: nil, stream_logs: false, debug: false,
-      restore_session_path: nil, worktree: nil)
+      restore_session_path: nil, worktree: nil, session_id: nil)
       @config = configuration
       @generator = mcp_generator
       @vibe = vibe
@@ -15,6 +15,7 @@ module ClaudeSwarm
       @debug = debug
       @restore_session_path = restore_session_path
       @session_path = nil
+      @provided_session_id = session_id
       # Store worktree option for later use
       @worktree_option = worktree
       @needs_worktree_manager = worktree.is_a?(String) || worktree == "" ||
@@ -76,7 +77,11 @@ module ClaudeSwarm
         end
 
         # Generate and set session path for all instances
-        session_path = SessionPath.generate(working_dir: Dir.pwd)
+        session_path = if @provided_session_id
+          SessionPath.generate(working_dir: Dir.pwd, session_id: @provided_session_id)
+        else
+          SessionPath.generate(working_dir: Dir.pwd)
+        end
         SessionPath.ensure_directory(session_path)
         @session_path = session_path
 

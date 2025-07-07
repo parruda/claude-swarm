@@ -700,9 +700,11 @@ claude-swarm --vibe
 claude-swarm -p "Implement the new user authentication feature"
 claude-swarm --prompt "Fix the bug in the payment module"
 
-# Resume a previous session by ID
-claude-swarm --session-id 20241206_143022
-claude-swarm --session-id ~/path/to/session
+# Use a custom session ID instead of auto-generated UUID
+claude-swarm --session-id my-custom-session-123
+
+# Stream logs to stdout in prompt mode
+claude-swarm -p "Fix the tests" --stream-logs
 
 # Run all instances in Git worktrees
 claude-swarm --worktree                  # Auto-generated name (worktree-SESSION_ID)
@@ -826,6 +828,7 @@ Output shows:
 Resume a previous session with all instances restored to their Claude session states:
 
 ```bash
+# Restore using the session's UUID
 claude-swarm restore 550e8400-e29b-41d4-a716-446655440000
 ```
 
