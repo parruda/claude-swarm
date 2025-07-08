@@ -27,7 +27,7 @@ module ClaudeSwarm
       }
 
       @executor = if instance_config[:provider] == "openai"
-        OpenAIExecutor.new(
+        OpenAI::Executor.new(
           **common_params,
           # OpenAI-specific parameters
           temperature: instance_config[:temperature],
