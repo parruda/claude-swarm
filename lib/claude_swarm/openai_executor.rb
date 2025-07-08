@@ -141,6 +141,7 @@ module ClaudeSwarm
       config = {
         access_token: ENV.fetch(token_env),
         log_errors: true,
+        request_timeout: 1800, # 30 minutes
       }
       config[:uri_base] = @base_url if @base_url
 
