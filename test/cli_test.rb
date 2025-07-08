@@ -416,6 +416,69 @@ class CLITest < Minitest::Test
     end
   end
 
+  def test_mcp_serve_with_temperature_for_o_series_model_fails
+    @cli.options = {
+      name: "test",
+      directory: ".",
+      model: "o1",
+      provider: "openai",
+      temperature: 0.7,
+      calling_instance: "test_caller",
+    }
+
+    out, = capture_cli_output do
+      assert_raises(SystemExit) { @cli.mcp_serve }
+    end
+
+    assert_match(/temperature parameter is not supported for o-series models \(o1\)/, out)
+    assert_match(/O-series models use deterministic reasoning and don't accept temperature settings/, out)
+  end
+
+  def test_mcp_serve_with_temperature_for_gpt_model_succeeds
+    @cli.options = {
+      name: "test",
+      directory: ".",
+      model: "gpt-4",
+      provider: "openai",
+      temperature: 0.8,
+      calling_instance: "test_caller",
+    }
+
+    server_mock = Minitest::Mock.new
+    server_mock.expect(:start, nil)
+
+    ClaudeSwarm::ClaudeMcpServer.stub(:new, lambda { |config, calling_instance:, calling_instance_id: nil| # rubocop:disable Lint/UnusedBlockArgument
+      assert_in_delta(0.8, config[:temperature])
+      assert_equal("gpt-4", config[:model])
+      server_mock
+    }) do
+      @cli.mcp_serve
+    end
+
+    server_mock.verify
+  end
+
+  def test_mcp_serve_with_temperature_all_o_series_models_fail
+    o_series_models = ["o1", "o1 Preview", "o1-mini", "o1-pro", "o3", "o3-mini", "o3-pro", "o3-deep-research", "o4-mini", "o4-mini-deep-research"]
+
+    o_series_models.each do |model|
+      @cli.options = {
+        name: "test",
+        directory: ".",
+        model: model,
+        provider: "openai",
+        temperature: 0.5,
+        calling_instance: "test_caller",
+      }
+
+      out, = capture_cli_output do
+        assert_raises(SystemExit) { @cli.mcp_serve }
+      end
+
+      assert_match(/temperature parameter is not supported for o-series models/, out)
+    end
+  end
+
   def test_start_unexpected_error_without_verbose
     write_config("valid.yml", <<~YAML)
       version: 1

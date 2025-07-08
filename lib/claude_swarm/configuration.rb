@@ -129,23 +129,11 @@ module ClaudeSwarm
 
       # Parse provider (optional, defaults to claude)
       provider = config["provider"]
+      model = config["model"]
 
       # Validate provider value if specified
       if provider && !VALID_PROVIDERS.include?(provider)
         raise Error, "Instance '#{name}' has invalid provider '#{provider}'. Must be 'claude' or 'openai'"
-      end
-
-      # Validate OpenAI-specific fields only when provider is "openai"
-      if provider != "openai"
-        invalid_fields = OPENAI_SPECIFIC_FIELDS & config.keys
-        unless invalid_fields.empty?
-          raise Error, "Instance '#{name}' has OpenAI-specific fields #{invalid_fields.join(", ")} but provider is not 'openai'"
-        end
-      end
-
-      # Validate api_version if specified
-      if config["api_version"] && !VALID_API_VERSIONS.include?(config["api_version"])
-        raise Error, "Instance '#{name}' has invalid api_version '#{config["api_version"]}'. Must be 'chat_completion' or 'responses'"
       end
 
       # Validate reasoning_effort for OpenAI provider
@@ -161,11 +149,28 @@ module ClaudeSwarm
         end
 
         # Validate it's only used with o-series models
-        model = config["model"]
         # Support patterns like: o1, o1-mini, o1-pro, o1 Preview, o3-deep-research, o4-mini-deep-research, etc.
         unless model&.match?(O_SERIES_MODEL_PATTERN)
           raise Error, "Instance '#{name}' has reasoning_effort but model '#{model}' is not an o-series model (o1, o1 Preview, o1-mini, o1-pro, o3, o3-mini, o3-pro, o3-deep-research, o4-mini, o4-mini-deep-research, etc.)"
         end
+      end
+
+      # Validate temperature is not used with o-series models when provider is openai
+      if provider == "openai" && config["temperature"] && model&.match?(O_SERIES_MODEL_PATTERN)
+        raise Error, "Instance '#{name}' has temperature parameter but model '#{model}' is an o-series model. O-series models use deterministic reasoning and don't accept temperature settings"
+      end
+
+      # Validate OpenAI-specific fields only when provider is not "openai"
+      if provider != "openai"
+        invalid_fields = OPENAI_SPECIFIC_FIELDS & config.keys
+        unless invalid_fields.empty?
+          raise Error, "Instance '#{name}' has OpenAI-specific fields #{invalid_fields.join(", ")} but provider is not 'openai'"
+        end
+      end
+
+      # Validate api_version if specified
+      if config["api_version"] && !VALID_API_VERSIONS.include?(config["api_version"])
+        raise Error, "Instance '#{name}' has invalid api_version '#{config["api_version"]}'. Must be 'chat_completion' or 'responses'"
       end
 
       # Validate tool fields are arrays if present
@@ -198,7 +203,7 @@ module ClaudeSwarm
 
       # Add OpenAI-specific fields only when provider is "openai"
       if provider == "openai"
-        instance_config[:temperature] = config["temperature"] || 0.3
+        instance_config[:temperature] = config["temperature"] if config["temperature"]
         instance_config[:api_version] = config["api_version"] || "chat_completion"
         instance_config[:openai_token_env] = config["openai_token_env"] || "OPENAI_API_KEY"
         instance_config[:base_url] = config["base_url"]

@@ -966,7 +966,6 @@ class ConfigurationTest < Minitest::Test
     assistant = config.instances["ai_assistant"]
 
     assert_equal("openai", assistant[:provider])
-    assert_in_delta(0.3, assistant[:temperature])
     assert_equal("chat_completion", assistant[:api_version])
     assert_equal("OPENAI_API_KEY", assistant[:openai_token_env])
     assert_nil(assistant[:base_url])
