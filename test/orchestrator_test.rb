@@ -769,12 +769,13 @@ class OrchestratorTest < Minitest::Test
       # Mock execute_after_commands to verify it's called
       orchestrator.stub(:execute_after_commands?, lambda { |commands|
         after_executed = true
+
         assert_equal(["echo 'Running after command' > after_output.txt"], commands)
         # Actually execute the command for verification
         commands.each { |cmd| system(cmd) }
         true
       }) do
-        orchestrator.stub(:system, lambda { |*args|
+        orchestrator.stub(:system, lambda { |*_args|
           system_called = true
           true
         }) do
@@ -795,6 +796,7 @@ class OrchestratorTest < Minitest::Test
 
       # Verify the command actually ran
       output_file = File.join(@tmpdir, "after_output.txt")
+
       assert_path_exists(output_file)
       assert_match(/Running after command/, File.read(output_file))
     end
@@ -825,7 +827,7 @@ class OrchestratorTest < Minitest::Test
 
       after_executed = false
 
-      orchestrator.stub(:execute_after_commands?, lambda { |commands|
+      orchestrator.stub(:execute_after_commands?, lambda { |_commands|
         after_executed = true
         true
       }) do
@@ -916,7 +918,7 @@ class OrchestratorTest < Minitest::Test
       cleanup_run_symlink_called = false
       cleanup_worktrees_called = false
 
-      orchestrator.stub(:system, lambda { |*args|
+      orchestrator.stub(:system, lambda { |*_args|
         system_called = true
         true
       }) do
@@ -966,7 +968,7 @@ class OrchestratorTest < Minitest::Test
 
       after_executed = false
 
-      orchestrator.stub(:execute_after_commands?, lambda { |commands|
+      orchestrator.stub(:execute_after_commands?, lambda { |_commands|
         after_executed = true
         true
       }) do
@@ -987,8 +989,8 @@ class OrchestratorTest < Minitest::Test
   end
 
   def test_after_commands_execute_on_signal_interruption
-    skip "Signal handling test is not reliable in CI environment"
-    
+    skip("Signal handling test is not reliable in CI environment")
+
     write_config(<<~YAML)
       version: 1
       swarm:

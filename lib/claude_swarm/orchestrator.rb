@@ -370,7 +370,7 @@ module ClaudeSwarm
         Signal.trap(signal) do
           puts "\n🛑 Received #{signal} signal, cleaning up..."
           display_summary
-          
+
           # Execute after commands if configured
           main_instance = @config.main_instance_config
           after_commands = @config.after_commands
@@ -382,7 +382,7 @@ module ClaudeSwarm
               execute_after_commands?(after_commands)
             end
           end
-          
+
           cleanup_processes
           cleanup_run_symlink
           cleanup_worktrees
