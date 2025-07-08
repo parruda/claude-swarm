@@ -64,15 +64,15 @@ module ClaudeSwarm
 
       # Set dynamic description for TaskTool based on instance config
       if @instance_config[:description]
-        TaskTool.description("Execute a task using Agent #{@instance_config[:name]}. #{@instance_config[:description]}")
+        Tools::TaskTool.description("Execute a task using Agent #{@instance_config[:name]}. #{@instance_config[:description]}")
       else
-        TaskTool.description("Execute a task using Agent #{@instance_config[:name]}")
+        Tools::TaskTool.description("Execute a task using Agent #{@instance_config[:name]}")
       end
 
       # Register tool classes (not instances)
-      server.register_tool(TaskTool)
-      server.register_tool(SessionInfoTool)
-      server.register_tool(ResetSessionTool)
+      server.register_tool(Tools::TaskTool)
+      server.register_tool(Tools::SessionInfoTool)
+      server.register_tool(Tools::ResetSessionTool)
 
       # Start the stdio server
       server.start

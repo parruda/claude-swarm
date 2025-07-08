@@ -31,7 +31,7 @@ class ClaudeMcpServerTest < Minitest::Test
     ENV["CLAUDE_SWARM_SESSION_PATH"] = @session_path
 
     # Store original tool descriptions
-    @original_task_description = ClaudeSwarm::TaskTool.description
+    @original_task_description = ClaudeSwarm::Tools::TaskTool.description
   end
 
   def teardown
@@ -40,7 +40,7 @@ class ClaudeMcpServerTest < Minitest::Test
     ENV["CLAUDE_SWARM_SESSION_PATH"] = @original_env if @original_env
 
     # Reset TaskTool description to original
-    ClaudeSwarm::TaskTool.description(@original_task_description)
+    ClaudeSwarm::Tools::TaskTool.description(@original_task_description)
   end
 
   def test_initialization
@@ -96,9 +96,9 @@ class ClaudeMcpServerTest < Minitest::Test
 
     # Mock FastMcp::Server
     mock_server = Minitest::Mock.new
-    mock_server.expect(:register_tool, nil, [ClaudeSwarm::TaskTool])
-    mock_server.expect(:register_tool, nil, [ClaudeSwarm::SessionInfoTool])
-    mock_server.expect(:register_tool, nil, [ClaudeSwarm::ResetSessionTool])
+    mock_server.expect(:register_tool, nil, [ClaudeSwarm::Tools::TaskTool])
+    mock_server.expect(:register_tool, nil, [ClaudeSwarm::Tools::SessionInfoTool])
+    mock_server.expect(:register_tool, nil, [ClaudeSwarm::Tools::ResetSessionTool])
     mock_server.expect(:start, nil)
 
     FastMcp::Server.stub(:new, mock_server) do
@@ -127,7 +127,7 @@ class ClaudeMcpServerTest < Minitest::Test
 
     ClaudeSwarm::ClaudeMcpServer.executor = mock_executor
 
-    tool = ClaudeSwarm::TaskTool.new
+    tool = ClaudeSwarm::Tools::TaskTool.new
     result = tool.call(prompt: "Test task")
 
     assert_equal("Task completed successfully", result)
@@ -152,7 +152,7 @@ class ClaudeMcpServerTest < Minitest::Test
 
     ClaudeSwarm::ClaudeMcpServer.executor = mock_executor
 
-    tool = ClaudeSwarm::TaskTool.new
+    tool = ClaudeSwarm::Tools::TaskTool.new
     result = tool.call(prompt: "Start fresh", new_session: true)
 
     assert_equal("New session started", result)
@@ -177,7 +177,7 @@ class ClaudeMcpServerTest < Minitest::Test
 
     ClaudeSwarm::ClaudeMcpServer.executor = mock_executor
 
-    tool = ClaudeSwarm::TaskTool.new
+    tool = ClaudeSwarm::Tools::TaskTool.new
     result = tool.call(prompt: "Do something", system_prompt: "Custom prompt")
 
     assert_equal("Custom prompt used", result)
@@ -223,7 +223,7 @@ class ClaudeMcpServerTest < Minitest::Test
     Open3.stub(:popen3, proc { |*_args, **_opts, &block|
       block.call(stdin_mock, stdout_mock, stderr_mock, wait_thread_stub)
     }) do
-      tool = ClaudeSwarm::TaskTool.new
+      tool = ClaudeSwarm::Tools::TaskTool.new
       result = tool.call(prompt: "Log this task")
 
       assert_equal("Logged task", result)
@@ -253,7 +253,7 @@ class ClaudeMcpServerTest < Minitest::Test
 
     ClaudeSwarm::ClaudeMcpServer.executor = mock_executor
 
-    tool = ClaudeSwarm::SessionInfoTool.new
+    tool = ClaudeSwarm::Tools::SessionInfoTool.new
     result = tool.call
 
     assert_equal(
@@ -276,7 +276,7 @@ class ClaudeMcpServerTest < Minitest::Test
 
     ClaudeSwarm::ClaudeMcpServer.executor = mock_executor
 
-    tool = ClaudeSwarm::ResetSessionTool.new
+    tool = ClaudeSwarm::Tools::ResetSessionTool.new
     result = tool.call
 
     assert_equal(
@@ -311,7 +311,7 @@ class ClaudeMcpServerTest < Minitest::Test
 
     ClaudeSwarm::ClaudeMcpServer.executor = mock_executor
 
-    tool = ClaudeSwarm::TaskTool.new
+    tool = ClaudeSwarm::Tools::TaskTool.new
     result = tool.call(prompt: "Test")
 
     assert_equal("No tools specified", result)
@@ -319,18 +319,18 @@ class ClaudeMcpServerTest < Minitest::Test
   end
 
   def test_tool_descriptions
-    assert_equal("Execute a task using Claude Code. There is no description parameter.", ClaudeSwarm::TaskTool.description)
-    assert_equal("Get information about the current Claude session for this agent", ClaudeSwarm::SessionInfoTool.description)
+    assert_equal("Execute a task using Claude Code. There is no description parameter.", ClaudeSwarm::Tools::TaskTool.description)
+    assert_equal("Get information about the current Claude session for this agent", ClaudeSwarm::Tools::SessionInfoTool.description)
     assert_equal(
       "Reset the Claude session for this agent, starting fresh on the next task",
-      ClaudeSwarm::ResetSessionTool.description,
+      ClaudeSwarm::Tools::ResetSessionTool.description,
     )
   end
 
   def test_tool_names
-    assert_equal("task", ClaudeSwarm::TaskTool.tool_name)
-    assert_equal("session_info", ClaudeSwarm::SessionInfoTool.tool_name)
-    assert_equal("reset_session", ClaudeSwarm::ResetSessionTool.tool_name)
+    assert_equal("task", ClaudeSwarm::Tools::TaskTool.tool_name)
+    assert_equal("session_info", ClaudeSwarm::Tools::SessionInfoTool.tool_name)
+    assert_equal("reset_session", ClaudeSwarm::Tools::ResetSessionTool.tool_name)
   end
 
   def test_server_with_openai_provider
