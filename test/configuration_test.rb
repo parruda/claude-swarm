@@ -1762,4 +1762,240 @@ class ConfigurationTest < Minitest::Test
   ensure
     ENV.delete("CUSTOM_API_KEY")
   end
+
+  # Environment variable default value tests
+
+  def test_env_var_with_default_value_when_not_set
+    ENV.delete("TEST_ENV_DB_PORT") # Ensure it's not set
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "DB on port ${TEST_ENV_DB_PORT:=5432}"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal("DB on port 5432", config.main_instance_config[:description])
+  end
+
+  def test_env_var_with_default_value_when_set
+    ENV["TEST_ENV_DB_HOST"] = "production.db"
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Connect to ${TEST_ENV_DB_HOST:=localhost}"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal("Connect to production.db", config.main_instance_config[:description])
+  end
+
+  def test_env_var_with_empty_default_value
+    ENV.delete("TEST_ENV_OPTIONAL")
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Optional: ${TEST_ENV_OPTIONAL:=}"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal("Optional: ", config.main_instance_config[:description])
+  end
+
+  def test_multiple_env_vars_with_defaults
+    ENV.delete("TEST_ENV_HOST")
+    ENV["TEST_ENV_PORT"] = "8080"
+    ENV.delete("TEST_ENV_PROTOCOL")
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Server at ${TEST_ENV_PROTOCOL:=https}://${TEST_ENV_HOST:=example.com}:${TEST_ENV_PORT:=3000}"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal("Server at https://example.com:8080", config.main_instance_config[:description])
+  end
+
+  def test_env_var_with_default_in_arrays
+    ENV.delete("TEST_ENV_TOOL1")
+    ENV["TEST_ENV_TOOL2"] = "CustomTool"
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead"
+            tools: ["${TEST_ENV_TOOL1:=Read}", "${TEST_ENV_TOOL2:=Write}", "Bash"]
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal(["Read", "CustomTool", "Bash"], config.main_instance_config[:tools])
+  end
+
+  def test_env_var_with_default_containing_spaces
+    ENV.delete("TEST_ENV_DESCRIPTION")
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "${TEST_ENV_DESCRIPTION:=A default description with spaces}"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal("A default description with spaces", config.main_instance_config[:description])
+  end
+
+  def test_env_var_with_default_containing_special_chars
+    ENV.delete("TEST_ENV_URL")
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "${TEST_ENV_URL:=https://api.example.com/v1?key=123&format=json}"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal("https://api.example.com/v1?key=123&format=json", config.main_instance_config[:description])
+  end
+
+  def test_env_var_without_default_still_raises_error
+    ENV.delete("TEST_ENV_REQUIRED")
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "${TEST_ENV_REQUIRED}"
+        main: lead
+        instances:
+          lead:
+            description: "Lead"
+    YAML
+
+    error = assert_raises(ClaudeSwarm::Error) do
+      ClaudeSwarm::Configuration.new(@config_path)
+    end
+
+    assert_equal("Environment variable 'TEST_ENV_REQUIRED' is not set", error.message)
+  end
+
+  def test_env_var_with_nested_braces_in_default
+    ENV.delete("TEST_ENV_JSON")
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: '${TEST_ENV_JSON:={"key": "value"}}'
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal('{"key": "value"}', config.main_instance_config[:description])
+  end
+
+  def test_mixed_env_vars_with_and_without_defaults
+    ENV["TEST_ENV_SET"] = "SetValue"
+    ENV.delete("TEST_ENV_UNSET")
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Mix: ${TEST_ENV_SET} and ${TEST_ENV_UNSET:=DefaultValue}"
+            model: "${TEST_ENV_UNSET:=sonnet}"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal("Mix: SetValue and DefaultValue", config.main_instance_config[:description])
+    assert_equal("sonnet", config.main_instance_config[:model])
+  end
+
+  def test_env_var_default_in_mcp_config
+    ENV.delete("TEST_ENV_MCP_CMD")
+    ENV.delete("TEST_ENV_MCP_URL")
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead"
+            mcps:
+              - name: stdio-server
+                type: stdio
+                command: "${TEST_ENV_MCP_CMD:=default-mcp-server}"
+                args: ["--port", "3000"]
+              - name: sse-server
+                type: sse
+                url: "${TEST_ENV_MCP_URL:=http://localhost:8080}"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    mcps = config.main_instance_config[:mcps]
+
+    assert_equal("default-mcp-server", mcps[0]["command"])
+    assert_equal("http://localhost:8080", mcps[1]["url"])
+  end
+
+  def test_env_var_default_in_worktree_string
+    ENV.delete("TEST_ENV_WORKTREE")
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead"
+            worktree: "${TEST_ENV_WORKTREE:=feature-branch}"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal("feature-branch", config.main_instance_config[:worktree])
+  end
 end

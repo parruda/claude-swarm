@@ -28,6 +28,11 @@
   - Variables are interpolated recursively in strings, arrays, and nested structures
   - Fails with clear error message if referenced environment variable is not set
   - Supports multiple variables in the same string and partial string interpolation
+- **Environment variable defaults**: Environment variables in configuration now support default values
+  - Use `${ENV_VAR_NAME:=default_value}` syntax to provide defaults
+  - Default values are used when the environment variable is not set
+  - Supports any string as default value, including spaces and special characters
+  - Examples: `${DB_PORT:=5432}`, `${API_URL:=https://api.example.com}`
 - **Session path display in show command**: The `claude-swarm show SESSION_ID` command now displays the session path for easier access to session files
 - **Main process PID tracking**: The orchestrator now writes its process ID to `SESSION_PATH/main_pid` for external monitoring and management
 - **Swarm execution summary**: Display runtime duration and total cost at the end of each swarm run [@claudenm]
