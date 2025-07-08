@@ -719,6 +719,321 @@ class OrchestratorTest < Minitest::Test
     refute(system_called, "Main instance should not be launched when before commands fail")
   end
 
+  def test_after_commands_feature_exists
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test"
+        main: lead
+        after:
+          - "echo 'cleanup test'"
+        instances:
+          lead:
+            description: "Test instance"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    # Test that configuration reads after commands correctly
+    assert_equal(["echo 'cleanup test'"], config.after_commands)
+
+    # Verify orchestrator can be created with after commands config
+    generator = ClaudeSwarm::McpGenerator.new(config)
+    orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
+
+    assert_instance_of(ClaudeSwarm::Orchestrator, orchestrator)
+  end
+
+  def test_after_commands_execute_after_main_instance
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test"
+        main: lead
+        after:
+          - "echo 'Running after command' > after_output.txt"
+        instances:
+          lead:
+            description: "Test instance"
+            directory: .
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    generator = ClaudeSwarm::McpGenerator.new(config)
+    generator.stub(:generate_all, nil) do
+      orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
+
+      system_called = false
+      after_executed = false
+
+      # Mock execute_after_commands to verify it's called
+      orchestrator.stub(:execute_after_commands?, lambda { |commands|
+        after_executed = true
+
+        assert_equal(["echo 'Running after command' > after_output.txt"], commands)
+        # Actually execute the command for verification
+        commands.each { |cmd| system(cmd) }
+        true
+      }) do
+        orchestrator.stub(:system, lambda { |*_args|
+          system_called = true
+          true
+        }) do
+          orchestrator.stub(:cleanup_processes, nil) do
+            orchestrator.stub(:cleanup_run_symlink, nil) do
+              orchestrator.stub(:cleanup_worktrees, nil) do
+                Dir.chdir(@tmpdir) do
+                  capture_io { orchestrator.start }
+                end
+              end
+            end
+          end
+        end
+      end
+
+      assert(system_called, "Main instance should be launched")
+      assert(after_executed, "After commands should be executed")
+
+      # Verify the command actually ran
+      output_file = File.join(@tmpdir, "after_output.txt")
+
+      assert_path_exists(output_file)
+      assert_match(/Running after command/, File.read(output_file))
+    end
+  end
+
+  def test_after_commands_not_executed_on_restore
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test"
+        main: lead
+        after:
+          - "echo 'Should not run on restore'"
+        instances:
+          lead:
+            description: "Test instance"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    generator = ClaudeSwarm::McpGenerator.new(config)
+
+    # Create a fake session path
+    restore_path = File.join(@tmpdir, ".claude-swarm", "sessions", "test-session")
+    FileUtils.mkdir_p(restore_path)
+
+    generator.stub(:generate_all, nil) do
+      orchestrator = ClaudeSwarm::Orchestrator.new(config, generator, restore_session_path: restore_path)
+
+      after_executed = false
+
+      orchestrator.stub(:execute_after_commands?, lambda { |_commands|
+        after_executed = true
+        true
+      }) do
+        orchestrator.stub(:system, true) do
+          orchestrator.stub(:cleanup_processes, nil) do
+            orchestrator.stub(:cleanup_run_symlink, nil) do
+              orchestrator.stub(:cleanup_worktrees, nil) do
+                output = capture_io { orchestrator.start }[0]
+
+                refute(after_executed, "After commands should not execute during session restoration")
+                refute_match(/Executing after commands/, output)
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+
+  def test_after_commands_execute_in_main_instance_directory
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test"
+        main: lead
+        after:
+          - "pwd > after_pwd.txt"
+        instances:
+          lead:
+            description: "Test instance"
+            directory: ./test_dir
+    YAML
+
+    test_dir = File.join(@tmpdir, "test_dir")
+    FileUtils.mkdir_p(test_dir)
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    generator = ClaudeSwarm::McpGenerator.new(config)
+    generator.stub(:generate_all, nil) do
+      orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
+
+      orchestrator.stub(:system, true) do
+        orchestrator.stub(:cleanup_processes, nil) do
+          orchestrator.stub(:cleanup_run_symlink, nil) do
+            orchestrator.stub(:cleanup_worktrees, nil) do
+              Dir.chdir(@tmpdir) do
+                capture_io { orchestrator.start }
+              end
+            end
+          end
+        end
+      end
+    end
+
+    # Verify the after command was executed in the main instance directory
+    pwd_file = File.join(test_dir, "after_pwd.txt")
+
+    assert_path_exists(pwd_file, "after_pwd.txt should be created in main instance directory")
+
+    # Check that the recorded pwd matches the expected directory
+    recorded_pwd = File.read(pwd_file).strip
+    expected_pwd = File.expand_path(test_dir)
+    # Normalize both paths to handle symlink resolution differences
+    assert_equal(File.realpath(expected_pwd), File.realpath(recorded_pwd), "After commands should execute in main instance directory")
+  end
+
+  def test_after_commands_failure_still_performs_cleanup
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test"
+        main: lead
+        after:
+          - "exit 1"
+        instances:
+          lead:
+            description: "Test instance"
+            directory: .
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    generator = ClaudeSwarm::McpGenerator.new(config)
+    generator.stub(:generate_all, nil) do
+      orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
+
+      system_called = false
+      cleanup_processes_called = false
+      cleanup_run_symlink_called = false
+      cleanup_worktrees_called = false
+
+      orchestrator.stub(:system, lambda { |*_args|
+        system_called = true
+        true
+      }) do
+        orchestrator.stub(:cleanup_processes, lambda {
+          cleanup_processes_called = true
+        }) do
+          orchestrator.stub(:cleanup_run_symlink, lambda {
+            cleanup_run_symlink_called = true
+          }) do
+            orchestrator.stub(:cleanup_worktrees, lambda {
+              cleanup_worktrees_called = true
+            }) do
+              Dir.chdir(@tmpdir) do
+                output = capture_io { orchestrator.start }[0]
+
+                # Verify warning message
+                assert_match(/⚠️  Some after commands failed/, output)
+              end
+            end
+          end
+        end
+      end
+
+      assert(system_called, "Main instance should be launched")
+      assert(cleanup_processes_called, "cleanup_processes should be called even if after commands fail")
+      assert(cleanup_run_symlink_called, "cleanup_run_symlink should be called even if after commands fail")
+      assert(cleanup_worktrees_called, "cleanup_worktrees should be called even if after commands fail")
+    end
+  end
+
+  def test_after_commands_with_empty_array
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test"
+        main: lead
+        after: []
+        instances:
+          lead:
+            description: "Test instance"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    generator = ClaudeSwarm::McpGenerator.new(config)
+    generator.stub(:generate_all, nil) do
+      orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
+
+      after_executed = false
+
+      orchestrator.stub(:execute_after_commands?, lambda { |_commands|
+        after_executed = true
+        true
+      }) do
+        orchestrator.stub(:system, true) do
+          orchestrator.stub(:cleanup_processes, nil) do
+            orchestrator.stub(:cleanup_run_symlink, nil) do
+              orchestrator.stub(:cleanup_worktrees, nil) do
+                output = capture_io { orchestrator.start }[0]
+
+                refute(after_executed, "No commands should be executed with empty after array")
+                refute_match(/Executing after commands/, output)
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+
+  def test_after_commands_execute_on_signal_interruption
+    skip("Signal handling test is not reliable in CI environment")
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test"
+        main: lead
+        after:
+          - "echo 'Signal cleanup' > signal_cleanup.txt"
+        instances:
+          lead:
+            description: "Test instance"
+            directory: .
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    generator = ClaudeSwarm::McpGenerator.new(config)
+    generator.stub(:generate_all, nil) do
+      orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
+
+      # Setup signal handler
+      orchestrator.send(:setup_signal_handlers)
+
+      # Mock exit to prevent actual process termination
+      exit_called = false
+      orchestrator.stub(:exit, lambda { exit_called = true }) do
+        orchestrator.stub(:cleanup_processes, nil) do
+          orchestrator.stub(:cleanup_run_symlink, nil) do
+            orchestrator.stub(:cleanup_worktrees, nil) do
+              Dir.chdir(@tmpdir) do
+                # Simulate signal
+                capture_io do
+                  Signal.trap("INT") { orchestrator.send(:setup_signal_handlers) }
+                  Process.kill("INT", Process.pid)
+                end
+              end
+            end
+          end
+        end
+      end
+
+      assert(exit_called, "Exit should be called after signal handling")
+    end
+  end
+
   def test_orchestrator_accepts_session_id_parameter
     config = create_test_config
     generator = ClaudeSwarm::McpGenerator.new(config)

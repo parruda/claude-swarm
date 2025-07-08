@@ -1,5 +1,14 @@
 ## [Unreleased]
 
+### Added
+- **After commands support**: Added `after` field to swarm configuration for executing cleanup commands
+  - Commands run after Claude exits but before cleanup processes
+  - Execute in the main instance's directory (including worktree if enabled)
+  - Run even when interrupted by signals (Ctrl+C)
+  - Failures in after commands do not prevent cleanup from proceeding
+  - Not executed during session restoration
+  - Example: `after: ["docker-compose down", "rm -rf temp/*"]`
+
 ### Changed
 - **Session restoration command**: Session restoration now uses a dedicated `restore` command instead of the `--session-id` flag
   - Previous: `claude-swarm start --session-id SESSION_ID`
@@ -17,8 +26,6 @@
   - This ensures commands like `npm install` or `bundle install` affect only the isolated worktree
   - Makes behavior more intuitive and consistent with user expectations
   - Existing swarms relying on before commands running in the original directory will need to be updated
-
-### Added
 - **Custom session ID support**: Added `--session-id` option to the `start` command to allow users to specify their own session ID
   - Use `claude-swarm start --session-id my-custom-id` to use a custom session ID
   - If not provided, a UUID is generated automatically

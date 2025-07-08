@@ -221,6 +221,9 @@ swarm:
     - "echo 'Setting up environment...'"
     - "npm install"
     - "docker-compose up -d"
+  after:  # Optional: commands to run after exiting the swarm
+    - "echo 'Cleaning up environment...'"
+    - "docker-compose down"
   instances:
     # Instance definitions...
 ```
@@ -575,9 +578,9 @@ swarm:
 
 Note: OpenAI instances require the API key to be set in the environment variable (default: `OPENAI_API_KEY`).
 
-#### Before Commands
+#### Before and After Commands
 
-You can specify commands to run before launching the swarm using the `before` field:
+You can specify commands to run before launching and after exiting the swarm using the `before` and `after` fields:
 
 ```yaml
 version: 1
@@ -589,6 +592,10 @@ swarm:
     - "npm install"
     - "docker-compose up -d"
     - "bundle install"
+  after:
+    - "echo '🛑 Cleaning up development environment...'"
+    - "docker-compose down"
+    - "rm -rf temp/*"
   instances:
     lead_developer:
       description: "Lead developer coordinating the team"
@@ -604,6 +611,14 @@ The `before` commands:
 - Are only executed on initial swarm launch, not when restoring sessions
 - Have their output logged to the session log file
 - Will abort the swarm launch if any command fails
+
+The `after` commands:
+- Are executed after Claude exits but before cleanup processes
+- Execute in the main instance's directory (including worktree if enabled)
+- Run even when the swarm is interrupted by signals (Ctrl+C)
+- Failures do not prevent cleanup from proceeding
+- Are only executed on initial swarm runs, not when restoring sessions
+- Have their output logged to the session log file
 
 This is useful for:
 - Installing dependencies in the isolated worktree environment

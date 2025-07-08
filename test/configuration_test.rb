@@ -1680,6 +1680,104 @@ class ConfigurationTest < Minitest::Test
     assert_equal(["npm install", "npm run build", "echo 'Setup complete'"], config.before_commands)
   end
 
+  def test_configuration_with_after_commands
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        after:
+          - "echo 'Cleaning up'"
+          - "docker-compose down"
+          - "rm -rf temp/*"
+        instances:
+          lead:
+            description: "Lead instance"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal(["echo 'Cleaning up'", "docker-compose down", "rm -rf temp/*"], config.after_commands)
+  end
+
+  def test_configuration_without_after_commands
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead instance"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_empty(config.after_commands)
+  end
+
+  def test_configuration_with_empty_after_commands
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        after: []
+        instances:
+          lead:
+            description: "Lead instance"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_empty(config.after_commands)
+  end
+
+  def test_configuration_with_both_before_and_after_commands
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        before:
+          - "echo 'Starting...'"
+          - "npm install"
+        after:
+          - "echo 'Stopping...'"
+          - "npm run cleanup"
+        instances:
+          lead:
+            description: "Lead instance"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal(["echo 'Starting...'", "npm install"], config.before_commands)
+    assert_equal(["echo 'Stopping...'", "npm run cleanup"], config.after_commands)
+  end
+
+  def test_env_var_interpolation_in_after_commands
+    ENV["TEST_ENV_CLEANUP_CMD"] = "docker-compose down"
+    ENV["TEST_ENV_REMOVE_CMD"] = "rm -rf temp"
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        after:
+          - "${TEST_ENV_CLEANUP_CMD}"
+          - "${TEST_ENV_REMOVE_CMD}"
+          - "echo 'Cleanup complete'"
+        instances:
+          lead:
+            description: "Lead instance"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_equal(["docker-compose down", "rm -rf temp", "echo 'Cleanup complete'"], config.after_commands)
+  end
+
   def test_env_var_interpolation_with_special_characters
     ENV["TEST_ENV_SPECIAL"] = "Value with $pecial & ch@rs!"
     write_config(<<~YAML)

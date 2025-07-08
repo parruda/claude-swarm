@@ -39,6 +39,10 @@ module ClaudeSwarm
       @swarm["before"] || []
     end
 
+    def after_commands
+      @swarm["after"] || []
+    end
+
     private
 
     def load_and_validate

@@ -203,6 +203,24 @@ module ClaudeSwarm
       # Display runtime and cost summary
       display_summary
 
+      # Execute after commands if specified
+      after_commands = @config.after_commands
+      if after_commands.any? && !@restore_session_path
+        Dir.chdir(main_instance[:directory]) do
+          unless @prompt
+            puts
+            puts "⚙️  Executing after commands..."
+            puts
+          end
+
+          success = execute_after_commands?(after_commands)
+          if !success && !@prompt
+            puts "⚠️  Some after commands failed"
+            puts
+          end
+        end
+      end
+
       # Clean up child processes and run symlink
       cleanup_processes
       cleanup_run_symlink
@@ -266,6 +284,62 @@ module ClaudeSwarm
       true
     end
 
+    def execute_after_commands?(commands)
+      log_file = File.join(@session_path, "session.log") if @session_path
+      all_succeeded = true
+
+      commands.each_with_index do |command, index|
+        # Log the command execution to session log
+        if @session_path
+          File.open(log_file, "a") do |f|
+            f.puts "[#{Time.now.strftime("%Y-%m-%d %H:%M:%S")}] Executing after command #{index + 1}/#{commands.size}: #{command}"
+          end
+        end
+
+        # Execute the command and capture output
+        begin
+          puts "Debug: Executing after command #{index + 1}/#{commands.size}: #{command}" if @debug && !@prompt
+
+          # Use system with output capture
+          output = %x(#{command} 2>&1)
+          success = $CHILD_STATUS.success?
+
+          # Log the output
+          if @session_path
+            File.open(log_file, "a") do |f|
+              f.puts "Command output:"
+              f.puts output
+              f.puts "Exit status: #{$CHILD_STATUS.exitstatus}"
+              f.puts "-" * 80
+            end
+          end
+
+          # Show output if in debug mode or if command failed
+          if (@debug || !success) && !@prompt
+            puts "After command #{index + 1} output:"
+            puts output
+            puts "Exit status: #{$CHILD_STATUS.exitstatus}"
+          end
+
+          unless success
+            puts "❌ After command #{index + 1} failed: #{command}" unless @prompt
+            all_succeeded = false
+          end
+        rescue StandardError => e
+          puts "Error executing after command #{index + 1}: #{e.message}" unless @prompt
+          if @session_path
+            File.open(log_file, "a") do |f|
+              f.puts "Error: #{e.message}"
+              f.puts "-" * 80
+            end
+          end
+          all_succeeded = false
+        end
+      end
+
+      all_succeeded
+    end
+
     def save_swarm_config_path(session_path)
       # Copy the YAML config file to the session directory
       config_copy_path = File.join(session_path, "config.yml")
@@ -296,6 +370,19 @@ module ClaudeSwarm
         Signal.trap(signal) do
           puts "\n🛑 Received #{signal} signal, cleaning up..."
           display_summary
+
+          # Execute after commands if configured
+          main_instance = @config.main_instance_config
+          after_commands = @config.after_commands
+          if after_commands.any? && !@restore_session_path && !@prompt
+            Dir.chdir(main_instance[:directory]) do
+              puts
+              puts "⚙️  Executing after commands..."
+              puts
+              execute_after_commands?(after_commands)
+            end
+          end
+
           cleanup_processes
           cleanup_run_symlink
           cleanup_worktrees
