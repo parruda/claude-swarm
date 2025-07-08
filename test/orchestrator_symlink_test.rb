@@ -216,6 +216,10 @@ module ClaudeSwarm
       def before_commands
         []
       end
+
+      def after_commands
+        []
+      end
     end
 
     class MockGenerator
