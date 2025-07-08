@@ -10,6 +10,7 @@ module ClaudeSwarm
 
     # Regex patterns
     ENV_VAR_PATTERN = /\$\{([^}]+)\}/
+    ENV_VAR_WITH_DEFAULT_PATTERN = /\$\{([^:}]+)(:=([^}]*))?\}/
     O_SERIES_MODEL_PATTERN = /^o\d+(\s+(Preview|preview))?(-pro|-mini|-deep-research|-mini-deep-research)?$/
 
     attr_reader :config, :config_path, :swarm, :swarm_name, :main_instance, :instances
@@ -67,10 +68,15 @@ module ClaudeSwarm
     end
 
     def interpolate_env_string(str)
-      str.gsub(ENV_VAR_PATTERN) do |_match|
+      str.gsub(ENV_VAR_WITH_DEFAULT_PATTERN) do |_match|
         env_var = Regexp.last_match(1)
+        has_default = Regexp.last_match(2)
+        default_value = Regexp.last_match(3)
+
         if ENV.key?(env_var)
           ENV[env_var]
+        elsif has_default
+          default_value || ""
         else
           raise Error, "Environment variable '#{env_var}' is not set"
         end

@@ -256,6 +256,32 @@ Features:
 - If a referenced environment variable is not set, Claude Swarm will exit with a clear error message
 - Non-matching patterns like `$VAR` or `{VAR}` are preserved as-is
 
+##### Default Values
+
+Environment variables can have default values using the `${VAR_NAME:=default_value}` syntax:
+
+```yaml
+version: 1
+swarm:
+  name: "Dev Team"
+  main: lead
+  instances:
+    lead:
+      description: "Lead developer"
+      directory: "${PROJECT_DIR:=.}"
+      model: "${CLAUDE_MODEL:=sonnet}"
+      mcps:
+        - name: api-server
+          type: sse
+          url: "${API_URL:=http://localhost:8080}"
+      worktree: "${BRANCH_NAME:=feature-branch}"
+```
+
+- Default values are used when the environment variable is not set
+- Any string can be used as a default value, including spaces and special characters
+- Empty defaults are supported: `${VAR:=}` results in an empty string if VAR is not set
+- Works in all configuration values: strings, arrays, and nested structures
+
 #### Instance Configuration
 
 Each instance must have:
