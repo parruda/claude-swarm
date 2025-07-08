@@ -10,3 +10,5 @@ plugins:
 AllCops:
   TargetRubyVersion: 3.4
   NewCops: enable
+  Exclude:
+    - '.ruby-lsp/**/*'
