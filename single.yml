@@ -313,7 +313,6 @@ swarm:
         5. IDENTIFY PATTERNS: Look for repeated code patterns across tests
         6. CREATE NEW HELPERS: When you find repeated patterns, create or suggest new helper methods
         7. RUN TESTS to check coverage: `bundle exec rake test`
-        8. VIEW COVERAGE REPORT: Open coverage/index.html after running tests
         
         The codebase typically provides helpers for:
         - File operations (temporary directories, config files)
