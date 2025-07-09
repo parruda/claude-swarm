@@ -308,12 +308,18 @@ Each instance can have:
 
 When using `provider: openai`, the following additional fields are available:
 
-- **temperature**: Temperature for OpenAI models (default: 0.3)
+- **temperature**: Temperature for GPT models only (0.0-2.0). Not supported for O-series reasoning models (o1, o1-preview, o1-mini, o3, etc.)
 - **api_version**: API version to use - "chat_completion" (default) or "responses"
 - **openai_token_env**: Environment variable name for OpenAI API key (default: "OPENAI_API_KEY")
 - **base_url**: Custom base URL for OpenAI API (optional)
+- **reasoning_effort**: Reasoning effort for O-series models only - "low", "medium", or "high"
 
-Note: OpenAI instances default to and ONLY operate as `vibe: true` and use MCP for tool access. By default it comes with Claude Code tools, connected with MCP to `claude mcp serve`.
+**Important Notes:**
+- O-series models (o1, o1-preview, o1-mini, o3, etc.) use deterministic reasoning and do not support the `temperature` parameter
+- The `reasoning_effort` parameter is only supported by O-series models
+- GPT models support `temperature` but not `reasoning_effort`
+- OpenAI instances default to and ONLY operate as `vibe: true` and use MCP for tool access
+- By default it comes with Claude Code tools, connected with MCP to `claude mcp serve`
 
 ```yaml
 instance_name:
@@ -341,15 +347,26 @@ instance_name:
       env:
         VAR1: value1
 
-# OpenAI instance example
-openai_instance:
-  description: "OpenAI-powered creative assistant"
+# OpenAI instance examples
+
+# GPT model with temperature
+gpt_instance:
+  description: "OpenAI GPT-powered creative assistant"
   provider: openai
   model: gpt-4o
-  temperature: 0.7
+  temperature: 0.7  # Supported for GPT models
   api_version: chat_completion
   openai_token_env: OPENAI_API_KEY
   prompt: "You are a creative assistant specializing in content generation"
+
+# O-series reasoning model with reasoning_effort
+reasoning_instance:
+  description: "OpenAI O-series reasoning assistant"
+  provider: openai
+  model: o1-mini
+  reasoning_effort: medium  # Only for O-series models
+  api_version: responses    # Can use either API version
+  prompt: "You are a reasoning assistant for complex problem solving"
 ```
 
 ### MCP Server Types
@@ -555,7 +572,7 @@ swarm:
       description: "Claude lead developer coordinating the team"
       directory: .
       model: opus
-      connections: [creative_assistant, backend_dev]
+      connections: [creative_assistant, reasoning_expert, backend_dev]
       prompt: "You are the lead developer coordinating a mixed AI team"
       allowed_tools: [Read, Edit, Bash, Write]
       
@@ -563,10 +580,18 @@ swarm:
       description: "OpenAI-powered assistant for creative and UI/UX tasks"
       provider: openai
       model: gpt-4o
-      temperature: 0.7
+      temperature: 0.7  # Supported for GPT models
       directory: ./frontend
       prompt: "You are a creative frontend developer specializing in UI/UX design"
       # OpenAI instances default to vibe: true
+      
+    reasoning_expert:
+      description: "OpenAI O-series model for complex problem solving"
+      provider: openai
+      model: o1-mini
+      reasoning_effort: high  # For O-series models only
+      directory: ./architecture
+      prompt: "You solve complex architectural and algorithmic problems"
       
     backend_dev:
       description: "Claude backend developer for system architecture"

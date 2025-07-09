@@ -5,7 +5,7 @@ module ClaudeSwarm
     class Responses
       MAX_TURNS_WITH_TOOLS = 100_000 # virtually infinite
 
-      def initialize(openai_client:, mcp_client:, available_tools:, logger:, instance_name:, model:, temperature: 0.3, reasoning_effort: nil)
+      def initialize(openai_client:, mcp_client:, available_tools:, logger:, instance_name:, model:, temperature: nil, reasoning_effort: nil)
         @openai_client = openai_client
         @mcp_client = mcp_client
         @available_tools = available_tools
@@ -46,8 +46,17 @@ module ClaudeSwarm
           model: @model,
         }
 
-        # Add reasoning_effort if specified (for o-series models: o1, o1 Preview, o1-mini, o1-pro, o3, o3-mini, o3-pro, o3-deep-research, o4-mini, o4-mini-deep-research, etc.)
-        parameters[:reasoning] = { effort: @reasoning_effort } if @reasoning_effort
+        # Only add temperature for non-o-series models
+        # O-series models don't support temperature parameter
+        unless @model.match?(ClaudeSwarm::Configuration::O_SERIES_MODEL_PATTERN)
+          parameters[:temperature] = @temperature
+        end
+
+        # Only add reasoning effort for o-series models
+        # reasoning is only supported by o-series models: o1, o1 Preview, o1-mini, o1-pro, o3, o3-mini, o3-pro, o3-deep-research, o4-mini, o4-mini-deep-research, etc.
+        if @reasoning_effort && @model.match?(ClaudeSwarm::Configuration::O_SERIES_MODEL_PATTERN)
+          parameters[:reasoning] = { effort: @reasoning_effort }
+        end
 
         # On first call, use string input (can include system prompt)
         # On subsequent calls with function results, use array input

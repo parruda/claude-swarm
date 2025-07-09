@@ -15,8 +15,7 @@ swarm:
       description: "OpenAI-powered assistant for creative tasks"
       directory: .
       provider: openai
-      model: o3-pro
-      temperature: 1
+      model: o3
       api_version: responses
       reasoning_effort: high  # Optional: low, medium, or high
       prompt: "You are a creative frontend developer using React and modern web technologies"

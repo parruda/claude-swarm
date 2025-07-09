@@ -8,7 +8,7 @@ module ClaudeSwarm
       def initialize(working_directory: Dir.pwd, model: nil, mcp_config: nil, vibe: false,
         instance_name: nil, instance_id: nil, calling_instance: nil, calling_instance_id: nil,
         claude_session_id: nil, additional_directories: [],
-        temperature: 0.3, api_version: "chat_completion", openai_token_env: "OPENAI_API_KEY",
+        temperature: nil, api_version: "chat_completion", openai_token_env: "OPENAI_API_KEY",
         base_url: nil, reasoning_effort: nil)
         @working_directory = working_directory
         @additional_directories = additional_directories

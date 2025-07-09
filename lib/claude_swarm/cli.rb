@@ -175,6 +175,16 @@ module ClaudeSwarm
         end
       end
 
+      # Validate temperature is not used with o-series models
+      if options[:temperature] && options[:provider] == "openai"
+        model = options[:model]
+        if model&.match?(ClaudeSwarm::Configuration::O_SERIES_MODEL_PATTERN)
+          error("temperature parameter is not supported for o-series models (#{model})")
+          error("O-series models use deterministic reasoning and don't accept temperature settings")
+          exit(1)
+        end
+      end
+
       instance_config = {
         name: options[:name],
         directory: options[:directory],
