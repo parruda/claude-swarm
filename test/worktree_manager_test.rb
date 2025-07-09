@@ -511,6 +511,302 @@ class WorktreeManagerTest < Minitest::Test
     refute_match(/has unpushed commits, skipping cleanup/, output)
   end
 
+  def test_session_metadata_with_instance_configs
+    manager = nil
+    metadata = nil
+
+    capture_io do
+      manager = ClaudeSwarm::WorktreeManager.new("metadata-test-enhanced")
+
+      instances = [
+        { name: "main", directory: @repo_dir, worktree: true },
+        { name: "other", directory: @other_repo_dir, worktree: false },
+        { name: "custom", directory: @repo_dir, worktree: "custom-branch" },
+      ]
+
+      manager.setup_worktrees(instances)
+      metadata = manager.session_metadata
+    end
+
+    # Basic metadata structure
+    assert(metadata[:enabled])
+    assert_equal("metadata-test-enhanced", metadata[:shared_name])
+    assert_kind_of(Hash, metadata[:created_paths])
+    assert_kind_of(Hash, metadata[:instance_configs])
+
+    # Verify main instance config (worktree: true)
+    assert_valid_instance_metadata(metadata, "main", {
+      worktree_config: { skip: false, name: "metadata-test-enhanced" },
+      directories: [File.expand_path(@repo_dir)],
+      worktree_paths: [calculate_worktree_path(@repo_dir, "metadata-test-enhanced")],
+    })
+
+    # Verify other instance config (worktree: false)
+    assert_valid_instance_metadata(metadata, "other", {
+      worktree_config: { skip: true },
+      directories: [File.expand_path(@other_repo_dir)],
+      worktree_paths: [File.expand_path(@other_repo_dir)],
+    })
+
+    # Verify custom instance config (worktree: "custom-branch")
+    assert_valid_instance_metadata(metadata, "custom", {
+      worktree_config: { skip: false, name: "custom-branch" },
+      directories: [File.expand_path(@repo_dir)],
+      worktree_paths: [calculate_worktree_path(@repo_dir, "custom-branch")],
+    })
+  end
+
+  def test_session_metadata_with_multiple_directories
+    manager = nil
+    metadata = nil
+
+    capture_io do
+      manager = ClaudeSwarm::WorktreeManager.new("multi-dir-metadata")
+
+      instances = [
+        {
+          name: "multi",
+          directories: [@repo_dir, File.join(@repo_dir, "subdir"), @other_repo_dir],
+          worktree: true,
+        },
+      ]
+
+      manager.setup_worktrees(instances)
+      metadata = manager.session_metadata
+    end
+
+    # Calculate expected paths
+    worktree_path1 = calculate_worktree_path(@repo_dir, "multi-dir-metadata")
+    worktree_path2 = calculate_worktree_path(@other_repo_dir, "multi-dir-metadata")
+
+    assert_valid_instance_metadata(metadata, "multi", {
+      worktree_config: { skip: false, name: "multi-dir-metadata" },
+      directories: [
+        File.expand_path(@repo_dir),
+        File.expand_path(File.join(@repo_dir, "subdir")),
+        File.expand_path(@other_repo_dir),
+      ],
+      worktree_paths: [
+        worktree_path1,
+        File.join(worktree_path1, "subdir"),
+        worktree_path2,
+      ],
+    })
+  end
+
+  def test_session_metadata_without_worktrees
+    manager = nil
+    metadata = nil
+
+    capture_io do
+      manager = ClaudeSwarm::WorktreeManager.new(nil)
+
+      instances = [
+        { name: "main", directory: @repo_dir },
+        { name: "other", directory: @other_repo_dir },
+      ]
+
+      manager.setup_worktrees(instances)
+      metadata = manager.session_metadata
+    end
+
+    # Verify both instances have skip: true
+    assert_valid_instance_metadata(metadata, "main", {
+      worktree_config: { skip: true },
+      directories: [File.expand_path(@repo_dir)],
+      worktree_paths: [File.expand_path(@repo_dir)],
+    })
+
+    assert_valid_instance_metadata(metadata, "other", {
+      worktree_config: { skip: true },
+      directories: [File.expand_path(@other_repo_dir)],
+      worktree_paths: [File.expand_path(@other_repo_dir)],
+    })
+
+    # No worktrees should be created
+    assert_empty(metadata[:created_paths])
+  end
+
+  def test_session_metadata_with_mixed_git_and_non_git_directories
+    non_git_dir = File.join(@test_dir, "non-git")
+    FileUtils.mkdir_p(non_git_dir)
+
+    manager = nil
+    metadata = nil
+
+    capture_io do
+      manager = ClaudeSwarm::WorktreeManager.new("mixed-test")
+
+      instances = [
+        {
+          name: "mixed",
+          directories: [@repo_dir, non_git_dir, @other_repo_dir],
+          worktree: true,
+        },
+      ]
+
+      manager.setup_worktrees(instances)
+      metadata = manager.session_metadata
+    end
+
+    # Calculate expected paths
+    worktree_path1 = calculate_worktree_path(@repo_dir, "mixed-test")
+    worktree_path2 = calculate_worktree_path(@other_repo_dir, "mixed-test")
+
+    assert_valid_instance_metadata(metadata, "mixed", {
+      worktree_config: { skip: false, name: "mixed-test" },
+      directories: [
+        File.expand_path(@repo_dir),
+        File.expand_path(non_git_dir),
+        File.expand_path(@other_repo_dir),
+      ],
+      worktree_paths: [
+        worktree_path1,
+        File.expand_path(non_git_dir), # Non-git directory stays the same
+        worktree_path2,
+      ],
+    })
+  end
+
+  def test_session_metadata_path_resolution_with_relative_paths
+    # Create a relative path scenario
+    Dir.chdir(@test_dir) do
+      relative_repo = "./test-repo"
+      relative_other = "./other-repo"
+
+      manager = nil
+      metadata = nil
+
+      capture_io do
+        manager = ClaudeSwarm::WorktreeManager.new("relative-test")
+
+        instances = [
+          { name: "main", directory: relative_repo, worktree: true },
+          {
+            name: "multi",
+            directories: [relative_repo, File.join(relative_repo, "subdir"), relative_other],
+            worktree: "custom-relative",
+          },
+        ]
+
+        manager.setup_worktrees(instances)
+        metadata = manager.session_metadata
+      end
+
+      # Check that relative paths are properly resolved to absolute paths
+      assert_valid_instance_metadata(metadata, "main", {
+        worktree_config: { skip: false, name: "relative-test" },
+        directories: [File.expand_path(@repo_dir)],
+        worktree_paths: [calculate_worktree_path(@repo_dir, "relative-test")],
+      })
+
+      # Calculate expected paths for multi instance
+      worktree_path1 = calculate_worktree_path(@repo_dir, "custom-relative")
+      worktree_path2 = calculate_worktree_path(@other_repo_dir, "custom-relative")
+
+      assert_valid_instance_metadata(metadata, "multi", {
+        worktree_config: { skip: false, name: "custom-relative" },
+        directories: [
+          File.expand_path(@repo_dir),
+          File.expand_path(File.join(@repo_dir, "subdir")),
+          File.expand_path(@other_repo_dir),
+        ],
+        worktree_paths: [
+          worktree_path1,
+          File.join(worktree_path1, "subdir"),
+          worktree_path2,
+        ],
+      })
+    end
+  end
+
+  def test_session_metadata_with_invalid_worktree_config
+    manager = nil
+
+    assert_raises(ClaudeSwarm::Error) do
+      capture_io do
+        manager = ClaudeSwarm::WorktreeManager.new("invalid-test")
+
+        instances = [
+          { name: "invalid", directory: @repo_dir, worktree: 123 }, # Invalid worktree value
+        ]
+
+        manager.setup_worktrees(instances)
+      end
+    end
+  end
+
+  def test_session_metadata_with_permission_error
+    # Test permission error by creating a mock that raises an error
+
+    # Create a manager instance first
+    manager = ClaudeSwarm::WorktreeManager.new("permission-test")
+
+    # Stub the create_worktree method on this specific instance
+    manager.stub(:create_worktree, lambda { |_repo_root, _worktree_name|
+      raise ClaudeSwarm::Error, "Permission denied creating worktree directory: mocked error"
+    }) do
+      assert_raises(ClaudeSwarm::Error) do
+        capture_io do
+          instances = [
+            { name: "main", directory: @repo_dir, worktree: true },
+          ]
+
+          # This should raise an error when trying to create worktree
+          manager.setup_worktrees(instances)
+        end
+      end
+    end
+  end
+
+  def test_session_metadata_with_corrupted_git_repo
+    # Create a corrupted git repository
+    corrupted_dir = File.join(@test_dir, "corrupted-repo")
+    FileUtils.mkdir_p(corrupted_dir)
+    FileUtils.mkdir_p(File.join(corrupted_dir, ".git"))
+
+    # Create invalid git config
+    File.write(File.join(corrupted_dir, ".git", "config"), "invalid content")
+
+    manager = nil
+
+    # The implementation currently raises an error for corrupted repos
+    assert_raises(ClaudeSwarm::Error) do
+      capture_io do
+        manager = ClaudeSwarm::WorktreeManager.new("corrupted-test")
+
+        instances = [
+          { name: "main", directory: corrupted_dir, worktree: true },
+        ]
+
+        # This will fail when trying to get current branch
+        manager.setup_worktrees(instances)
+      end
+    end
+  end
+
+  def test_session_metadata_with_disk_space_error
+    # Test disk space error by creating a mock that raises an error
+
+    # Create a manager instance first
+    manager = ClaudeSwarm::WorktreeManager.new("disk-space-test")
+
+    # Stub the create_worktree method on this specific instance
+    manager.stub(:create_worktree, lambda { |_repo_root, _worktree_name|
+      raise ClaudeSwarm::Error, "Not enough disk space for worktree: mocked error"
+    }) do
+      assert_raises(ClaudeSwarm::Error) do
+        capture_io do
+          instances = [
+            { name: "main", directory: @repo_dir, worktree: true },
+          ]
+
+          manager.setup_worktrees(instances)
+        end
+      end
+    end
+  end
+
   private
 
   def setup_git_repo(dir)

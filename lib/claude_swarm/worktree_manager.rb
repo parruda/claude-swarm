@@ -16,6 +16,8 @@ module ClaudeSwarm
       end
       @created_worktrees = {} # Maps "repo_root:worktree_name" to worktree_path
       @instance_worktree_configs = {} # Stores per-instance worktree settings
+      @instance_directories = {} # Stores original resolved directories for each instance
+      @instance_worktree_paths = {} # Stores worktree paths for each instance
     end
 
     def setup_worktrees(instances)
@@ -40,11 +42,22 @@ module ClaudeSwarm
           puts "Debug [WorktreeManager]: Worktree config: #{worktree_config.inspect}"
         end
 
-        next if worktree_config[:skip]
+        # Store original directories (resolved)
+        original_dirs = instance[:directories] || [instance[:directory]]
+        resolved_dirs = original_dirs.map { |dir| dir ? File.expand_path(dir) : nil }.compact
+        @instance_directories[instance[:name]] = resolved_dirs
+
+        if worktree_config[:skip]
+          # No worktree, paths remain the same
+          @instance_worktree_paths[instance[:name]] = resolved_dirs
+          next
+        end
 
         worktree_name = worktree_config[:name]
-        original_dirs = instance[:directories] || [instance[:directory]]
         mapped_dirs = original_dirs.map { |dir| map_to_worktree_path(dir, worktree_name) }
+
+        # Store the worktree paths
+        @instance_worktree_paths[instance[:name]] = mapped_dirs
 
         if ENV["CLAUDE_SWARM_DEBUG"]
           puts "Debug [WorktreeManager]: Original dirs: #{original_dirs.inspect}"
@@ -166,11 +179,22 @@ module ClaudeSwarm
     end
 
     def session_metadata
+      # Build instance details with resolved paths and worktree mappings
+      instance_details = {}
+
+      @instance_worktree_configs.each do |instance_name, worktree_config|
+        instance_details[instance_name] = {
+          worktree_config: worktree_config,
+          directories: @instance_directories[instance_name] || {},
+          worktree_paths: @instance_worktree_paths[instance_name] || {},
+        }
+      end
+
       {
         enabled: true,
         shared_name: @shared_worktree_name,
         created_paths: @created_worktrees.dup,
-        instance_configs: @instance_worktree_configs.dup,
+        instance_configs: instance_details,
       }
     end
 
