@@ -1,4 +1,4 @@
-## [Unreleased]
+## [0.2.0]
 
 ### Added
 - **After commands support**: Added `after` field to swarm configuration for executing cleanup commands
