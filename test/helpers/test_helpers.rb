@@ -241,6 +241,38 @@ module TestHelpers
       # Just return the current session path
       ENV.fetch("CLAUDE_SWARM_SESSION_PATH", nil)
     end
+
+    def assert_valid_instance_metadata(metadata, instance_name, expected_config)
+      assert_includes(
+        metadata[:instance_configs].keys,
+        instance_name,
+        "Expected metadata to include instance '#{instance_name}'",
+      )
+
+      instance_config = metadata[:instance_configs][instance_name]
+
+      assert_equal(
+        expected_config[:worktree_config],
+        instance_config[:worktree_config],
+        "Worktree config mismatch for instance '#{instance_name}'",
+      )
+      assert_equal(
+        expected_config[:directories],
+        instance_config[:directories],
+        "Directories mismatch for instance '#{instance_name}'",
+      )
+      assert_equal(
+        expected_config[:worktree_paths],
+        instance_config[:worktree_paths],
+        "Worktree paths mismatch for instance '#{instance_name}'",
+      )
+    end
+
+    def calculate_worktree_path(repo_dir, worktree_name, session_id = "default")
+      repo_name = File.basename(repo_dir)
+      repo_hash = Digest::SHA256.hexdigest(repo_dir)[0..7]
+      File.expand_path("~/.claude-swarm/worktrees/#{session_id}/#{repo_name}-#{repo_hash}/#{worktree_name}")
+    end
   end
 end
 
