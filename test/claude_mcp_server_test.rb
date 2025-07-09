@@ -350,7 +350,7 @@ class ClaudeMcpServerTest < Minitest::Test
     # Verify that OpenAIExecutor was created
     executor = ClaudeSwarm::ClaudeMcpServer.executor
 
-    assert_kind_of(ClaudeSwarm::OpenAIExecutor, executor)
+    assert_kind_of(ClaudeSwarm::OpenAI::Executor, executor)
     assert_equal(@tmpdir, executor.working_directory)
   ensure
     ENV.delete("TEST_OPENAI_API_KEY")
@@ -395,7 +395,7 @@ class ClaudeMcpServerTest < Minitest::Test
 
     executor = ClaudeSwarm::ClaudeMcpServer.executor
 
-    assert_kind_of(ClaudeSwarm::OpenAIExecutor, executor)
+    assert_kind_of(ClaudeSwarm::OpenAI::Executor, executor)
 
     # Verify class variables are set correctly
     assert_equal(openai_config, ClaudeSwarm::ClaudeMcpServer.instance_config)

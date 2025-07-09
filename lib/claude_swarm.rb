@@ -31,9 +31,7 @@ loader = Zeitwerk::Loader.for_gem
 loader.ignore("#{__dir__}/claude_swarm/templates")
 loader.inflector.inflect(
   "cli" => "CLI",
-  "openai_executor" => "OpenAIExecutor",
-  "openai_chat_completion" => "OpenAIChatCompletion",
-  "openai_responses" => "OpenAIResponses",
+  "openai" => "OpenAI",
 )
 loader.setup
 
