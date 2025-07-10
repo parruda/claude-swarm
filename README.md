@@ -320,6 +320,7 @@ When using `provider: openai`, the following additional fields are available:
 - GPT models support `temperature` but not `reasoning_effort`
 - OpenAI instances default to and ONLY operate as `vibe: true` and use MCP for tool access
 - By default it comes with Claude Code tools, connected with MCP to `claude mcp serve`
+- **Using the responses API requires ruby-openai >= 8.0** - the gem will validate this requirement at runtime
 
 ```yaml
 instance_name:
