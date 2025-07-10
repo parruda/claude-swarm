@@ -168,10 +168,12 @@ module ClaudeSwarm
               command_array = [server_config["command"]]
               command_array.concat(server_config["args"] || [])
 
-              mcp_configs << MCPClient.stdio_config(
+              stdio_config = MCPClient.stdio_config(
                 command: command_array,
                 name: name,
               )
+              stdio_config[:read_timeout] = 1800
+              mcp_configs << stdio_config
             when "sse"
               @logger.warn("SSE MCP servers not yet supported for OpenAI instances: #{name}")
               # TODO: Add SSE support when available in ruby-mcp-client
