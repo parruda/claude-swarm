@@ -119,6 +119,7 @@ module ClaudeSwarm
       validate_connections
       detect_circular_dependencies
       validate_openai_env_vars
+      validate_openai_responses_api_compatibility
     end
 
     def parse_instance(name, config)
@@ -328,6 +329,29 @@ module ClaudeSwarm
       main_config = @instances[@main_instance]
       if main_config[:provider]
         raise Error, "Main instance '#{@main_instance}' cannot have a provider setting in interactive mode"
+      end
+    end
+
+    def validate_openai_responses_api_compatibility
+      # Check if any instance uses OpenAI provider with responses API
+      responses_api_instances = @instances.select do |_name, instance|
+        instance[:provider] == "openai" && instance[:api_version] == "responses"
+      end
+
+      return if responses_api_instances.empty?
+
+      # Check ruby-openai version
+      begin
+        require "openai/version"
+        openai_version = Gem::Version.new(::OpenAI::VERSION)
+        required_version = Gem::Version.new("8.0.0")
+
+        if openai_version < required_version
+          instance_names = responses_api_instances.keys.join(", ")
+          raise Error, "Instances #{instance_names} use OpenAI provider with api_version 'responses', which requires ruby-openai >= 8.0. Current version is #{openai_version}. Please update your Gemfile or run: gem install ruby-openai -v '>= 8.0'"
+        end
+      rescue LoadError
+        # ruby-openai is not installed, which is fine - it will be caught later when trying to use it
       end
     end
   end

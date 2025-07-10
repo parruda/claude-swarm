@@ -1,3 +1,16 @@
+## [0.2.1]
+
+### Added
+- **Ruby-OpenAI version validation**: Added validation to ensure ruby-openai >= 8.0 when using OpenAI provider with `api_version: "responses"`
+  - The responses API requires ruby-openai version 8.0 or higher
+  - Configuration validation now checks the installed version and provides helpful error messages
+  - Gracefully handles cases where ruby-openai is not installed
+
+### Changed
+- **Relaxed ruby-openai dependency**: The gemspec now accepts ruby-openai versions 7.x and 8.x (`>= 7.0, < 9.0`)
+  - Version 7.x works with the default chat_completion API
+  - Version 8.x is required for the responses API
+
 ## [0.2.0]
 
 ### Added
