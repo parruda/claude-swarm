@@ -57,7 +57,7 @@ module ClaudeSwarm
       end
 
       begin
-        config = Configuration.new(config_path, base_dir: ENV.fetch("CLAUDE_SWARM_ROOT_DIR", Dir.pwd), options: options)
+        config = Configuration.new(config_path, base_dir: ClaudeSwarm.root_dir, options: options)
         generator = McpGenerator.new(config, vibe: options[:vibe])
         orchestrator = Orchestrator.new(
           config,
@@ -542,7 +542,7 @@ module ClaudeSwarm
           ENV["CLAUDE_SWARM_ROOT_DIR"] = Dir.pwd
         end
 
-        config = Configuration.new(config_file, base_dir: ENV.fetch("CLAUDE_SWARM_ROOT_DIR", Dir.pwd))
+        config = Configuration.new(config_file, base_dir: ClaudeSwarm.root_dir)
 
         # Load session metadata if it exists to check for worktree info
         session_metadata_file = File.join(session_path, "session_metadata.json")
