@@ -1,4 +1,4 @@
-## [Unreleased]
+## [0.3.0]
 
 ### Added
 - **Root directory parameter**: Added `--root-dir` option to the `start` command to enable running claude-swarm from any directory

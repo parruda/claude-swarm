@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    claude_swarm (0.2.1)
+    claude_swarm (0.3.0)
       fast-mcp-annotations (~> 1.5.3)
       ruby-mcp-client (~> 0.7)
       ruby-openai (>= 7.0, < 9.0)
