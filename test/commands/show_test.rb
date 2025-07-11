@@ -89,13 +89,13 @@ module ClaudeSwarm
         assert_match(/Total Cost: \$0\.5000$/, output)
       end
 
-      def test_execute_with_start_directory
+      def test_execute_with_root_directory
         setup_test_session_with_hierarchy
-        File.write(File.join(@test_session_dir, "start_directory"), "/home/user/project")
+        File.write(File.join(@test_session_dir, "root_directory"), "/home/user/project")
 
         output = capture_io { Commands::Show.new.execute("test-session-123") }.first
 
-        assert_match(%r{Start Directory: /home/user/project}, output)
+        assert_match(%r{Root Directory: /home/user/project}, output)
       end
 
       def test_find_session_in_all_sessions

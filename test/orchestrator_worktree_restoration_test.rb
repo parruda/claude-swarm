@@ -41,7 +41,7 @@ class OrchestratorWorktreeRestorationTest < Minitest::Test
 
     # Simulate saving worktree metadata with external path
     metadata = {
-      "start_directory" => @repo_dir,
+      "root_directory" => @repo_dir,
       "timestamp" => Time.now.utc.iso8601,
       "swarm_name" => "Test Swarm",
       "claude_swarm_version" => "0.1.0",
@@ -139,7 +139,7 @@ class OrchestratorWorktreeRestorationTest < Minitest::Test
   def test_restoration_without_worktrees
     # Simulate saving metadata without worktrees
     metadata = {
-      "start_directory" => @repo_dir,
+      "root_directory" => @repo_dir,
       "timestamp" => Time.now.utc.iso8601,
       "swarm_name" => "Test Swarm",
       "claude_swarm_version" => "0.1.0",

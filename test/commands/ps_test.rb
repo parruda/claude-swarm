@@ -193,8 +193,8 @@ module ClaudeSwarm
 
       def test_execute_with_expanded_paths
         # Create a session with relative directory
-        start_dir = "/Users/test/projects/myapp"
-        File.write(File.join(@test_session_dir, "start_directory"), start_dir)
+        root_dir = "/Users/test/projects/myapp"
+        File.write(File.join(@test_session_dir, "root_directory"), root_dir)
 
         config = {
           "swarm" => {
@@ -214,14 +214,14 @@ module ClaudeSwarm
         output = capture_io { Commands::Ps.new.execute }.first
 
         # Should show expanded path, not "."
-        assert_match(start_dir, output)
+        assert_match(root_dir, output)
         refute_match(/DIRECTORY\s+\.$/, output)
       end
 
       def test_execute_with_worktree_paths
         # Create a session with worktree metadata
-        start_dir = "/Users/test/projects/myapp"
-        File.write(File.join(@test_session_dir, "start_directory"), start_dir)
+        root_dir = "/Users/test/projects/myapp"
+        File.write(File.join(@test_session_dir, "root_directory"), root_dir)
 
         config = {
           "swarm" => {
@@ -243,7 +243,7 @@ module ClaudeSwarm
             "enabled" => true,
             "shared_name" => "feature-branch",
             "created_paths" => {
-              "#{start_dir}:feature-branch" => "#{start_dir}/.worktrees/feature-branch",
+              "#{root_dir}:feature-branch" => "#{root_dir}/.worktrees/feature-branch",
             },
           },
         }
@@ -253,19 +253,19 @@ module ClaudeSwarm
 
         # Mock find_git_root to return the start_dir as if it's a git repo
         ps_instance = Commands::Ps.new
-        ps_instance.stub(:find_git_root, start_dir) do
+        ps_instance.stub(:find_git_root, root_dir) do
           output = capture_io { ps_instance.execute }.first
 
           # Should show worktree path
-          assert_match("#{start_dir}/.worktrees/feature-branch", output)
-          refute_match(/DIRECTORY\s+#{Regexp.escape(start_dir)}$/, output)
+          assert_match("#{root_dir}/.worktrees/feature-branch", output)
+          refute_match(/DIRECTORY\s+#{Regexp.escape(root_dir)}$/, output)
         end
       end
 
       def test_execute_with_multiple_worktree_paths
         # Create a session with multiple directories and worktrees
-        start_dir = "/Users/test/projects"
-        File.write(File.join(@test_session_dir, "start_directory"), start_dir)
+        root_dir = "/Users/test/projects"
+        File.write(File.join(@test_session_dir, "root_directory"), root_dir)
 
         config = {
           "swarm" => {
@@ -287,8 +287,8 @@ module ClaudeSwarm
             "enabled" => true,
             "shared_name" => "feature-x",
             "created_paths" => {
-              "#{start_dir}/app1:feature-x" => "#{start_dir}/app1/.worktrees/feature-x",
-              "#{start_dir}/app2:feature-x" => "#{start_dir}/app2/.worktrees/feature-x",
+              "#{root_dir}/app1:feature-x" => "#{root_dir}/app1/.worktrees/feature-x",
+              "#{root_dir}/app2:feature-x" => "#{root_dir}/app2/.worktrees/feature-x",
             },
           },
         }
@@ -310,13 +310,13 @@ module ClaudeSwarm
         output = capture_io { ps_instance.execute }.first
 
         # Should show both worktree paths
-        assert_match("#{start_dir}/app1/.worktrees/feature-x, #{start_dir}/app2/.worktrees/feature-x", output)
+        assert_match("#{root_dir}/app1/.worktrees/feature-x, #{root_dir}/app2/.worktrees/feature-x", output)
       end
 
       def test_execute_without_worktree_metadata
         # Test that sessions without worktree metadata still work
-        start_dir = "/Users/test/projects/myapp"
-        File.write(File.join(@test_session_dir, "start_directory"), start_dir)
+        root_dir = "/Users/test/projects/myapp"
+        File.write(File.join(@test_session_dir, "root_directory"), root_dir)
 
         config = {
           "swarm" => {
@@ -339,7 +339,7 @@ module ClaudeSwarm
         output = capture_io { Commands::Ps.new.execute }.first
 
         # Should show expanded path without worktree
-        assert_match("#{start_dir}/src", output)
+        assert_match("#{root_dir}/src", output)
       end
     end
   end

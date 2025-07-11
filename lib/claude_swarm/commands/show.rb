@@ -37,9 +37,9 @@ module ClaudeSwarm
 
         puts "Total Cost: #{cost_display}"
 
-        # Try to read start directory
-        start_dir_file = File.join(session_path, "start_directory")
-        puts "Start Directory: #{File.read(start_dir_file).strip}" if File.exist?(start_dir_file)
+        # Try to read root directory
+        root_dir_file = File.join(session_path, "root_directory")
+        puts "Root Directory: #{File.read(root_dir_file).strip}" if File.exist?(root_dir_file)
 
         puts
         puts "Instance Hierarchy:"

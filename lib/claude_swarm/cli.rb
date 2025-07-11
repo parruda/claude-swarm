@@ -34,12 +34,19 @@ module ClaudeSwarm
     method_option :session_id,
       type: :string,
       desc: "Use a specific session ID instead of generating one"
+    method_option :root_dir,
+      type: :string,
+      desc: "Root directory for resolving relative paths (defaults to current directory)"
     def start(config_file = nil)
       config_path = config_file || "claude-swarm.yml"
       unless File.exist?(config_path)
         error("Configuration file not found: #{config_path}")
         exit(1)
       end
+
+      # Set root directory early so it's available to all components
+      root_dir = options[:root_dir] || Dir.pwd
+      ENV["CLAUDE_SWARM_ROOT_DIR"] = File.expand_path(root_dir)
 
       say("Starting Claude Swarm from #{config_path}...") unless options[:prompt]
 
@@ -50,7 +57,7 @@ module ClaudeSwarm
       end
 
       begin
-        config = Configuration.new(config_path, base_dir: Dir.pwd, options: options)
+        config = Configuration.new(config_path, base_dir: ENV.fetch("CLAUDE_SWARM_ROOT_DIR", Dir.pwd), options: options)
         generator = McpGenerator.new(config, vibe: options[:vibe])
         orchestrator = Orchestrator.new(
           config,
@@ -518,20 +525,24 @@ module ClaudeSwarm
           exit(1)
         end
 
-        # Change to the original start directory if it exists
-        start_dir_file = File.join(session_path, "start_directory")
-        if File.exist?(start_dir_file)
-          original_dir = File.read(start_dir_file).strip
+        # Change to the original root directory if it exists
+        root_dir_file = File.join(session_path, "root_directory")
+        if File.exist?(root_dir_file)
+          original_dir = File.read(root_dir_file).strip
           if Dir.exist?(original_dir)
             Dir.chdir(original_dir)
+            ENV["CLAUDE_SWARM_ROOT_DIR"] = original_dir
             say("Changed to original directory: #{original_dir}", :green) unless options[:prompt]
           else
             error("Original directory no longer exists: #{original_dir}")
             exit(1)
           end
+        else
+          # If no root_directory file, use current directory
+          ENV["CLAUDE_SWARM_ROOT_DIR"] = Dir.pwd
         end
 
-        config = Configuration.new(config_file, base_dir: Dir.pwd)
+        config = Configuration.new(config_file, base_dir: ENV.fetch("CLAUDE_SWARM_ROOT_DIR", Dir.pwd))
 
         # Load session metadata if it exists to check for worktree info
         session_metadata_file = File.join(session_path, "session_metadata.json")
