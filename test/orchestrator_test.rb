@@ -71,7 +71,7 @@ class OrchestratorTest < Minitest::Test
     end
 
     assert(ENV.fetch("CLAUDE_SWARM_SESSION_PATH", nil))
-    assert(ENV.fetch("CLAUDE_SWARM_START_DIR", nil))
+    assert(ENV.fetch("CLAUDE_SWARM_ROOT_DIR", nil))
     assert_match(%r{/sessions/.+/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}, ENV.fetch("CLAUDE_SWARM_SESSION_PATH", nil))
   end
 
