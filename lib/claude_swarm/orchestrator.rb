@@ -44,7 +44,7 @@ module ClaudeSwarm
         session_path = @restore_session_path
         @session_path = session_path
         ENV["CLAUDE_SWARM_SESSION_PATH"] = session_path
-        ENV["CLAUDE_SWARM_START_DIR"] = Dir.pwd
+        ENV["CLAUDE_SWARM_ROOT_DIR"] = ClaudeSwarm.root_dir
 
         # Create run symlink for restored session
         create_run_symlink
@@ -78,9 +78,9 @@ module ClaudeSwarm
 
         # Generate and set session path for all instances
         session_path = if @provided_session_id
-          SessionPath.generate(working_dir: Dir.pwd, session_id: @provided_session_id)
+          SessionPath.generate(working_dir: ClaudeSwarm.root_dir, session_id: @provided_session_id)
         else
-          SessionPath.generate(working_dir: Dir.pwd)
+          SessionPath.generate(working_dir: ClaudeSwarm.root_dir)
         end
         SessionPath.ensure_directory(session_path)
         @session_path = session_path
@@ -89,7 +89,7 @@ module ClaudeSwarm
         @session_id = File.basename(session_path)
 
         ENV["CLAUDE_SWARM_SESSION_PATH"] = session_path
-        ENV["CLAUDE_SWARM_START_DIR"] = Dir.pwd
+        ENV["CLAUDE_SWARM_ROOT_DIR"] = ClaudeSwarm.root_dir
 
         # Create run symlink for new session
         create_run_symlink
@@ -345,13 +345,13 @@ module ClaudeSwarm
       config_copy_path = File.join(session_path, "config.yml")
       FileUtils.cp(@config.config_path, config_copy_path)
 
-      # Save the original working directory
-      start_dir_file = File.join(session_path, "start_directory")
-      File.write(start_dir_file, Dir.pwd)
+      # Save the root directory
+      root_dir_file = File.join(session_path, "root_directory")
+      File.write(root_dir_file, ClaudeSwarm.root_dir)
 
       # Save session metadata
       metadata = {
-        "start_directory" => Dir.pwd,
+        "root_directory" => ClaudeSwarm.root_dir,
         "timestamp" => Time.now.utc.iso8601,
         "start_time" => @start_time.utc.iso8601,
         "swarm_name" => @config.swarm_name,

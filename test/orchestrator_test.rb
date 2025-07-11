@@ -71,7 +71,7 @@ class OrchestratorTest < Minitest::Test
     end
 
     assert(ENV.fetch("CLAUDE_SWARM_SESSION_PATH", nil))
-    assert(ENV.fetch("CLAUDE_SWARM_START_DIR", nil))
+    assert(ENV.fetch("CLAUDE_SWARM_ROOT_DIR", nil))
     assert_match(%r{/sessions/.+/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}, ENV.fetch("CLAUDE_SWARM_SESSION_PATH", nil))
   end
 
@@ -1127,6 +1127,9 @@ class OrchestratorTest < Minitest::Test
   end
 
   def test_session_id_saved_in_metadata
+    # Set root directory for test
+    ENV["CLAUDE_SWARM_ROOT_DIR"] = Dir.pwd
+
     config = create_test_config
     generator = ClaudeSwarm::McpGenerator.new(config)
     custom_session_id = "metadata-test-456"
@@ -1150,7 +1153,7 @@ class OrchestratorTest < Minitest::Test
 
     metadata = JSON.parse(File.read(metadata_file))
 
-    assert_equal(Dir.pwd, metadata["start_directory"])
+    assert_equal(Dir.pwd, metadata["root_directory"])
     assert_equal("Test Swarm", metadata["swarm_name"])
   end
 end

@@ -1,3 +1,22 @@
+## [0.3.0]
+
+### Added
+- **Root directory parameter**: Added `--root-dir` option to the `start` command to enable running claude-swarm from any directory
+  - Use `claude-swarm start /path/to/config.yml --root-dir /path/to/project` to run from anywhere
+  - All relative paths in configuration files are resolved from the root directory
+  - Defaults to current directory when not specified, maintaining backward compatibility
+  - Environment variable `CLAUDE_SWARM_ROOT_DIR` is set and inherited by all child processes
+
+### Changed
+- **BREAKING CHANGE: Renamed session directory references**: Session metadata and file storage have been updated to use "root_directory" terminology
+  - Environment variable renamed from `CLAUDE_SWARM_START_DIR` to `CLAUDE_SWARM_ROOT_DIR`
+  - Session file renamed from `start_directory` to `root_directory`
+  - Session metadata field renamed from `"start_directory"` to `"root_directory"`
+  - Display text in `show` command changed from "Start Directory:" to "Root Directory:"
+- **Refactored root directory access**: Introduced `ClaudeSwarm.root_dir` method for cleaner code
+  - Centralizes root directory resolution logic
+  - Replaces repetitive `ENV.fetch` calls throughout the codebase
+
 ## [0.2.1]
 
 ### Added

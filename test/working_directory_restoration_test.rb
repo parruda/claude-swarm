@@ -37,7 +37,7 @@ class WorkingDirectoryRestorationTest < Minitest::Test
     FileUtils.cp(@config_path, File.join(@session_dir, "config.yml"))
 
     # Save the original working directory
-    File.write(File.join(@session_dir, "start_directory"), @project_dir)
+    File.write(File.join(@session_dir, "root_directory"), @project_dir)
   end
 
   def teardown
@@ -94,7 +94,7 @@ class WorkingDirectoryRestorationTest < Minitest::Test
     begin
       Dir.chdir(other_dir) do
         # This simulates what happens in CLI#restore_session
-        original_dir = File.read(File.join(@session_dir, "start_directory")).strip
+        original_dir = File.read(File.join(@session_dir, "root_directory")).strip
 
         # Change to original directory
         Dir.chdir(original_dir) do

@@ -82,10 +82,10 @@ module ClaudeSwarm
         swarm_name = config.dig("swarm", "name") || "Unknown"
         main_instance = config.dig("swarm", "main")
 
-        # Get base directory from session metadata or start_directory file
-        base_dir = Dir.pwd
-        start_dir_file = File.join(session_dir, "start_directory")
-        base_dir = File.read(start_dir_file).strip if File.exist?(start_dir_file)
+        # Get base directory from session metadata or root_directory file
+        base_dir = ClaudeSwarm.root_dir
+        root_dir_file = File.join(session_dir, "root_directory")
+        base_dir = File.read(root_dir_file).strip if File.exist?(root_dir_file)
 
         # Get all directories - handle both string and array formats
         dir_config = config.dig("swarm", "instances", main_instance, "directory")
