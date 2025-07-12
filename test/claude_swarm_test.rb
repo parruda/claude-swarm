@@ -15,7 +15,7 @@ class ClaudeSwarmTest < Minitest::Test
     # Save original values
     original_rubyopt = ENV["RUBYOPT"]
     original_gem_home = ENV["GEM_HOME"]
-    
+
     # Set some test environment variables
     ENV["BUNDLE_TEST"] = "bundle_value"
     ENV["RUBYOPT"] = "ruby_opt_value"
@@ -32,7 +32,7 @@ class ClaudeSwarmTest < Minitest::Test
     end
 
     assert(executed, "Block should have been executed")
-    
+
     # After block, test vars should be restored (but original Ruby vars might be different)
     assert_equal("bundle_value", ENV["BUNDLE_TEST"])
   ensure
