@@ -1,3 +1,24 @@
+## [0.3.3]
+
+### Fixed
+- **Before/after commands environment**: Fixed issue where before and after commands would inherit Ruby/Bundler environment variables
+  - Before and after commands now run in clean environments using the shared `ClaudeSwarm.with_clean_environment` method
+  - Prevents bundle conflicts when running setup or cleanup commands in Ruby projects
+  - Consistent with the fix applied to main instance execution in version 0.3.1
+
+### Changed
+- **Code refactoring**: Created shared environment management utilities
+  - Added `ClaudeSwarm.with_clean_environment` method for executing code in clean environments
+  - Added `ClaudeSwarm.clean_env_hash` method for generating clean environment hashes
+  - Refactored MCP generator to use the shared `clean_env_hash` method
+  - Improved code maintainability and consistency across environment handling
+
+### Added
+- **Environment tests**: Added comprehensive tests for MCP generator environment behavior
+  - Ensures claude_tools MCP correctly filters Ruby/Bundler variables
+  - Ensures instance MCP connections preserve Ruby/Bundler variables as needed
+  - Prevents regression in environment handling behavior
+
 ## [0.3.2]
 
 ### Added

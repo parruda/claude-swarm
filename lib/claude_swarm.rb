@@ -42,5 +42,42 @@ module ClaudeSwarm
     def root_dir
       ENV.fetch("CLAUDE_SWARM_ROOT_DIR", Dir.pwd)
     end
+
+    def with_clean_environment(&block)
+      # Use Bundler's unbundled environment as a base
+      Bundler.with_unbundled_env do
+        # Additionally clean Ruby-specific variables that might interfere
+        original_env = {}
+        vars_to_clean = ["RUBYOPT", "RUBYLIB", "GEM_HOME", "GEM_PATH"]
+
+        vars_to_clean.each do |var|
+          if ENV.key?(var)
+            original_env[var] = ENV[var]
+            ENV.delete(var)
+          end
+        end
+
+        begin
+          yield
+        ensure
+          # Restore original values
+          original_env.each do |var, value|
+            ENV[var] = value
+          end
+        end
+      end
+    end
+
+    def clean_env_hash
+      # Returns a hash with Ruby/Bundler-specific variables removed
+      # Used for passing to child processes
+      ENV.to_h.reject do |key, _|
+        key.start_with?("BUNDLE_") ||
+          key.start_with?("RUBY") ||
+          key.start_with?("GEM_") ||
+          key == "RUBYOPT" ||
+          key == "RUBYLIB"
+      end
+    end
   end
 end

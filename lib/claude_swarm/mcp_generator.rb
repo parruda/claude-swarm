@@ -97,19 +97,11 @@ module ClaudeSwarm
     def build_claude_tools_mcp_config
       # Build environment for claude mcp serve by excluding Ruby/Bundler-specific variables
       # This preserves all system variables while removing Ruby contamination
-      clean_env = ENV.to_h.reject do |key, _|
-        key.start_with?("BUNDLE_") ||
-          key.start_with?("RUBY") ||
-          key.start_with?("GEM_") ||
-          key == "RUBYOPT" ||
-          key == "RUBYLIB"
-      end
-
       {
         "type" => "stdio",
         "command" => "claude",
         "args" => ["mcp", "serve"],
-        "env" => clean_env,
+        "env" => ClaudeSwarm.clean_env_hash,
       }
     end
 

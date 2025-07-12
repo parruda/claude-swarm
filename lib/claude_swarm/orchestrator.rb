@@ -192,10 +192,10 @@ module ClaudeSwarm
           end
         end
 
-        # Execute main Claude instance with unbundled environment to avoid bundler conflicts
+        # Execute main Claude instance with clean environment to avoid bundler conflicts
         # This ensures the main instance runs in a clean environment without inheriting
-        # Claude Swarm's BUNDLE_* environment variables
-        Bundler.with_unbundled_env do
+        # Claude Swarm's Ruby/Bundle environment variables
+        ClaudeSwarm.with_clean_environment do
           system!(*command)
         end
       end
@@ -250,9 +250,13 @@ module ClaudeSwarm
         begin
           puts "Debug: Executing command #{index + 1}/#{commands.size}: #{command}" if @debug && !@non_interactive_prompt
 
-          # Use system with output capture
-          output = %x(#{command} 2>&1)
-          success = $CHILD_STATUS.success?
+          # Use system with output capture in clean environment
+          output = nil
+          success = nil
+          ClaudeSwarm.with_clean_environment do
+            output = %x(#{command} 2>&1)
+            success = $CHILD_STATUS.success?
+          end
 
           # Log the output
           if @session_path
@@ -306,9 +310,13 @@ module ClaudeSwarm
         begin
           puts "Debug: Executing after command #{index + 1}/#{commands.size}: #{command}" if @debug && !@non_interactive_prompt
 
-          # Use system with output capture
-          output = %x(#{command} 2>&1)
-          success = $CHILD_STATUS.success?
+          # Use system with output capture in clean environment
+          output = nil
+          success = nil
+          ClaudeSwarm.with_clean_environment do
+            output = %x(#{command} 2>&1)
+            success = $CHILD_STATUS.success?
+          end
 
           # Log the output
           if @session_path

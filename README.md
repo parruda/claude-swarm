@@ -1,6 +1,6 @@
 # Claude Swarm
 
-[![Gem Version](https://badge.fury.io/rb/claude_swarm.svg?cache_bust=0.3.0)](https://badge.fury.io/rb/claude_swarm)
+[![Gem Version](https://badge.fury.io/rb/claude_swarm.svg?cache_bust=0.3.3)](https://badge.fury.io/rb/claude_swarm)
 [![CI](https://github.com/parruda/claude-swarm/actions/workflows/ci.yml/badge.svg)](https://github.com/parruda/claude-swarm/actions/workflows/ci.yml)
 
 Claude Swarm orchestrates multiple Claude Code instances as a collaborative AI development team. It enables running AI agents with specialized roles, tools, and directory contexts, communicating via MCP (Model Context Protocol) in a tree-like hierarchy. Define your swarm topology in simple YAML and let Claude instances delegate tasks through connected instances. Perfect for complex projects requiring specialized AI agents for frontend, backend, testing, DevOps, or research tasks.
