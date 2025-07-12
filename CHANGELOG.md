@@ -1,3 +1,14 @@
+## [Unreleased]
+
+### Added
+- **Interactive mode with initial prompt**: Added `-i/--interactive` flag to provide an initial prompt for interactive mode
+  - Use `claude-swarm -i "Your initial prompt"` to start in interactive mode with a prompt
+  - Cannot be used together with `-p/--prompt` (which is for non-interactive mode)
+  - Allows users to provide context or initial instructions while maintaining interactive session
+
+### Fixed
+- **Development documentation**: Fixed `bundle exec` prefix in CLAUDE.md for development commands
+
 ## [0.3.0]
 
 ### Added

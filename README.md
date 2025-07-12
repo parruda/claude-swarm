@@ -767,6 +767,10 @@ claude-swarm --vibe
 claude-swarm -p "Implement the new user authentication feature"
 claude-swarm --prompt "Fix the bug in the payment module"
 
+# Run in interactive mode with an initial prompt
+claude-swarm -i "Review the codebase and suggest improvements"
+claude-swarm --interactive "Help me debug this test failure"
+
 # Use a custom session ID instead of auto-generated UUID
 claude-swarm --session-id my-custom-session-123
 
