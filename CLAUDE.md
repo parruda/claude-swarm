@@ -8,14 +8,9 @@ Claude Swarm is a Ruby gem that orchestrates multiple Claude Code instances as a
 
 ## Development Commands
 
-### Setup
-```bash
-bin/setup              # Install dependencies
-```
-
 ### Testing
 ```bash
-rake test             # Run the Minitest test suite
+bundle exec rake test             # Run the Minitest test suite
 ```
 
 **Important**: Tests should not generate any output to stdout or stderr. When writing tests:
@@ -37,7 +32,7 @@ end
 
 ### Linting
 ```bash
-rake rubocop -A       # Run RuboCop linter to auto fix problems
+bundle exec rubocop -A       # Run RuboCop linter to auto fix problems
 ```
 
 ### Development Console

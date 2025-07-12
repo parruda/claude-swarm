@@ -5,12 +5,13 @@ module ClaudeSwarm
     include SystemUtils
     RUN_DIR = File.expand_path("~/.claude-swarm/run")
 
-    def initialize(configuration, mcp_generator, vibe: false, prompt: nil, stream_logs: false, debug: false,
+    def initialize(configuration, mcp_generator, vibe: false, prompt: nil, interactive_prompt: nil, stream_logs: false, debug: false,
       restore_session_path: nil, worktree: nil, session_id: nil)
       @config = configuration
       @generator = mcp_generator
       @vibe = vibe
-      @prompt = prompt
+      @non_interactive_prompt = prompt
+      @interactive_prompt = interactive_prompt
       @stream_logs = stream_logs
       @debug = debug
       @restore_session_path = restore_session_path
@@ -26,7 +27,7 @@ module ClaudeSwarm
       @start_time = nil
 
       # Set environment variable for prompt mode to suppress output
-      ENV["CLAUDE_SWARM_PROMPT"] = "1" if @prompt
+      ENV["CLAUDE_SWARM_PROMPT"] = "1" if @non_interactive_prompt
     end
 
     def start
@@ -34,7 +35,7 @@ module ClaudeSwarm
       @start_time = Time.now
 
       if @restore_session_path
-        unless @prompt
+        unless @non_interactive_prompt
           puts "🔄 Restoring Claude Swarm: #{@config.swarm_name}"
           puts "😎 Vibe mode ON" if @vibe
           puts
@@ -49,7 +50,7 @@ module ClaudeSwarm
         # Create run symlink for restored session
         create_run_symlink
 
-        unless @prompt
+        unless @non_interactive_prompt
           puts "📝 Using existing session: #{session_path}/"
           puts
         end
@@ -65,12 +66,12 @@ module ClaudeSwarm
 
         # Regenerate MCP configurations with session IDs for restoration
         @generator.generate_all
-        unless @prompt
+        unless @non_interactive_prompt
           puts "✓ Regenerated MCP configurations with session IDs"
           puts
         end
       else
-        unless @prompt
+        unless @non_interactive_prompt
           puts "🐝 Starting Claude Swarm: #{@config.swarm_name}"
           puts "😎 Vibe mode ON" if @vibe
           puts
@@ -94,7 +95,7 @@ module ClaudeSwarm
         # Create run symlink for new session
         create_run_symlink
 
-        unless @prompt
+        unless @non_interactive_prompt
           puts "📝 Session files will be saved to: #{session_path}/"
           puts
         end
@@ -109,7 +110,7 @@ module ClaudeSwarm
         if @needs_worktree_manager
           cli_option = @worktree_option.is_a?(String) && !@worktree_option.empty? ? @worktree_option : nil
           @worktree_manager = WorktreeManager.new(cli_option, session_id: @session_id)
-          puts "🌳 Setting up Git worktrees..." unless @prompt
+          puts "🌳 Setting up Git worktrees..." unless @non_interactive_prompt
 
           # Get all instances for worktree setup
           # Note: instances.values already includes the main instance
@@ -117,7 +118,7 @@ module ClaudeSwarm
 
           @worktree_manager.setup_worktrees(all_instances)
 
-          unless @prompt
+          unless @non_interactive_prompt
             puts "✓ Worktrees created with branch: #{@worktree_manager.worktree_name}"
             puts
           end
@@ -125,7 +126,7 @@ module ClaudeSwarm
 
         # Generate all MCP configuration files
         @generator.generate_all
-        unless @prompt
+        unless @non_interactive_prompt
           puts "✓ Generated MCP configurations in session directory"
           puts
         end
@@ -136,7 +137,7 @@ module ClaudeSwarm
 
       # Launch the main instance (fetch after worktree setup to get modified paths)
       main_instance = @config.main_instance_config
-      unless @prompt
+      unless @non_interactive_prompt
         puts "🚀 Launching main instance: #{@config.main_instance}"
         puts "   Model: #{main_instance[:model]}"
         if main_instance[:directories].size == 1
@@ -153,14 +154,14 @@ module ClaudeSwarm
       end
 
       command = build_main_command(main_instance)
-      if @debug && !@prompt
+      if @debug && !@non_interactive_prompt
         puts "🏃 Running: #{format_command_for_display(command)}"
         puts
       end
 
       # Start log streaming thread if in non-interactive mode with --stream-logs
       log_thread = nil
-      log_thread = start_log_streaming if @prompt && @stream_logs
+      log_thread = start_log_streaming if @non_interactive_prompt && @stream_logs
 
       # Write the current process PID (orchestrator) to a file for easy access
       main_pid_file = File.join(@session_path, "main_pid")
@@ -171,21 +172,21 @@ module ClaudeSwarm
         # Execute before commands if specified
         before_commands = @config.before_commands
         if before_commands.any? && !@restore_session_path
-          unless @prompt
+          unless @non_interactive_prompt
             puts "⚙️  Executing before commands..."
             puts
           end
 
           success = execute_before_commands?(before_commands)
           unless success
-            puts "❌ Before commands failed. Aborting swarm launch." unless @prompt
+            puts "❌ Before commands failed. Aborting swarm launch." unless @non_interactive_prompt
             cleanup_processes
             cleanup_run_symlink
             cleanup_worktrees
             exit(1)
           end
 
-          unless @prompt
+          unless @non_interactive_prompt
             puts "✓ Before commands completed successfully"
             puts
           end
@@ -207,14 +208,14 @@ module ClaudeSwarm
       after_commands = @config.after_commands
       if after_commands.any? && !@restore_session_path
         Dir.chdir(main_instance[:directory]) do
-          unless @prompt
+          unless @non_interactive_prompt
             puts
             puts "⚙️  Executing after commands..."
             puts
           end
 
           success = execute_after_commands?(after_commands)
-          if !success && !@prompt
+          if !success && !@non_interactive_prompt
             puts "⚠️  Some after commands failed"
             puts
           end
@@ -242,7 +243,7 @@ module ClaudeSwarm
 
         # Execute the command and capture output
         begin
-          puts "Debug: Executing command #{index + 1}/#{commands.size}: #{command}" if @debug && !@prompt
+          puts "Debug: Executing command #{index + 1}/#{commands.size}: #{command}" if @debug && !@non_interactive_prompt
 
           # Use system with output capture
           output = %x(#{command} 2>&1)
@@ -259,18 +260,18 @@ module ClaudeSwarm
           end
 
           # Show output if in debug mode or if command failed
-          if (@debug || !success) && !@prompt
+          if (@debug || !success) && !@non_interactive_prompt
             puts "Command #{index + 1} output:"
             puts output
             puts "Exit status: #{$CHILD_STATUS.exitstatus}"
           end
 
           unless success
-            puts "❌ Before command #{index + 1} failed: #{command}" unless @prompt
+            puts "❌ Before command #{index + 1} failed: #{command}" unless @non_interactive_prompt
             return false
           end
         rescue StandardError => e
-          puts "Error executing before command #{index + 1}: #{e.message}" unless @prompt
+          puts "Error executing before command #{index + 1}: #{e.message}" unless @non_interactive_prompt
           if @session_path
             File.open(log_file, "a") do |f|
               f.puts "Error: #{e.message}"
@@ -298,7 +299,7 @@ module ClaudeSwarm
 
         # Execute the command and capture output
         begin
-          puts "Debug: Executing after command #{index + 1}/#{commands.size}: #{command}" if @debug && !@prompt
+          puts "Debug: Executing after command #{index + 1}/#{commands.size}: #{command}" if @debug && !@non_interactive_prompt
 
           # Use system with output capture
           output = %x(#{command} 2>&1)
@@ -315,18 +316,18 @@ module ClaudeSwarm
           end
 
           # Show output if in debug mode or if command failed
-          if (@debug || !success) && !@prompt
+          if (@debug || !success) && !@non_interactive_prompt
             puts "After command #{index + 1} output:"
             puts output
             puts "Exit status: #{$CHILD_STATUS.exitstatus}"
           end
 
           unless success
-            puts "❌ After command #{index + 1} failed: #{command}" unless @prompt
+            puts "❌ After command #{index + 1} failed: #{command}" unless @non_interactive_prompt
             all_succeeded = false
           end
         rescue StandardError => e
-          puts "Error executing after command #{index + 1}: #{e.message}" unless @prompt
+          puts "Error executing after command #{index + 1}: #{e.message}" unless @non_interactive_prompt
           if @session_path
             File.open(log_file, "a") do |f|
               f.puts "Error: #{e.message}"
@@ -374,7 +375,7 @@ module ClaudeSwarm
           # Execute after commands if configured
           main_instance = @config.main_instance_config
           after_commands = @config.after_commands
-          if after_commands.any? && !@restore_session_path && !@prompt
+          if after_commands.any? && !@restore_session_path && !@non_interactive_prompt
             Dir.chdir(main_instance[:directory]) do
               puts
               puts "⚙️  Executing after commands..."
@@ -438,7 +439,7 @@ module ClaudeSwarm
 
       File.write(metadata_file, JSON.pretty_generate(metadata))
     rescue StandardError => e
-      puts "⚠️  Error updating session metadata: #{e.message}" unless @prompt
+      puts "⚠️  Error updating session metadata: #{e.message}" unless @non_interactive_prompt
     end
 
     def calculate_total_cost
@@ -487,7 +488,7 @@ module ClaudeSwarm
       File.symlink(@session_path, symlink_path)
     rescue StandardError => e
       # Don't fail the process if symlink creation fails
-      puts "⚠️  Warning: Could not create run symlink: #{e.message}" unless @prompt
+      puts "⚠️  Warning: Could not create run symlink: #{e.message}" unless @non_interactive_prompt
     end
 
     def cleanup_run_symlink
@@ -589,6 +590,7 @@ module ClaudeSwarm
         end
       end
 
+      # Always add instance prompt if it exists
       if instance[:prompt]
         parts << "--append-system-prompt"
         parts << instance[:prompt]
@@ -608,12 +610,18 @@ module ClaudeSwarm
       parts << "--mcp-config"
       parts << mcp_config_path
 
-      if @prompt
+      # Handle different modes
+      if @non_interactive_prompt
+        # Non-interactive mode with -p
         parts << "-p"
-        parts << @prompt
-      else
-        parts << "#{instance[:prompt]}\n\nNow just say 'I am ready to start'"
+        parts << @non_interactive_prompt
+      elsif @interactive_prompt
+        # Interactive mode with initial prompt (no -p flag)
+        parts << @interactive_prompt
       end
+      # else: Interactive mode without initial prompt - nothing to add
+
+      parts
     end
 
     def restore_worktrees_if_needed(session_path)
@@ -624,7 +632,7 @@ module ClaudeSwarm
       worktree_data = metadata["worktree"]
       return unless worktree_data && worktree_data["enabled"]
 
-      unless @prompt
+      unless @non_interactive_prompt
         puts "🌳 Restoring Git worktrees..."
         puts
       end
@@ -638,7 +646,7 @@ module ClaudeSwarm
       all_instances = @config.instances.values
       @worktree_manager.setup_worktrees(all_instances)
 
-      return if @prompt
+      return if @non_interactive_prompt
 
       puts "✓ Worktrees restored with branch: #{@worktree_manager.worktree_name}"
       puts

@@ -18,6 +18,10 @@ module ClaudeSwarm
       aliases: "-p",
       type: :string,
       desc: "Prompt to pass to the main Claude instance (non-interactive mode)"
+    method_option :interactive,
+      aliases: "-i",
+      type: :string,
+      desc: "Initial prompt for interactive mode"
     method_option :stream_logs,
       type: :boolean,
       default: false,
@@ -56,6 +60,12 @@ module ClaudeSwarm
         exit(1)
       end
 
+      # Validate conflicting options
+      if options[:prompt] && options[:interactive]
+        error("Cannot use both -p/--prompt and -i/--interactive")
+        exit(1)
+      end
+
       begin
         config = Configuration.new(config_path, base_dir: ClaudeSwarm.root_dir, options: options)
         generator = McpGenerator.new(config, vibe: options[:vibe])
@@ -64,6 +74,7 @@ module ClaudeSwarm
           generator,
           vibe: options[:vibe],
           prompt: options[:prompt],
+          interactive_prompt: options[:interactive],
           stream_logs: options[:stream_logs],
           debug: options[:debug],
           worktree: options[:worktree],
