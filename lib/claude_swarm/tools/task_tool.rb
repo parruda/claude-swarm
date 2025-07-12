@@ -21,10 +21,10 @@ module ClaudeSwarm
 
         # Prepend thinking budget to prompt if provided
         final_prompt = if thinking_budget
-                         "#{thinking_budget}: #{prompt}"
-                       else
-                         prompt
-                       end
+          "#{thinking_budget}: #{prompt}"
+        else
+          prompt
+        end
 
         options = {
           new_session: new_session,
