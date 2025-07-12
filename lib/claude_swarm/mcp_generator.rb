@@ -161,11 +161,45 @@ module ClaudeSwarm
         args.push("--claude-session-id", claude_session_id) if claude_session_id
       end
 
-      {
+      # Capture environment variables needed for Ruby and Bundler to work properly
+      # This includes both BUNDLE_* variables and Ruby-specific variables
+      required_env = {}
+
+      # Bundle-specific variables
+      ENV.each do |k, v|
+        required_env[k] = v if k.start_with?("BUNDLE_")
+      end
+
+      # Claude Swarm-specific variables
+      ENV.each do |k, v|
+        required_env[k] = v if k.start_with?("CLAUDE_SWARM_")
+      end
+
+      # Ruby-specific variables that MCP servers need
+      [
+        "RUBY_ROOT",
+        "RUBY_ENGINE",
+        "RUBY_VERSION",
+        "GEM_ROOT",
+        "GEM_HOME",
+        "GEM_PATH",
+        "RUBYOPT",
+        "RUBYLIB",
+        "PATH",
+      ].each do |key|
+        required_env[key] = ENV[key] if ENV[key]
+      end
+
+      config = {
         "type" => "stdio",
         "command" => exe_path,
         "args" => args,
       }
+
+      # Add required environment variables if any exist
+      config["env"] = required_env unless required_env.empty?
+
+      config
     end
 
     def load_instance_states

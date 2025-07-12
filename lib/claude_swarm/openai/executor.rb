@@ -181,18 +181,23 @@ module ClaudeSwarm
           end
 
           if mcp_configs.any?
-            @mcp_client = MCPClient.create_client(
-              mcp_server_configs: mcp_configs,
-              logger: @logger,
-            )
+            # Create MCP client with unbundled environment to avoid bundler conflicts
+            # This ensures MCP servers run in a clean environment without inheriting
+            # Claude Swarm's BUNDLE_* environment variables
+            Bundler.with_unbundled_env do
+              @mcp_client = MCPClient.create_client(
+                mcp_server_configs: mcp_configs,
+                logger: @logger,
+              )
 
-            # List available tools from all MCP servers
-            begin
-              @available_tools = @mcp_client.list_tools
-              @logger.info("Loaded #{@available_tools.size} tools from #{mcp_configs.size} MCP server(s)")
-            rescue StandardError => e
-              @logger.error("Failed to load MCP tools: #{e.message}")
-              @available_tools = []
+              # List available tools from all MCP servers
+              begin
+                @available_tools = @mcp_client.list_tools
+                @logger.info("Loaded #{@available_tools.size} tools from #{mcp_configs.size} MCP server(s)")
+              rescue StandardError => e
+                @logger.error("Failed to load MCP tools: #{e.message}")
+                @available_tools = []
+              end
             end
           end
         end

@@ -192,7 +192,12 @@ module ClaudeSwarm
           end
         end
 
-        system!(*command)
+        # Execute main Claude instance with unbundled environment to avoid bundler conflicts
+        # This ensures the main instance runs in a clean environment without inheriting
+        # Claude Swarm's BUNDLE_* environment variables
+        Bundler.with_unbundled_env do
+          system!(*command)
+        end
       end
 
       # Clean up log streaming thread

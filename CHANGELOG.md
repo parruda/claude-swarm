@@ -8,6 +8,10 @@
 
 ### Fixed
 - **Development documentation**: Fixed `bundle exec` prefix in CLAUDE.md for development commands
+- **Bundler environment conflicts**: Fixed issue where Claude instances would inherit bundler environment variables, causing conflicts when working in Ruby projects
+  - MCP servers now receive necessary Ruby/Bundler environment variables to run properly
+  - Claude instances (main and connected) run in clean environments via `Bundler.with_unbundled_env`
+  - Prevents `bundle install` and other bundler commands from using Claude Swarm's Gemfile instead of the project's Gemfile
 
 ## [0.3.0]
 
