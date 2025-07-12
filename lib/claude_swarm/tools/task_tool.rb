@@ -12,11 +12,19 @@ module ClaudeSwarm
         optional(:new_session).filled(:bool).description("Start a new session (default: false)")
         optional(:system_prompt).filled(:string).description("Override the system prompt for this request")
         optional(:description).filled(:string).description("A description for the request")
+        optional(:thinking_budget).filled(:string).description("Thinking budget: \"think\" < \"think hard\" < \"think harder\" < \"ultrathink\". Each level increases Claude's thinking allocation. Auto-select based on task complexity.")
       end
 
-      def call(prompt:, new_session: false, system_prompt: nil, description: nil)
+      def call(prompt:, new_session: false, system_prompt: nil, description: nil, thinking_budget: nil)
         executor = ClaudeMcpServer.executor
         instance_config = ClaudeMcpServer.instance_config
+
+        # Prepend thinking budget to prompt if provided
+        final_prompt = if thinking_budget
+                         "#{thinking_budget}: #{prompt}"
+                       else
+                         prompt
+                       end
 
         options = {
           new_session: new_session,
@@ -33,7 +41,7 @@ module ClaudeSwarm
         # Add connections from instance config
         options[:connections] = instance_config[:connections] if instance_config[:connections]&.any?
 
-        response = executor.execute(prompt, options)
+        response = executor.execute(final_prompt, options)
 
         # Return just the result text as expected by MCP
         response["result"]

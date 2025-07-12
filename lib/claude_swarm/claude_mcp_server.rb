@@ -63,10 +63,11 @@ module ClaudeSwarm
       )
 
       # Set dynamic description for TaskTool based on instance config
+      thinking_info = " Thinking budget levels: \"think\" < \"think hard\" < \"think harder\" < \"ultrathink\"."
       if @instance_config[:description]
-        Tools::TaskTool.description("Execute a task using Agent #{@instance_config[:name]}. #{@instance_config[:description]}")
+        Tools::TaskTool.description("Execute a task using Agent #{@instance_config[:name]}. #{@instance_config[:description]} #{thinking_info}")
       else
-        Tools::TaskTool.description("Execute a task using Agent #{@instance_config[:name]}")
+        Tools::TaskTool.description("Execute a task using Agent #{@instance_config[:name]}. #{thinking_info}")
       end
 
       # Register tool classes (not instances)
