@@ -12,6 +12,7 @@
   - MCP servers now receive necessary Ruby/Bundler environment variables to run properly
   - Claude instances (main and connected) run in clean environments via `Bundler.with_unbundled_env`
   - Prevents `bundle install` and other bundler commands from using Claude Swarm's Gemfile instead of the project's Gemfile
+  - `claude mcp serve` now runs with a filtered environment that excludes Ruby/Bundler variables while preserving system variables
 
 ## [0.3.0]
 
