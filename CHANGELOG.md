@@ -1,4 +1,4 @@
-## [Unreleased]
+## [0.3.1]
 
 ### Added
 - **Interactive mode with initial prompt**: Added `-i/--interactive` flag to provide an initial prompt for interactive mode
