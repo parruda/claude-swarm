@@ -1,3 +1,13 @@
+## [0.3.2]
+
+### Added
+- **Thinking budget support**: When delegating tasks between instances, orchestrators can now leverage Claude's extended thinking feature
+  - Connected instances automatically support thinking budgets: "think", "think hard", "think harder", "ultrathink"
+  - Orchestrator instances can assign thinking levels programmatically based on task complexity
+  - Example: Complex architectural decisions can be delegated with "think harder" while simple queries use no thinking
+  - Results in better quality outputs for complex tasks and faster responses for simple ones
+  - Works seamlessly with existing swarm configurations - no changes needed to benefit from this feature
+
 ## [0.3.1]
 
 ### Added
