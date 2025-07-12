@@ -295,6 +295,7 @@ class OrchestratorTest < Minitest::Test
           lead:
             description: "Test instance"
             directory: #{@tmpdir}/absolute/path
+            model: sonnet
     YAML
 
     FileUtils.mkdir_p(File.join(@tmpdir, "absolute", "path"))
@@ -315,7 +316,7 @@ class OrchestratorTest < Minitest::Test
 
     # Since we use Dir.chdir now, the path isn't part of the command
     # Just verify the command was captured
-    assert(expected_command)
+    assert(expected_command, "Expected command should not be nil")
     assert_equal("claude", expected_command[0])
   end
 
@@ -480,10 +481,11 @@ class OrchestratorTest < Minitest::Test
       end
     end
 
-    # Should add default prompt when no -p flag is provided
-    last_arg = expected_command.last
+    # Should add instance prompt via --append-system-prompt
+    append_prompt_index = expected_command.index("--append-system-prompt")
 
-    assert_match(/You are the lead developer\n\nNow just say 'I am ready to start'/, last_arg)
+    assert(append_prompt_index, "--append-system-prompt flag should be present")
+    assert_equal("You are the lead developer", expected_command[append_prompt_index + 1])
   end
 
   def test_default_prompt_for_instance_without_custom_prompt
@@ -512,10 +514,8 @@ class OrchestratorTest < Minitest::Test
       end
     end
 
-    # Should just have the generic prompt when instance has no custom prompt
-    last_arg = expected_command.last
-
-    assert_equal("\n\nNow just say 'I am ready to start'", last_arg)
+    # Should not add --append-system-prompt when instance has no custom prompt
+    refute_includes(expected_command, "--append-system-prompt")
   end
 
   def test_before_commands_feature_exists

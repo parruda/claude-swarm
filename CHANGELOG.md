@@ -1,3 +1,19 @@
+## [Unreleased]
+
+### Added
+- **Interactive mode with initial prompt**: Added `-i/--interactive` flag to provide an initial prompt for interactive mode
+  - Use `claude-swarm -i "Your initial prompt"` to start in interactive mode with a prompt
+  - Cannot be used together with `-p/--prompt` (which is for non-interactive mode)
+  - Allows users to provide context or initial instructions while maintaining interactive session
+
+### Fixed
+- **Development documentation**: Fixed `bundle exec` prefix in CLAUDE.md for development commands
+- **Bundler environment conflicts**: Fixed issue where Claude instances would inherit bundler environment variables, causing conflicts when working in Ruby projects
+  - MCP servers now receive necessary Ruby/Bundler environment variables to run properly
+  - Claude instances (main and connected) run in clean environments via `Bundler.with_unbundled_env`
+  - Prevents `bundle install` and other bundler commands from using Claude Swarm's Gemfile instead of the project's Gemfile
+  - `claude mcp serve` now runs with a filtered environment that excludes Ruby/Bundler variables while preserving system variables
+
 ## [0.3.0]
 
 ### Added

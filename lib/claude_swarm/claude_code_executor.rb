@@ -33,43 +33,48 @@ module ClaudeSwarm
       stderr_output = []
       result_response = nil
 
-      # Execute command with streaming
-      Open3.popen3(*cmd_array, chdir: @working_directory) do |stdin, stdout, stderr, wait_thread|
-        stdin.close
+      # Execute command with unbundled environment to avoid bundler conflicts
+      # This ensures claude runs in a clean environment without inheriting
+      # Claude Swarm's BUNDLE_* environment variables
+      Bundler.with_unbundled_env do
+        # Execute command with streaming
+        Open3.popen3(*cmd_array, chdir: @working_directory) do |stdin, stdout, stderr, wait_thread|
+          stdin.close
 
-        # Read stderr in a separate thread
-        stderr_thread = Thread.new do
-          stderr.each_line { |line| stderr_output << line }
-        end
-
-        # Process stdout line by line
-        stdout.each_line do |line|
-          json_data = JSON.parse(line.strip)
-
-          # Log each JSON event
-          log_streaming_event(json_data)
-
-          # Capture session_id from system init
-          if json_data["type"] == "system" && json_data["subtype"] == "init"
-            @session_id = json_data["session_id"]
-            write_instance_state
+          # Read stderr in a separate thread
+          stderr_thread = Thread.new do
+            stderr.each_line { |line| stderr_output << line }
           end
 
-          # Capture the final result
-          result_response = json_data if json_data["type"] == "result"
-        rescue JSON::ParserError => e
-          @logger.warn("Failed to parse JSON line: #{line.strip} - #{e.message}")
-        end
+          # Process stdout line by line
+          stdout.each_line do |line|
+            json_data = JSON.parse(line.strip)
 
-        # Wait for stderr thread to finish
-        stderr_thread.join
+            # Log each JSON event
+            log_streaming_event(json_data)
 
-        # Check exit status
-        exit_status = wait_thread.value
-        unless exit_status.success?
-          error_msg = stderr_output.join
-          @logger.error("Execution error for #{@instance_name}: #{error_msg}")
-          raise ExecutionError, "Claude Code execution failed: #{error_msg}"
+            # Capture session_id from system init
+            if json_data["type"] == "system" && json_data["subtype"] == "init"
+              @session_id = json_data["session_id"]
+              write_instance_state
+            end
+
+            # Capture the final result
+            result_response = json_data if json_data["type"] == "result"
+          rescue JSON::ParserError => e
+            @logger.warn("Failed to parse JSON line: #{line.strip} - #{e.message}")
+          end
+
+          # Wait for stderr thread to finish
+          stderr_thread.join
+
+          # Check exit status
+          exit_status = wait_thread.value
+          unless exit_status.success?
+            error_msg = stderr_output.join
+            @logger.error("Execution error for #{@instance_name}: #{error_msg}")
+            raise ExecutionError, "Claude Code execution failed: #{error_msg}"
+          end
         end
       end
 
