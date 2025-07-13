@@ -1,3 +1,10 @@
+## [0.3.3]
+
+### Fixed
+- **Bundler constant error**: Fixed `uninitialized constant ClaudeSwarm::Orchestrator::Bundler` error by adding missing `require "bundler"` statement
+  - Issue occurred when using `Bundler.with_unbundled_env` without properly requiring the bundler gem
+  - Resolves issue #83 reported by users upgrading to version 0.3.2
+
 ## [0.3.2]
 
 ### Added
