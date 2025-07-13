@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 # Standard library dependencies
+require "bundler"
 require "digest"
 require "English"
 require "erb"
