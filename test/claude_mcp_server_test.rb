@@ -184,6 +184,92 @@ class ClaudeMcpServerTest < Minitest::Test
     mock_executor.verify
   end
 
+  def test_task_tool_with_thinking_budget
+    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller")
+
+    # Test each thinking budget level
+    thinking_budgets = ["think", "think hard", "think harder", "ultrathink"]
+
+    thinking_budgets.each do |budget|
+      mock_executor = Minitest::Mock.new
+      mock_executor.expect(
+        :execute,
+        {
+          "result" => "Task completed with #{budget}",
+          "cost_usd" => 0.01,
+          "duration_ms" => 1000,
+          "is_error" => false,
+          "total_cost" => 0.01,
+        },
+        ["#{budget}: Solve this problem", { new_session: false, system_prompt: "Test prompt", description: nil, allowed_tools: ["Read", "Edit"] }],
+      )
+
+      ClaudeSwarm::ClaudeMcpServer.executor = mock_executor
+
+      tool = ClaudeSwarm::Tools::TaskTool.new
+      result = tool.call(prompt: "Solve this problem", thinking_budget: budget)
+
+      assert_equal("Task completed with #{budget}", result)
+      mock_executor.verify
+    end
+  end
+
+  def test_task_tool_without_thinking_budget
+    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller")
+
+    mock_executor = Minitest::Mock.new
+    mock_executor.expect(
+      :execute,
+      {
+        "result" => "Task completed without thinking budget",
+        "cost_usd" => 0.01,
+        "duration_ms" => 800,
+        "is_error" => false,
+        "total_cost" => 0.01,
+      },
+      ["Simple task", { new_session: false, system_prompt: "Test prompt", description: nil, allowed_tools: ["Read", "Edit"] }],
+    )
+
+    ClaudeSwarm::ClaudeMcpServer.executor = mock_executor
+
+    tool = ClaudeSwarm::Tools::TaskTool.new
+    result = tool.call(prompt: "Simple task")
+
+    assert_equal("Task completed without thinking budget", result)
+    mock_executor.verify
+  end
+
+  def test_task_tool_with_all_parameters
+    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller")
+
+    mock_executor = Minitest::Mock.new
+    mock_executor.expect(
+      :execute,
+      {
+        "result" => "Complex task completed",
+        "cost_usd" => 0.02,
+        "duration_ms" => 2000,
+        "is_error" => false,
+        "total_cost" => 0.02,
+      },
+      ["ultrathink: Complex task", { new_session: true, system_prompt: "Override prompt", description: "Task description", allowed_tools: ["Read", "Edit"] }],
+    )
+
+    ClaudeSwarm::ClaudeMcpServer.executor = mock_executor
+
+    tool = ClaudeSwarm::Tools::TaskTool.new
+    result = tool.call(
+      prompt: "Complex task",
+      new_session: true,
+      system_prompt: "Override prompt",
+      description: "Task description",
+      thinking_budget: "ultrathink",
+    )
+
+    assert_equal("Complex task completed", result)
+    mock_executor.verify
+  end
+
   def test_task_tool_logging
     # Since logging is now done in ClaudeCodeExecutor, we need to test through a real instance
     ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller")
@@ -325,6 +411,66 @@ class ClaudeMcpServerTest < Minitest::Test
       "Reset the Claude session for this agent, starting fresh on the next task",
       ClaudeSwarm::Tools::ResetSessionTool.description,
     )
+  end
+
+  def test_task_tool_description_with_thinking_budget
+    # Test with instance that has a description
+    config_with_desc = @instance_config.merge(
+      name: "specialist",
+      description: "Expert in Ruby development",
+    )
+
+    ClaudeSwarm::ClaudeMcpServer.new(config_with_desc, calling_instance: "test_caller")
+
+    # Create and start server to set the description
+    server = ClaudeSwarm::ClaudeMcpServer.new(config_with_desc, calling_instance: "test_caller")
+
+    # Mock the FastMcp server to avoid actually starting it
+    mock_server = Minitest::Mock.new
+    mock_server.expect(:register_tool, nil, [ClaudeSwarm::Tools::TaskTool])
+    mock_server.expect(:register_tool, nil, [ClaudeSwarm::Tools::SessionInfoTool])
+    mock_server.expect(:register_tool, nil, [ClaudeSwarm::Tools::ResetSessionTool])
+    mock_server.expect(:start, nil)
+
+    FastMcp::Server.stub(:new, mock_server) do
+      server.start
+    end
+
+    expected_desc = 'Execute a task using Agent specialist. Expert in Ruby development  Thinking budget levels: "think" < "think hard" < "think harder" < "ultrathink".'
+
+    assert_equal(expected_desc, ClaudeSwarm::Tools::TaskTool.description)
+
+    mock_server.verify
+  end
+
+  def test_task_tool_description_without_instance_description
+    # Test with instance that has no description
+    config_without_desc = @instance_config.merge(
+      name: "worker",
+      description: nil,
+    )
+
+    ClaudeSwarm::ClaudeMcpServer.new(config_without_desc, calling_instance: "test_caller")
+
+    # Create and start server to set the description
+    server = ClaudeSwarm::ClaudeMcpServer.new(config_without_desc, calling_instance: "test_caller")
+
+    # Mock the FastMcp server
+    mock_server = Minitest::Mock.new
+    mock_server.expect(:register_tool, nil, [ClaudeSwarm::Tools::TaskTool])
+    mock_server.expect(:register_tool, nil, [ClaudeSwarm::Tools::SessionInfoTool])
+    mock_server.expect(:register_tool, nil, [ClaudeSwarm::Tools::ResetSessionTool])
+    mock_server.expect(:start, nil)
+
+    FastMcp::Server.stub(:new, mock_server) do
+      server.start
+    end
+
+    expected_desc = 'Execute a task using Agent worker.  Thinking budget levels: "think" < "think hard" < "think harder" < "ultrathink".'
+
+    assert_equal(expected_desc, ClaudeSwarm::Tools::TaskTool.description)
+
+    mock_server.verify
   end
 
   def test_tool_names
