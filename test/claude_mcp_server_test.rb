@@ -189,7 +189,7 @@ class ClaudeMcpServerTest < Minitest::Test
 
     # Test each thinking budget level
     thinking_budgets = ["think", "think hard", "think harder", "ultrathink"]
-    
+
     thinking_budgets.each do |budget|
       mock_executor = Minitest::Mock.new
       mock_executor.expect(
@@ -263,7 +263,7 @@ class ClaudeMcpServerTest < Minitest::Test
       new_session: true,
       system_prompt: "Override prompt",
       description: "Task description",
-      thinking_budget: "ultrathink"
+      thinking_budget: "ultrathink",
     )
 
     assert_equal("Complex task completed", result)
@@ -417,28 +417,29 @@ class ClaudeMcpServerTest < Minitest::Test
     # Test with instance that has a description
     config_with_desc = @instance_config.merge(
       name: "specialist",
-      description: "Expert in Ruby development"
+      description: "Expert in Ruby development",
     )
-    
+
     ClaudeSwarm::ClaudeMcpServer.new(config_with_desc, calling_instance: "test_caller")
-    
+
     # Create and start server to set the description
     server = ClaudeSwarm::ClaudeMcpServer.new(config_with_desc, calling_instance: "test_caller")
-    
+
     # Mock the FastMcp server to avoid actually starting it
     mock_server = Minitest::Mock.new
     mock_server.expect(:register_tool, nil, [ClaudeSwarm::Tools::TaskTool])
     mock_server.expect(:register_tool, nil, [ClaudeSwarm::Tools::SessionInfoTool])
     mock_server.expect(:register_tool, nil, [ClaudeSwarm::Tools::ResetSessionTool])
     mock_server.expect(:start, nil)
-    
+
     FastMcp::Server.stub(:new, mock_server) do
       server.start
     end
-    
+
     expected_desc = 'Execute a task using Agent specialist. Expert in Ruby development  Thinking budget levels: "think" < "think hard" < "think harder" < "ultrathink".'
+
     assert_equal(expected_desc, ClaudeSwarm::Tools::TaskTool.description)
-    
+
     mock_server.verify
   end
 
@@ -446,28 +447,29 @@ class ClaudeMcpServerTest < Minitest::Test
     # Test with instance that has no description
     config_without_desc = @instance_config.merge(
       name: "worker",
-      description: nil
+      description: nil,
     )
-    
+
     ClaudeSwarm::ClaudeMcpServer.new(config_without_desc, calling_instance: "test_caller")
-    
+
     # Create and start server to set the description
     server = ClaudeSwarm::ClaudeMcpServer.new(config_without_desc, calling_instance: "test_caller")
-    
+
     # Mock the FastMcp server
     mock_server = Minitest::Mock.new
     mock_server.expect(:register_tool, nil, [ClaudeSwarm::Tools::TaskTool])
     mock_server.expect(:register_tool, nil, [ClaudeSwarm::Tools::SessionInfoTool])
     mock_server.expect(:register_tool, nil, [ClaudeSwarm::Tools::ResetSessionTool])
     mock_server.expect(:start, nil)
-    
+
     FastMcp::Server.stub(:new, mock_server) do
       server.start
     end
-    
+
     expected_desc = 'Execute a task using Agent worker.  Thinking budget levels: "think" < "think hard" < "think harder" < "ultrathink".'
+
     assert_equal(expected_desc, ClaudeSwarm::Tools::TaskTool.description)
-    
+
     mock_server.verify
   end
 
