@@ -978,6 +978,7 @@ Check the session directory `~/.claude-swarm/sessions/{project}/{session-id}/` f
 - `{instance}.mcp.json`: MCP configuration for each instance
 - All files for a session are kept together for easy review
 
+
 ## Architecture
 
 Claude Swarm consists of these core components:
@@ -986,7 +987,7 @@ Claude Swarm consists of these core components:
 - **ClaudeSwarm::Configuration** (`configuration.rb`): YAML parser and validator with path expansion
 - **ClaudeSwarm::McpGenerator** (`mcp_generator.rb`): Generates MCP JSON configs for each instance
 - **ClaudeSwarm::Orchestrator** (`orchestrator.rb`): Launches the main Claude instance with shared session management
-- **ClaudeSwarm::ClaudeCodeExecutor** (`claude_code_executor.rb`): Wrapper for executing Claude commands with session persistence
+- **ClaudeSwarm::ClaudeCodeExecutor** (`claude_code_executor.rb`): Executor for Claude Code with session persistence
 - **ClaudeSwarm::ClaudeMcpServer** (`claude_mcp_server.rb`): FastMCP-based server providing task execution, session info, and reset capabilities
 
 ## Development

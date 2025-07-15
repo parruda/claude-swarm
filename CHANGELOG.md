@@ -1,3 +1,24 @@
+## [Unreleased]
+
+### Changed
+- **BREAKING CHANGE: Migrated from CLI to SDK-based execution**: Claude Swarm now uses the `claude-code-sdk-ruby` gem instead of executing Claude Code via CLI
+  - Removed CLI-based `ClaudeCodeExecutor` implementation that used `Open3.popen3`
+  - All Claude Code execution now uses the SDK for improved reliability and performance
+  - Session management and logging functionality remains unchanged
+  - MCP configuration parsing updated to convert JSON format to SDK hash format
+  - Supports all MCP server types: stdio, sse, and http
+  - This change is transparent to users but may affect custom integrations that relied on CLI-specific behavior
+
+### Fixed
+- **SDK message handling**: Fixed errors with Claude Code SDK message attributes
+  - System messages: Fixed accessing `tools` and `session_id` from the `data` hash
+  - Assistant messages: Removed attempts to access non-existent `id`, `model`, and `stop_reason` attributes
+  - Result messages: Fixed extracting result text from `message.result` instead of assistant content
+  - Updated all tests to match SDK message structure
+
+### Added
+- **SDK dependency**: Added `claude-code-sdk-ruby` (~> 0.1.0) and `async` (~> 2.26) dependencies
+
 ## [0.3.3]
 
 ### Fixed

@@ -37,7 +37,7 @@ module ClaudeSwarm
           reasoning_effort: instance_config[:reasoning_effort],
         )
       else
-        # Default Claude behavior (existing code)
+        # Default Claude behavior - always use SDK
         ClaudeCodeExecutor.new(**common_params)
       end
 

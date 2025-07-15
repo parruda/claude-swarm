@@ -93,6 +93,16 @@ instances:
 - Existing worktrees with the same name are reused
 - The `claude-swarm clean` command removes orphaned worktrees
 
+## Claude Code SDK Integration
+
+Claude Swarm uses the Claude Code SDK (`claude-code-sdk-ruby`) for all Claude instances. This provides:
+- Better performance and reliability
+- Structured message handling
+- Improved error recovery
+- Direct MCP server configuration support (stdio, sse, http)
+
+The SDK executor handles all three MCP server types and properly converts MCP JSON configurations to SDK format.
+
 ## Architecture
 
 The gem is fully implemented with the following components:
