@@ -274,6 +274,74 @@ module TestHelpers
       File.expand_path("~/.claude-swarm/worktrees/#{session_id}/#{repo_name}-#{repo_hash}/#{worktree_name}")
     end
   end
+
+  module SystemUtilsHelpers
+    # Exit status constants
+    EXIT_STATUS_TIMEOUT = 143 # 128 + 15 (SIGTERM)
+    EXIT_STATUS_COMMAND_NOT_FOUND = 127
+    EXIT_STATUS_TIMEOUT_GNU = 124 # GNU timeout command exit status
+
+    def assert_system_command_fails(command_args, expected_exit_status)
+      _output, err = capture_subprocess_io do
+        error = assert_raises(ClaudeSwarm::Error) do
+          if command_args.is_a?(Array)
+            @subject.system!(*command_args)
+          else
+            @subject.system!(command_args)
+          end
+        end
+        assert_match(/Command failed with exit status #{expected_exit_status}/, error.message)
+
+        # Verify command string is included in error message
+        command_str = command_args.is_a?(Array) ? command_args.join(" ") : command_args
+
+        assert_match(/#{Regexp.escape(command_str)}/, error.message)
+      end
+
+      # Don't assert output is empty since commands like 'ls' may write to stdout/stderr
+      assert_match(/❌ Command failed with exit status: #{expected_exit_status}/, err)
+    end
+
+    def assert_system_command_times_out(command_args)
+      _output, err = capture_subprocess_io do
+        result = if command_args.is_a?(Array)
+          @subject.system!(*command_args)
+        else
+          @subject.system!(command_args)
+        end
+
+        refute(result) # system returns false for non-zero exit
+      end
+
+      # Don't assert output is empty since commands may write to stdout/stderr
+      command_str = command_args.is_a?(Array) ? command_args.join(" ") : command_args
+
+      assert_match(/⏱️ Command timeout: #{Regexp.escape(command_str)}/, err)
+    end
+
+    def assert_system_command_succeeds(command_args)
+      _output, _err = capture_subprocess_io do
+        result = if command_args.is_a?(Array)
+          @subject.system!(*command_args)
+        else
+          @subject.system!(command_args)
+        end
+
+        assert(result)
+      end
+
+      # Don't assert output is empty since successful commands may produce output
+    end
+
+    # Platform-safe check for command availability
+    def command_available?(command)
+      if RUBY_PLATFORM =~ /mswin|mingw|cygwin/
+        system("where #{command} > NUL 2>&1")
+      else
+        system("which #{command} > /dev/null 2>&1")
+      end
+    end
+  end
 end
 
 # Include all helpers in test classes
@@ -286,5 +354,6 @@ module Minitest
     include TestHelpers::SwarmHelpers
     include TestHelpers::LogHelpers
     include TestHelpers::McpHelpers
+    include TestHelpers::SystemUtilsHelpers
   end
 end

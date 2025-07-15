@@ -4,6 +4,11 @@ module ClaudeSwarm
   class Orchestrator
     include SystemUtils
     RUN_DIR = File.expand_path("~/.claude-swarm/run")
+    ["INT", "TERM", "QUIT"].each do |signal|
+      Signal.trap(signal) do
+        puts "\n🛑 Received #{signal} signal."
+      end
+    end
 
     def initialize(configuration, mcp_generator, vibe: false, prompt: nil, interactive_prompt: nil, stream_logs: false, debug: false,
       restore_session_path: nil, worktree: nil, session_id: nil)
@@ -58,9 +63,6 @@ module ClaudeSwarm
         # Initialize process tracker
         @process_tracker = ProcessTracker.new(session_path)
 
-        # Set up signal handlers to clean up child processes
-        setup_signal_handlers
-
         # Check if the original session used worktrees
         restore_worktrees_if_needed(session_path)
 
@@ -102,9 +104,6 @@ module ClaudeSwarm
 
         # Initialize process tracker
         @process_tracker = ProcessTracker.new(session_path)
-
-        # Set up signal handlers to clean up child processes
-        setup_signal_handlers
 
         # Create WorktreeManager if needed with session ID
         if @needs_worktree_manager
@@ -369,32 +368,6 @@ module ClaudeSwarm
 
       metadata_file = File.join(session_path, "session_metadata.json")
       File.write(metadata_file, JSON.pretty_generate(metadata))
-    end
-
-    def setup_signal_handlers
-      ["INT", "TERM", "QUIT"].each do |signal|
-        Signal.trap(signal) do
-          puts "\n🛑 Received #{signal} signal, cleaning up..."
-          display_summary
-
-          # Execute after commands if configured
-          main_instance = @config.main_instance_config
-          after_commands = @config.after_commands
-          if after_commands.any? && !@restore_session_path && !@non_interactive_prompt
-            Dir.chdir(main_instance[:directory]) do
-              puts
-              puts "⚙️  Executing after commands..."
-              puts
-              execute_after_commands?(after_commands)
-            end
-          end
-
-          cleanup_processes
-          cleanup_run_symlink
-          cleanup_worktrees
-          exit
-        end
-      end
     end
 
     def cleanup_processes
