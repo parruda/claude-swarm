@@ -21,7 +21,6 @@ require "tmpdir"
 require "yaml"
 
 # External dependencies
-require "async"
 require "claude_sdk"
 require "fast_mcp_annotations"
 require "mcp_client"
