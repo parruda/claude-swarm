@@ -51,7 +51,7 @@ module ClaudeSwarm
             if message.subtype == "init" && message.data.is_a?(Hash)
               # For init messages, session_id is in the data hash
               session_id = message.data[:session_id] || message.data["session_id"]
-              
+
               if session_id
                 @session_id = session_id
                 write_instance_state
@@ -68,7 +68,7 @@ module ClaudeSwarm
               "cost_usd" => message.total_cost_usd,
               "is_error" => message.is_error || false,
               "duration_ms" => message.duration_ms,
-              "result" => message.result,  # Result text is directly in message.result
+              "result" => message.result, # Result text is directly in message.result
               "total_cost" => message.total_cost_usd,
               "session_id" => message.session_id,
             }
@@ -360,7 +360,7 @@ module ClaudeSwarm
           "type" => "system",
           "subtype" => message.subtype,
         }
-        
+
         # Include the data hash if it exists - this is where CLI puts info like session_id, tools, etc.
         if message.data.is_a?(Hash)
           # For "init" subtype, extract session_id and tools from data
@@ -370,7 +370,7 @@ module ClaudeSwarm
           end
           # You can add other relevant data fields as needed
         end
-        
+
         hash.compact
       when ClaudeSDK::Messages::Assistant
         # Assistant messages only have content attribute
@@ -404,7 +404,7 @@ module ClaudeSwarm
           "duration_ms" => message.duration_ms,
           "duration_api_ms" => message.duration_api_ms,
           "num_turns" => message.num_turns,
-          "result" => message.result,  # Result text is in message.result, not from content
+          "result" => message.result, # Result text is in message.result, not from content
           "total_cost" => message.total_cost_usd,
           "total_cost_usd" => message.total_cost_usd,
           "session_id" => message.session_id,
@@ -451,7 +451,6 @@ module ClaudeSwarm
         end
       end
     end
-
 
     class ExecutionError < StandardError; end
     class ParseError < StandardError; end

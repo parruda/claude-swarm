@@ -71,7 +71,7 @@ class ClaudeCodeExecutorTest < Minitest::Test
       session_id: session_id,
       total_cost_usd: cost,
     )
-    result_msg.define_singleton_method(:result) { result }  # Result text is in message.result
+    result_msg.define_singleton_method(:result) { result } # Result text is in message.result
     result_msg.define_singleton_method(:usage) { nil }
 
     messages << result_msg

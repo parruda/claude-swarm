@@ -309,7 +309,7 @@ class ClaudeMcpServerTest < Minitest::Test
       session_id: "test-session-1",
       total_cost_usd: 0.01,
     )
-    result_msg.define_singleton_method(:result) { "Logged task" }  # Result text is in message.result
+    result_msg.define_singleton_method(:result) { "Logged task" } # Result text is in message.result
     result_msg.define_singleton_method(:usage) { nil }
     mock_messages << result_msg
 
