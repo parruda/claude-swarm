@@ -62,7 +62,7 @@ class WorktreeManagerTest < Minitest::Test
 
     # Check that worktree is on a branch, not detached HEAD
     Dir.chdir(worktree_path) do
-      output = %x(git rev-parse --abbrev-ref HEAD).strip
+      output = %x(git rev-parse --abbrev-ref HEAD 2>/dev/null).strip
 
       assert_equal("test-worktree", output, "Worktree should be on a branch named 'test-worktree'")
     end
@@ -216,7 +216,7 @@ class WorktreeManagerTest < Minitest::Test
     branch_name = "existing-branch"
     Dir.chdir(@repo_dir) do
       # Get current branch
-      current_branch = %x(git rev-parse --abbrev-ref HEAD).strip
+      current_branch = %x(git rev-parse --abbrev-ref HEAD 2>/dev/null).strip
 
       # Create a new branch from current position
       system("git", "branch", branch_name, out: File::NULL, err: File::NULL)
@@ -244,7 +244,7 @@ class WorktreeManagerTest < Minitest::Test
 
     # Check that worktree is on the existing branch
     Dir.chdir(worktree_path) do
-      output = %x(git rev-parse --abbrev-ref HEAD).strip
+      output = %x(git rev-parse --abbrev-ref HEAD 2>/dev/null).strip
 
       assert_equal(branch_name, output, "Worktree should be on the existing branch")
     end

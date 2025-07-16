@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "simplecov"
+SimpleCov.external_at_exit = true
 SimpleCov.start do
   add_filter "/test/"
   add_filter "/vendor/"

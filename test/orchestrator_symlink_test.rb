@@ -99,28 +99,26 @@ module ClaudeSwarm
     def test_start_creates_symlink_for_new_session
       # Mock all the start dependencies
       @orchestrator.stub(:save_swarm_config_path, nil) do
-        @orchestrator.stub(:setup_signal_handlers, nil) do
-          @generator.stub(:generate_all, nil) do
-            ProcessTracker.stub(:new, MockProcessTracker.new) do
-              @orchestrator.stub(:build_main_command, ["echo", "test"]) do
-                @orchestrator.stub(:system, true) do
-                  @orchestrator.stub(:cleanup_processes, nil) do
-                    @orchestrator.stub(:cleanup_run_symlink, nil) do
-                      ENV.stub(:[], nil) do
-                        ENV.stub(:[]=, nil) do
-                          SessionPath.stub(:generate, @session_path) do
-                            SessionPath.stub(:ensure_directory, nil) do
-                              # Manually set the session path instance variable
-                              @orchestrator.instance_variable_set(:@session_path, @session_path)
+        @generator.stub(:generate_all, nil) do
+          ProcessTracker.stub(:new, MockProcessTracker.new) do
+            @orchestrator.stub(:build_main_command, ["echo", "test"]) do
+              @orchestrator.stub(:system, true) do
+                @orchestrator.stub(:cleanup_processes, nil) do
+                  @orchestrator.stub(:cleanup_run_symlink, nil) do
+                    ENV.stub(:[], nil) do
+                      ENV.stub(:[]=, nil) do
+                        SessionPath.stub(:generate, @session_path) do
+                          SessionPath.stub(:ensure_directory, nil) do
+                            # Manually set the session path instance variable
+                            @orchestrator.instance_variable_set(:@session_path, @session_path)
 
-                              capture_io { @orchestrator.start }
+                            capture_io { @orchestrator.start }
 
-                              # Verify symlink was created
-                              session_id = File.basename(@session_path)
-                              symlink_path = File.join(@run_dir, session_id)
+                            # Verify symlink was created
+                            session_id = File.basename(@session_path)
+                            symlink_path = File.join(@run_dir, session_id)
 
-                              assert(File.symlink?(symlink_path), "Symlink should exist at #{symlink_path}")
-                            end
+                            assert(File.symlink?(symlink_path), "Symlink should exist at #{symlink_path}")
                           end
                         end
                       end
@@ -139,23 +137,21 @@ module ClaudeSwarm
       @orchestrator = Orchestrator.new(@config, @generator, restore_session_path: restore_path)
 
       # Mock start dependencies
-      @orchestrator.stub(:setup_signal_handlers, nil) do
-        @generator.stub(:generate_all, nil) do
-          ProcessTracker.stub(:new, MockProcessTracker.new) do
-            @orchestrator.stub(:build_main_command, ["echo", "test"]) do
-              @orchestrator.stub(:system, true) do
-                @orchestrator.stub(:cleanup_processes, nil) do
-                  @orchestrator.stub(:cleanup_run_symlink, nil) do
-                    ENV.stub(:[], nil) do
-                      ENV.stub(:[]=, nil) do
-                        capture_io { @orchestrator.start }
+      @generator.stub(:generate_all, nil) do
+        ProcessTracker.stub(:new, MockProcessTracker.new) do
+          @orchestrator.stub(:build_main_command, ["echo", "test"]) do
+            @orchestrator.stub(:system, true) do
+              @orchestrator.stub(:cleanup_processes, nil) do
+                @orchestrator.stub(:cleanup_run_symlink, nil) do
+                  ENV.stub(:[], nil) do
+                    ENV.stub(:[]=, nil) do
+                      capture_io { @orchestrator.start }
 
-                        # Verify symlink was created for restored session
-                        session_id = File.basename(restore_path)
-                        symlink_path = File.join(@run_dir, session_id)
+                      # Verify symlink was created for restored session
+                      session_id = File.basename(restore_path)
+                      symlink_path = File.join(@run_dir, session_id)
 
-                        assert(File.symlink?(symlink_path), "Symlink should exist at #{symlink_path}")
-                      end
+                      assert(File.symlink?(symlink_path), "Symlink should exist at #{symlink_path}")
                     end
                   end
                 end
