@@ -274,41 +274,54 @@ class ClaudeMcpServerTest < Minitest::Test
     # Since logging is now done in ClaudeCodeExecutor, we need to test through a real instance
     ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller")
 
-    # Create streaming JSON response
-    streaming_json = [
-      { type: "system", subtype: "init", session_id: "test-session-1", tools: ["Tool1"] },
-      {
-        type: "assistant",
-        message: { id: "msg_1", content: [{ type: "text", text: "Working..." }] },
-        session_id: "test-session-1",
+    # Create mock SDK messages
+    mock_messages = []
+
+    # System init message
+    system_msg = ClaudeSDK::Messages::System.new(
+      subtype: "init",
+      data: { session_id: "test-session-1", tools: ["Tool1"] },
+    )
+    system_msg.define_singleton_method(:subtype) { "init" }
+    system_msg.define_singleton_method(:session_id) { "test-session-1" }
+    system_msg.define_singleton_method(:tools) { ["Tool1"] }
+    mock_messages << system_msg
+
+    # Assistant message (thinking)
+    assistant_msg = ClaudeSDK::Messages::Assistant.new(
+      content: [ClaudeSDK::ContentBlock::Text.new(text: "Working...")],
+    )
+    mock_messages << assistant_msg
+
+    # Final assistant message with result
+    final_assistant_msg = ClaudeSDK::Messages::Assistant.new(
+      content: [ClaudeSDK::ContentBlock::Text.new(text: "Logged task")],
+    )
+    mock_messages << final_assistant_msg
+
+    # Result message
+    result_msg = ClaudeSDK::Messages::Result.new(
+      subtype: "success",
+      duration_ms: 500,
+      duration_api_ms: 400,
+      is_error: false,
+      num_turns: 1,
+      session_id: "test-session-1",
+      total_cost_usd: 0.01,
+    )
+    result_msg.define_singleton_method(:result) { "Logged task" } # Result text is in message.result
+    result_msg.define_singleton_method(:usage) { nil }
+    mock_messages << result_msg
+
+    # Mock SDK query
+    ClaudeSDK.stub(
+      :query,
+      proc { |_prompt, options: nil, &block| # rubocop:disable Lint/UnusedBlockArgument
+        # Call the block with each message
+        mock_messages.each { |msg| block.call(msg) }
+        nil
       },
-      {
-        type: "result",
-        subtype: "success",
-        result: "Logged task",
-        cost_usd: 0.01,
-        duration_ms: 500,
-        is_error: false,
-        total_cost: 0.01,
-        session_id: "test-session-1",
-      },
-    ].map { |obj| "#{JSON.generate(obj)}\n" }.join
-
-    # Mock popen3 for streaming
-    stdin_mock = StringIO.new
-    stdout_mock = StringIO.new(streaming_json)
-    stderr_mock = StringIO.new("")
-
-    wait_thread_stub = Object.new
-    wait_thread_stub.define_singleton_method(:value) do
-      status_stub = Object.new
-      status_stub.define_singleton_method(:success?) { true }
-      status_stub
-    end
-
-    Open3.stub(:popen3, proc { |*_args, **_opts, &block|
-      block.call(stdin_mock, stdout_mock, stderr_mock, wait_thread_stub)
-    }) do
+    ) do
       tool = ClaudeSwarm::Tools::TaskTool.new
       result = tool.call(prompt: "Log this task")
 
@@ -325,7 +338,7 @@ class ClaudeMcpServerTest < Minitest::Test
     assert_match(/test_caller -> test_instance:/, log_content)
     assert_match(/Log this task/, log_content)
     assert_match(/test_instance -> test_caller:/, log_content)
-    assert_match(/Logged task/, log_content)
+    assert_match(/Working.../, log_content)
     assert_match(/\$0\.01 - 500ms/, log_content)
   end
 

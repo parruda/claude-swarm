@@ -27,59 +27,66 @@ module ClaudeSwarm
       # Log the request
       log_request(prompt)
 
-      cmd_array = build_command_array(prompt, options)
+      # Build SDK options
+      sdk_options = build_sdk_options(prompt, options)
 
       # Variables to collect output
-      stderr_output = []
+      all_messages = []
       result_response = nil
 
-      # Execute command with unbundled environment to avoid bundler conflicts
-      # This ensures claude runs in a clean environment without inheriting
-      # Claude Swarm's BUNDLE_* environment variables
-      Bundler.with_unbundled_env do
-        # Execute command with streaming
-        Open3.popen3(*cmd_array, chdir: @working_directory) do |stdin, stdout, stderr, wait_thread|
-          stdin.close
+      # Execute with streaming
+      begin
+        ClaudeSDK.query(prompt, options: sdk_options) do |message|
+          # Convert message to hash for logging
+          message_hash = message_to_hash(message)
+          all_messages << message_hash
 
-          # Read stderr in a separate thread
-          stderr_thread = Thread.new do
-            stderr.each_line { |line| stderr_output << line }
-          end
+          # Log streaming event BEFORE we modify anything
+          log_streaming_event(message_hash)
 
-          # Process stdout line by line
-          stdout.each_line do |line|
-            json_data = JSON.parse(line.strip)
-
-            # Log each JSON event
-            log_streaming_event(json_data)
-
+          # Process specific message types
+          case message
+          when ClaudeSDK::Messages::System
             # Capture session_id from system init
-            if json_data["type"] == "system" && json_data["subtype"] == "init"
-              @session_id = json_data["session_id"]
-              write_instance_state
+            if message.subtype == "init" && message.data.is_a?(Hash)
+              # For init messages, session_id is in the data hash
+              session_id = message.data[:session_id] || message.data["session_id"]
+
+              if session_id
+                @session_id = session_id
+                write_instance_state
+              end
             end
-
-            # Capture the final result
-            result_response = json_data if json_data["type"] == "result"
-          rescue JSON::ParserError => e
-            @logger.warn("Failed to parse JSON line: #{line.strip} - #{e.message}")
-          end
-
-          # Wait for stderr thread to finish
-          stderr_thread.join
-
-          # Check exit status
-          exit_status = wait_thread.value
-          unless exit_status.success?
-            error_msg = stderr_output.join
-            @logger.error("Execution error for #{@instance_name}: #{error_msg}")
-            raise ExecutionError, "Claude Code execution failed: #{error_msg}"
+          when ClaudeSDK::Messages::Assistant
+            # Assistant messages only contain content blocks
+            # No need to track for result extraction - result comes from Result message
+          when ClaudeSDK::Messages::Result
+            # Build result response in expected format
+            result_response = {
+              "type" => "result",
+              "subtype" => message.subtype || "success",
+              "cost_usd" => message.total_cost_usd,
+              "is_error" => message.is_error || false,
+              "duration_ms" => message.duration_ms,
+              "result" => message.result, # Result text is directly in message.result
+              "total_cost" => message.total_cost_usd,
+              "session_id" => message.session_id,
+            }
           end
         end
+      rescue StandardError => e
+        @logger.error("Execution error for #{@instance_name}: #{e.class} - #{e.message}")
+        @logger.error("Backtrace: #{e.backtrace.join("\n")}")
+        raise ExecutionError, "Claude Code execution failed: #{e.message}"
       end
 
       # Ensure we got a result
-      raise ParseError, "No result found in stream output" unless result_response
+      raise ParseError, "No result found in SDK response" unless result_response
+
+      # Write session JSON log
+      all_messages.each do |msg|
+        append_to_session_json(msg)
+      end
 
       result_response
     rescue StandardError => e
@@ -195,11 +202,12 @@ module ClaudeSwarm
     end
 
     def log_assistant_message(msg)
-      return if msg["stop_reason"] == "end_turn" # that means it is not a thought but the final answer
-
+      # Assistant messages don't have stop_reason in SDK - they only have content
       content = msg["content"]
-      @logger.debug("ASSISTANT: #{JSON.pretty_generate(content)}")
-      tool_calls = content.select { |c| c["type"] == "tool_use" }
+      @logger.debug("ASSISTANT: #{JSON.pretty_generate(content)}") if content
+
+      # Log tool calls
+      tool_calls = content&.select { |c| c["type"] == "tool_use" } || []
       tool_calls.each do |tool_call|
         arguments = tool_call["input"].to_json
         arguments = "#{arguments[0..300]} ...}" if arguments.length > 300
@@ -211,7 +219,8 @@ module ClaudeSwarm
         )
       end
 
-      text = content.select { |c| c["type"] == "text" }
+      # Log thinking text
+      text = content&.select { |c| c["type"] == "text" } || []
       text.each do |t|
         instance_info = @instance_name
         instance_info += " (#{@instance_id})" if @instance_id
@@ -251,38 +260,18 @@ module ClaudeSwarm
       raise
     end
 
-    def build_command_array(prompt, options)
-      cmd_array = ["claude"]
+    def build_sdk_options(prompt, options)
+      # Map CLI options to SDK options
+      sdk_options = ClaudeSDK::ClaudeCodeOptions.new
 
-      # Add model if specified
-      cmd_array += ["--model", @model]
+      # Basic options
+      sdk_options.model = @model if @model
+      sdk_options.cwd = @working_directory
+      sdk_options.resume = @session_id if @session_id && !options[:new_session]
 
-      cmd_array << "--verbose"
-
-      # Add additional directories with --add-dir
-      cmd_array << "--add-dir" if @additional_directories.any?
-      @additional_directories.each do |additional_dir|
-        cmd_array << additional_dir
-      end
-
-      # Add MCP config if specified
-      cmd_array += ["--mcp-config", @mcp_config] if @mcp_config
-
-      # Resume session if we have a session ID
-      cmd_array += ["--resume", @session_id] if @session_id && !options[:new_session]
-
-      # Always use JSON output format for structured responses
-      cmd_array += ["--output-format", "stream-json"]
-
-      # Add non-interactive mode with prompt
-      cmd_array += ["--print", "-p", prompt]
-
-      # Add any custom system prompt
-      cmd_array += ["--append-system-prompt", options[:system_prompt]] if options[:system_prompt]
-
-      # Add any allowed tools or vibe flag
+      # Permission mode
       if @vibe
-        cmd_array << "--dangerously-skip-permissions"
+        sdk_options.permission_mode = ClaudeSDK::PermissionMode::BYPASS_PERMISSIONS
       else
         # Build allowed tools list including MCP connections
         allowed_tools = options[:allowed_tools] ? Array(options[:allowed_tools]).dup : []
@@ -292,20 +281,175 @@ module ClaudeSwarm
           allowed_tools << "mcp__#{connection_name}"
         end
 
-        # Add allowed tools if any
-        if allowed_tools.any?
-          tools_str = allowed_tools.join(",")
-          cmd_array += ["--allowedTools", tools_str]
-        end
+        # Set allowed and disallowed tools
+        sdk_options.allowed_tools = allowed_tools if allowed_tools.any?
+        sdk_options.disallowed_tools = Array(options[:disallowed_tools]) if options[:disallowed_tools]
+      end
 
-        # Add disallowed tools if any
-        if options[:disallowed_tools]
-          disallowed_tools = Array(options[:disallowed_tools]).join(",")
-          cmd_array += ["--disallowedTools", disallowed_tools]
+      # System prompt
+      sdk_options.append_system_prompt = options[:system_prompt] if options[:system_prompt]
+
+      # MCP configuration
+      if @mcp_config
+        sdk_options.mcp_servers = parse_mcp_config(@mcp_config)
+      end
+
+      # Handle additional directories by adding them to MCP servers
+      if @additional_directories.any?
+        setup_additional_directories_mcp(sdk_options)
+      end
+
+      sdk_options
+    end
+
+    def parse_mcp_config(config_path)
+      # Parse MCP JSON config file and convert to SDK format
+      config = JSON.parse(File.read(config_path))
+      mcp_servers = {}
+
+      config["mcpServers"]&.each do |name, server_config|
+        server_type = server_config["type"] || "stdio"
+
+        mcp_servers[name] = case server_type
+        when "stdio"
+          ClaudeSDK::McpServerConfig::StdioServer.new(
+            command: server_config["command"],
+            args: server_config["args"] || [],
+            env: server_config["env"] || {},
+          )
+        when "sse"
+          ClaudeSDK::McpServerConfig::SSEServer.new(
+            url: server_config["url"],
+            headers: server_config["headers"] || {},
+          )
+        when "http"
+          ClaudeSDK::McpServerConfig::HttpServer.new(
+            url: server_config["url"],
+            headers: server_config["headers"] || {},
+          )
+        else
+          @logger.warn("Unsupported MCP server type: #{server_type} for server: #{name}")
+          nil
         end
       end
 
-      cmd_array
+      mcp_servers.compact
+    rescue StandardError => e
+      @logger.error("Failed to parse MCP config: #{e.message}")
+      {}
+    end
+
+    def setup_additional_directories_mcp(sdk_options)
+      # Workaround for --add-dir: add file system MCP servers for additional directories
+      sdk_options.mcp_servers ||= {}
+
+      @additional_directories.each do |dir|
+        # This is a placeholder - the SDK doesn't directly support file system servers
+        # You would need to implement a proper MCP server that provides file access
+        @logger.warn("Additional directories not fully supported: #{dir}")
+      end
+    end
+
+    def message_to_hash(message)
+      # Convert SDK message objects to hash format matching CLI JSON output
+      case message
+      when ClaudeSDK::Messages::System
+        # System messages have subtype and data attributes
+        # The data hash contains the actual information from the CLI
+        hash = {
+          "type" => "system",
+          "subtype" => message.subtype,
+        }
+
+        # Include the data hash if it exists - this is where CLI puts info like session_id, tools, etc.
+        if message.data.is_a?(Hash)
+          # For "init" subtype, extract session_id and tools from data
+          if message.subtype == "init"
+            hash["session_id"] = message.data[:session_id] || message.data["session_id"]
+            hash["tools"] = message.data[:tools] || message.data["tools"]
+          end
+          # You can add other relevant data fields as needed
+        end
+
+        hash.compact
+      when ClaudeSDK::Messages::Assistant
+        # Assistant messages only have content attribute
+        {
+          "type" => "assistant",
+          "message" => {
+            "type" => "message",
+            "role" => "assistant",
+            "content" => content_blocks_to_hash(message.content),
+          },
+          "session_id" => @session_id,
+        }
+      when ClaudeSDK::Messages::User
+        # User messages only have content attribute (a string)
+        {
+          "type" => "user",
+          "message" => {
+            "type" => "message",
+            "role" => "user",
+            "content" => message.content,
+          },
+          "session_id" => @session_id,
+        }
+      when ClaudeSDK::Messages::Result
+        # Result messages have multiple attributes
+        {
+          "type" => "result",
+          "subtype" => message.subtype || "success",
+          "cost_usd" => message.total_cost_usd,
+          "is_error" => message.is_error || false,
+          "duration_ms" => message.duration_ms,
+          "duration_api_ms" => message.duration_api_ms,
+          "num_turns" => message.num_turns,
+          "result" => message.result, # Result text is in message.result, not from content
+          "total_cost" => message.total_cost_usd,
+          "total_cost_usd" => message.total_cost_usd,
+          "session_id" => message.session_id,
+          "usage" => message.usage,
+        }.compact
+      else
+        # Fallback for unknown message types
+        begin
+          message.to_h
+        rescue
+          { "type" => "unknown", "data" => message.to_s }
+        end
+      end
+    end
+
+    def content_blocks_to_hash(content)
+      return [] unless content
+
+      content.map do |block|
+        case block
+        when ClaudeSDK::ContentBlock::Text
+          { "type" => "text", "text" => block.text }
+        when ClaudeSDK::ContentBlock::ToolUse
+          {
+            "type" => "tool_use",
+            "id" => block.id,
+            "name" => block.name,
+            "input" => block.input,
+          }
+        when ClaudeSDK::ContentBlock::ToolResult
+          {
+            "type" => "tool_result",
+            "tool_use_id" => block.tool_use_id,
+            "content" => block.content,
+            "is_error" => block.is_error,
+          }
+        else
+          # Fallback
+          begin
+            block.to_h
+          rescue
+            { "type" => "unknown", "data" => block.to_s }
+          end
+        end
+      end
     end
 
     class ExecutionError < StandardError; end
