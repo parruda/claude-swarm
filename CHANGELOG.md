@@ -1,6 +1,8 @@
 ## [0.3.4]
 
 ### Changed
+- Add tests for thinking_budget feature by @parruda in https://github.com/parruda/claude-swarm/pull/85
+- Improve process group handling and signal management by @ericproulx in https://github.com/parruda/claude-swarm/pull/87
 - Migrated from CLI to SDK-based execution**: Claude Swarm now uses the `claude-code-sdk-ruby` gem instead of executing Claude Code via CLI
   - Removed CLI-based `ClaudeCodeExecutor` implementation that used `Open3.popen3`
   - All Claude Code execution now uses the SDK for improved reliability and performance
