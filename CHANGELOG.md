@@ -1,3 +1,10 @@
+## [0.3.5]
+
+### Changed
+- Relaxed dependency version constraints for better flexibility
+  - `claude-code-sdk-ruby`: from `~> 0.1.0` to `~> 0.1`
+  - `fast-mcp-annotations`: from `~> 1.5.3` to `~> 1.5`
+
 ## [0.3.4]
 
 ### Changed
