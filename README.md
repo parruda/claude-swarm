@@ -389,6 +389,9 @@ mcps:
   - name: remote_api
     type: sse
     url: "https://api.example.com/mcp"
+    headers:  # Optional: custom headers for authentication
+      Authorization: "Bearer ${API_TOKEN}"
+      X-Custom-Header: "value"
 ```
 
 ### Tools

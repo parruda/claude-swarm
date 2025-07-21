@@ -90,7 +90,9 @@ module ClaudeSwarm
         {
           "type" => "sse",
           "url" => mcp["url"],
-        }
+        }.tap do |config|
+          config["headers"] = mcp["headers"] if mcp["headers"]
+        end
       end
     end
 

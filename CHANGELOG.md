@@ -1,3 +1,10 @@
+## [unreleased]
+
+### Added
+- **SSE MCP server headers support**: SSE-type MCP servers can now include custom headers for authentication
+  - Supports headers like `Authorization: "Bearer ${TOKEN}"` in MCP configurations
+  - Environment variables in header values are automatically interpolated
+
 ## [0.3.5]
 
 ### Changed
