@@ -146,7 +146,29 @@ module ClaudeSwarm
         }
         config[:uri_base] = @base_url if @base_url
 
-        @openai_client = ::OpenAI::Client.new(config)
+        @openai_client = ::OpenAI::Client.new(config) do |faraday|
+          # Add retry middleware with custom configuration
+          faraday.request(
+            :retry,
+            max: 3, # Maximum number of retries
+            interval: 0.5, # Initial delay between retries (in seconds)
+            interval_randomness: 0.5, # Randomness factor for retry intervals
+            backoff_factor: 2, # Exponential backoff factor
+            exceptions: [
+              Faraday::TimeoutError,
+              Faraday::ConnectionFailed,
+              Faraday::ServerError, # Retry on 5xx errors
+            ],
+            retry_statuses: [429, 500, 502, 503, 504], # HTTP status codes to retry
+            retry_block: lambda do |env:, options:, retry_count:, exception:, will_retry:|
+              if will_retry
+                @logger.warn("Request failed (attempt #{retry_count}/#{options.max}): #{exception&.message || "HTTP #{env.status}"}. Retrying in #{options.interval * (options.backoff_factor**(retry_count - 1))} seconds...")
+              else
+                @logger.warn("Request failed after #{retry_count} attempts: #{exception&.message || "HTTP #{env.status}"}. Giving up.")
+              end
+            end,
+          )
+        end
       rescue KeyError
         raise ExecutionError, "OpenAI API key not found in environment variable: #{token_env}"
       end

@@ -41,6 +41,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency("zeitwerk", "~> 2.6")
 
   spec.add_dependency("claude-code-sdk-ruby", "~> 0.1")
+  spec.add_dependency("faraday-retry", "~> 2.0")
   spec.add_dependency("fast-mcp-annotations", "~> 1.5")
   spec.add_dependency("ruby-mcp-client", "~> 0.7")
   spec.add_dependency("ruby-openai", ">= 7.0", "< 9.0")

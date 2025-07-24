@@ -4,6 +4,9 @@ require "test_helper"
 
 module OpenAI
   class ExecutorTest < Minitest::Test
+    # Define mock structs at class level to avoid redefinition
+    MockEnv = Struct.new(:status)
+    MockOptions = Struct.new(:max, :interval, :backoff_factor)
     def setup
       @tmpdir = Dir.mktmpdir
       @session_path = File.join(@tmpdir, "session-#{Time.now.to_i}")
@@ -505,6 +508,283 @@ module OpenAI
 
       # Verify stdio_config was called without read_timeout
       assert_equal({ command: ["test"], name: "stdio-server" }, stdio_config_args)
+    end
+
+    def test_openai_client_configured_with_retry_middleware
+      # Create a mock faraday builder to verify middleware configuration
+      mock_faraday_builder = Minitest::Mock.new
+      captured_retry_config = nil
+
+      # Capture the retry middleware configuration
+      mock_faraday_builder.expect(:request, nil) do |middleware, *args, **kwargs|
+        if middleware == :retry
+          captured_retry_config = {
+            args: args,
+            kwargs: kwargs,
+          }
+        end
+      end
+
+      # Mock OpenAI::Client to capture faraday config
+      ::OpenAI::Client.stub(:new, lambda { |_config, &block|
+        # Call the faraday config block with our mock
+        block&.call(mock_faraday_builder)
+
+        # Create a minimal mock client
+        mock_client = Minitest::Mock.new
+        mock_client
+      }) do
+        ClaudeSwarm::OpenAI::Executor.new(
+          working_directory: @tmpdir,
+          model: "gpt-4o",
+          instance_name: "test-instance",
+          openai_token_env: "TEST_OPENAI_API_KEY",
+        )
+      end
+
+      # Verify retry middleware was configured
+      refute_nil(captured_retry_config)
+      assert_equal(3, captured_retry_config[:kwargs][:max])
+      assert_in_delta(0.5, captured_retry_config[:kwargs][:interval])
+      assert_in_delta(0.5, captured_retry_config[:kwargs][:interval_randomness])
+      assert_equal(2, captured_retry_config[:kwargs][:backoff_factor])
+
+      # Verify exception types
+      expected_exceptions = [
+        Faraday::TimeoutError,
+        Faraday::ConnectionFailed,
+        Faraday::ServerError,
+      ]
+
+      assert_equal(expected_exceptions, captured_retry_config[:kwargs][:exceptions])
+
+      # Verify retry status codes
+      expected_statuses = [429, 500, 502, 503, 504]
+
+      assert_equal(expected_statuses, captured_retry_config[:kwargs][:retry_statuses])
+
+      # Verify retry_block is provided
+      refute_nil(captured_retry_config[:kwargs][:retry_block])
+      assert_instance_of(Proc, captured_retry_config[:kwargs][:retry_block])
+
+      # Verify mock expectations
+      mock_faraday_builder.verify
+    end
+
+    def test_retry_middleware_logs_warning_on_retry_attempt
+      # Get the retry block from the executor's setup
+      retry_block = nil
+
+      mock_faraday_builder = Minitest::Mock.new
+      mock_faraday_builder.expect(:request, nil) do |middleware, *_args, **kwargs|
+        if middleware == :retry && kwargs[:retry_block]
+          retry_block = kwargs[:retry_block]
+        end
+      end
+
+      # Capture log output
+      log_output = StringIO.new
+      logger = Logger.new(log_output)
+
+      ::OpenAI::Client.stub(:new, lambda { |_config, &block|
+        block&.call(mock_faraday_builder)
+        Minitest::Mock.new
+      }) do
+        Logger.stub(:new, logger) do
+          ClaudeSwarm::OpenAI::Executor.new(
+            working_directory: @tmpdir,
+            model: "gpt-4o",
+            instance_name: "test-instance",
+            openai_token_env: "TEST_OPENAI_API_KEY",
+          )
+        end
+      end
+
+      refute_nil(retry_block, "Retry block should have been captured")
+
+      # Create mock environment and options for retry block
+      mock_env = MockEnv.new(503)
+      mock_options = MockOptions.new(3, 0.5, 2)
+
+      # Test retry logging when will_retry is true
+      log_output.truncate(0)
+      log_output.rewind
+      retry_block.call(
+        env: mock_env,
+        options: mock_options,
+        retry_count: 1,
+        exception: StandardError.new("Connection timeout"),
+        will_retry: true,
+      )
+
+      log_content = log_output.string
+
+      assert_match(%r{Request failed \(attempt 1/3\): Connection timeout}, log_content)
+      assert_match(/Retrying in 0.5 seconds.../, log_content)
+      assert_match(/WARN/, log_content)
+
+      # Test exponential backoff calculation (2nd retry)
+      log_output.truncate(0)
+      log_output.rewind
+      retry_block.call(
+        env: mock_env,
+        options: mock_options,
+        retry_count: 2,
+        exception: nil,
+        will_retry: true,
+      )
+
+      log_content = log_output.string
+
+      assert_match(%r{Request failed \(attempt 2/3\): HTTP 503}, log_content)
+      assert_match(/Retrying in 1.0 seconds.../, log_content) # 0.5 * 2^(2-1) = 1.0
+
+      # Test final failure logging
+      log_output.truncate(0)
+      log_output.rewind
+      retry_block.call(
+        env: mock_env,
+        options: mock_options,
+        retry_count: 3,
+        exception: StandardError.new("Final failure"),
+        will_retry: false,
+      )
+
+      log_content = log_output.string
+
+      assert_match(/Request failed after 3 attempts: Final failure/, log_content)
+      assert_match(/Giving up./, log_content)
+    end
+
+    def test_retry_middleware_handles_http_status_without_exception
+      retry_block = nil
+      mock_faraday_builder = Minitest::Mock.new
+      mock_faraday_builder.expect(:request, nil) do |middleware, *_args, **kwargs|
+        if middleware == :retry && kwargs[:retry_block]
+          retry_block = kwargs[:retry_block]
+        end
+      end
+
+      # Capture log output
+      log_output = StringIO.new
+      logger = Logger.new(log_output)
+
+      ::OpenAI::Client.stub(:new, lambda { |_config, &block|
+        block&.call(mock_faraday_builder)
+        Minitest::Mock.new
+      }) do
+        Logger.stub(:new, logger) do
+          ClaudeSwarm::OpenAI::Executor.new(
+            working_directory: @tmpdir,
+            model: "gpt-4o",
+            instance_name: "test-instance",
+            openai_token_env: "TEST_OPENAI_API_KEY",
+          )
+        end
+      end
+
+      # Test with HTTP status error (no exception)
+      mock_env = MockEnv.new(502)
+      mock_options = MockOptions.new(3, 0.5, 2)
+
+      retry_block.call(
+        env: mock_env,
+        options: mock_options,
+        retry_count: 1,
+        exception: nil,
+        will_retry: true,
+      )
+
+      log_content = log_output.string
+
+      assert_match(%r{Request failed \(attempt 1/3\): HTTP 502}, log_content)
+      assert_match(/Retrying in 0.5 seconds.../, log_content)
+    end
+
+    def test_exponential_backoff_calculation
+      retry_block = nil
+      mock_faraday_builder = Minitest::Mock.new
+      mock_faraday_builder.expect(:request, nil) do |middleware, *_args, **kwargs|
+        if middleware == :retry && kwargs[:retry_block]
+          retry_block = kwargs[:retry_block]
+        end
+      end
+
+      # Capture log output
+      log_output = StringIO.new
+      logger = Logger.new(log_output)
+
+      ::OpenAI::Client.stub(:new, lambda { |_config, &block|
+        block&.call(mock_faraday_builder)
+        Minitest::Mock.new
+      }) do
+        Logger.stub(:new, logger) do
+          ClaudeSwarm::OpenAI::Executor.new(
+            working_directory: @tmpdir,
+            model: "gpt-4o",
+            instance_name: "test-instance",
+            openai_token_env: "TEST_OPENAI_API_KEY",
+          )
+        end
+      end
+
+      mock_env = MockEnv.new(500)
+      mock_options = MockOptions.new(3, 0.5, 2)
+
+      # Test exponential backoff for different retry counts
+      test_cases = [
+        { retry_count: 1, expected_delay: 0.5 },   # 0.5 * 2^(1-1) = 0.5
+        { retry_count: 2, expected_delay: 1.0 },   # 0.5 * 2^(2-1) = 1.0
+        { retry_count: 3, expected_delay: 2.0 },   # 0.5 * 2^(3-1) = 2.0
+      ]
+
+      test_cases.each do |test_case|
+        log_output.truncate(0)
+
+        retry_block.call(
+          env: mock_env,
+          options: mock_options,
+          retry_count: test_case[:retry_count],
+          exception: nil,
+          will_retry: true,
+        )
+
+        log_content = log_output.string
+
+        assert_match(/Retrying in #{test_case[:expected_delay]} seconds/, log_content)
+      end
+    end
+
+    def test_retry_middleware_configured_for_all_error_types
+      captured_config = nil
+      mock_faraday_builder = Minitest::Mock.new
+      mock_faraday_builder.expect(:request, nil) do |middleware, *_args, **kwargs|
+        if middleware == :retry
+          captured_config = kwargs
+        end
+      end
+
+      ::OpenAI::Client.stub(:new, lambda { |_config, &block|
+        block&.call(mock_faraday_builder)
+        Minitest::Mock.new
+      }) do
+        ClaudeSwarm::OpenAI::Executor.new(
+          working_directory: @tmpdir,
+          model: "gpt-4o",
+          instance_name: "test-instance",
+          openai_token_env: "TEST_OPENAI_API_KEY",
+        )
+      end
+
+      # Verify all expected error types are configured
+      assert_includes(captured_config[:exceptions], Faraday::TimeoutError)
+      assert_includes(captured_config[:exceptions], Faraday::ConnectionFailed)
+      assert_includes(captured_config[:exceptions], Faraday::ServerError)
+
+      # Verify all expected HTTP status codes
+      [429, 500, 502, 503, 504].each do |status|
+        assert_includes(captured_config[:retry_statuses], status)
+      end
     end
 
     private
