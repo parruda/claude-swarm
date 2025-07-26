@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    claude_swarm (0.3.5)
+    claude_swarm (0.3.6)
       claude-code-sdk-ruby (~> 0.1)
       faraday-retry (~> 2.0)
       fast-mcp-annotations (~> 1.5)

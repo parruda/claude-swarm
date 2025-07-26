@@ -1,9 +1,14 @@
-## [unreleased]
+## [0.3.6]
 
 ### Added
 - **SSE MCP server headers support**: SSE-type MCP servers can now include custom headers for authentication
   - Supports headers like `Authorization: "Bearer ${TOKEN}"` in MCP configurations
   - Environment variables in header values are automatically interpolated
+- **Comprehensive retry middleware for OpenAI API calls**: Added robust retry logic for OpenAI provider to handle API errors gracefully
+  - Automatically retries on rate limit errors (429) with exponential backoff
+  - Retries on server errors (500, 502, 503, 504) and timeout errors
+  - Configurable retry attempts, delay, and backoff settings
+  - Detailed logging of retry attempts and errors
 
 ## [0.3.5]
 

@@ -516,11 +516,13 @@ module ClaudeSwarm
     end
 
     def build_main_command(instance)
-      parts = [
-        "claude",
-        "--model",
-        instance[:model],
-      ]
+      parts = ["claude"]
+
+      # Only add --model if ANTHROPIC_MODEL env var is not set
+      unless ENV["ANTHROPIC_MODEL"]
+        parts << "--model"
+        parts << instance[:model]
+      end
 
       # Add resume flag if restoring session
       if @restore_session_path

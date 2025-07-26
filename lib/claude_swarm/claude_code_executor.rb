@@ -265,7 +265,8 @@ module ClaudeSwarm
       sdk_options = ClaudeSDK::ClaudeCodeOptions.new
 
       # Basic options
-      sdk_options.model = @model if @model
+      # Only set model if ANTHROPIC_MODEL env var is not set
+      sdk_options.model = @model if @model && !ENV["ANTHROPIC_MODEL"]
       sdk_options.cwd = @working_directory
       sdk_options.resume = @session_id if @session_id && !options[:new_session]
 
