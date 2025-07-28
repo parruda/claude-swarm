@@ -1,28 +1,7 @@
 # frozen_string_literal: true
 
 module ClaudeSwarm
-  class ClaudeCodeExecutor
-    attr_reader :session_id, :last_response, :working_directory, :logger, :session_path
-
-    def initialize(working_directory: Dir.pwd, model: nil, mcp_config: nil, vibe: false,
-      instance_name: nil, instance_id: nil, calling_instance: nil, calling_instance_id: nil,
-      claude_session_id: nil, additional_directories: [])
-      @working_directory = working_directory
-      @additional_directories = additional_directories
-      @model = model
-      @mcp_config = mcp_config
-      @vibe = vibe
-      @session_id = claude_session_id
-      @last_response = nil
-      @instance_name = instance_name
-      @instance_id = instance_id
-      @calling_instance = calling_instance
-      @calling_instance_id = calling_instance_id
-
-      # Setup logging
-      setup_logging
-    end
-
+  class ClaudeCodeExecutor < BaseExecutor
     def execute(prompt, options = {})
       # Log the request
       log_request(prompt)
@@ -75,8 +54,8 @@ module ClaudeSwarm
           end
         end
       rescue StandardError => e
-        @logger.error("Execution error for #{@instance_name}: #{e.class} - #{e.message}")
-        @logger.error("Backtrace: #{e.backtrace.join("\n")}")
+        logger.error { "Execution error for #{@instance_name}: #{e.class} - #{e.message}" }
+        logger.error { "Backtrace: #{e.backtrace.join("\n")}" }
         raise ExecutionError, "Claude Code execution failed: #{e.message}"
       end
 
@@ -90,18 +69,9 @@ module ClaudeSwarm
 
       result_response
     rescue StandardError => e
-      @logger.error("Unexpected error for #{@instance_name}: #{e.class} - #{e.message}")
-      @logger.error("Backtrace: #{e.backtrace.join("\n")}")
+      logger.error { "Unexpected error for #{@instance_name}: #{e.class} - #{e.message}" }
+      logger.error { "Backtrace: #{e.backtrace.join("\n")}" }
       raise
-    end
-
-    def reset_session
-      @session_id = nil
-      @last_response = nil
-    end
-
-    def has_session?
-      !@session_id.nil?
     end
 
     private
@@ -122,63 +92,9 @@ module ClaudeSwarm
       }
 
       File.write(state_file, JSON.pretty_generate(state_data))
-      @logger.info("Wrote instance state for #{@instance_name} (#{@instance_id}) with session ID: #{@session_id}")
+      logger.info { "Wrote instance state for #{@instance_name} (#{@instance_id}) with session ID: #{@session_id}" }
     rescue StandardError => e
-      @logger.error("Failed to write instance state for #{@instance_name} (#{@instance_id}): #{e.message}")
-    end
-
-    def setup_logging
-      # Use session path from environment (required)
-      @session_path = SessionPath.from_env
-      SessionPath.ensure_directory(@session_path)
-
-      # Create logger with session.log filename
-      log_filename = "session.log"
-      log_path = File.join(@session_path, log_filename)
-      @logger = Logger.new(log_path)
-      @logger.level = Logger::INFO
-
-      # Custom formatter for better readability
-      @logger.formatter = proc do |severity, datetime, _progname, msg|
-        "[#{datetime.strftime("%Y-%m-%d %H:%M:%S.%L")}] [#{severity}] #{msg}\n"
-      end
-
-      return unless @instance_name
-
-      instance_info = @instance_name
-      instance_info += " (#{@instance_id})" if @instance_id
-      @logger.info("Started Claude Code executor for instance: #{instance_info}")
-    end
-
-    def log_request(prompt)
-      caller_info = @calling_instance
-      caller_info += " (#{@calling_instance_id})" if @calling_instance_id
-      instance_info = @instance_name
-      instance_info += " (#{@instance_id})" if @instance_id
-      @logger.info("#{caller_info} -> #{instance_info}: \n---\n#{prompt}\n---")
-
-      # Build event hash for JSON logging
-      event = {
-        type: "request",
-        from_instance: @calling_instance,
-        from_instance_id: @calling_instance_id,
-        to_instance: @instance_name,
-        to_instance_id: @instance_id,
-        prompt: prompt,
-        timestamp: Time.now.iso8601,
-      }
-
-      append_to_session_json(event)
-    end
-
-    def log_response(response)
-      caller_info = @calling_instance
-      caller_info += " (#{@calling_instance_id})" if @calling_instance_id
-      instance_info = @instance_name
-      instance_info += " (#{@instance_id})" if @instance_id
-      @logger.info(
-        "($#{response["total_cost"]} - #{response["duration_ms"]}ms) #{instance_info} -> #{caller_info}: \n---\n#{response["result"]}\n---",
-      )
+      logger.error { "Failed to write instance state for #{@instance_name} (#{@instance_id}): #{e.message}" }
     end
 
     def log_streaming_event(event)
@@ -198,13 +114,13 @@ module ClaudeSwarm
     end
 
     def log_system_message(event)
-      @logger.debug("SYSTEM: #{JSON.pretty_generate(event)}")
+      logger.debug { "SYSTEM: #{JSON.pretty_generate(event)}" }
     end
 
     def log_assistant_message(msg)
       # Assistant messages don't have stop_reason in SDK - they only have content
       content = msg["content"]
-      @logger.debug("ASSISTANT: #{JSON.pretty_generate(content)}") if content
+      logger.debug { "ASSISTANT: #{JSON.pretty_generate(content)}" } if content
 
       # Log tool calls
       tool_calls = content&.select { |c| c["type"] == "tool_use" } || []
@@ -212,52 +128,20 @@ module ClaudeSwarm
         arguments = tool_call["input"].to_json
         arguments = "#{arguments[0..300]} ...}" if arguments.length > 300
 
-        instance_info = @instance_name
-        instance_info += " (#{@instance_id})" if @instance_id
-        @logger.info(
-          "Tool call from #{instance_info} -> Tool: #{tool_call["name"]}, ID: #{tool_call["id"]}, Arguments: #{arguments}",
-        )
+        logger.info do
+          "Tool call from #{instance_info} -> Tool: #{tool_call["name"]}, ID: #{tool_call["id"]}, Arguments: #{arguments}"
+        end
       end
 
       # Log thinking text
       text = content&.select { |c| c["type"] == "text" } || []
       text.each do |t|
-        instance_info = @instance_name
-        instance_info += " (#{@instance_id})" if @instance_id
-        @logger.info("#{instance_info} is thinking:\n---\n#{t["text"]}\n---")
+        logger.info { "#{instance_info} is thinking:\n---\n#{t["text"]}\n---" }
       end
     end
 
     def log_user_message(content)
-      @logger.debug("USER: #{JSON.pretty_generate(content)}")
-    end
-
-    def append_to_session_json(event)
-      json_filename = "session.log.json"
-      json_path = File.join(@session_path, json_filename)
-
-      # Use file locking to ensure thread-safe writes
-      File.open(json_path, File::WRONLY | File::APPEND | File::CREAT) do |file|
-        file.flock(File::LOCK_EX)
-
-        # Create entry with metadata
-        entry = {
-          instance: @instance_name,
-          instance_id: @instance_id,
-          calling_instance: @calling_instance,
-          calling_instance_id: @calling_instance_id,
-          timestamp: Time.now.iso8601,
-          event: event,
-        }
-
-        # Write as single line JSON (JSONL format)
-        file.puts(entry.to_json)
-
-        file.flock(File::LOCK_UN)
-      end
-    rescue StandardError => e
-      @logger.error("Failed to append to session JSON: #{e.message}")
-      raise
+      logger.debug { "USER: #{JSON.pretty_generate(content)}" }
     end
 
     def build_sdk_options(prompt, options)
@@ -328,14 +212,14 @@ module ClaudeSwarm
             headers: server_config["headers"] || {},
           )
         else
-          @logger.warn("Unsupported MCP server type: #{server_type} for server: #{name}")
+          logger.warn { "Unsupported MCP server type: #{server_type} for server: #{name}" }
           nil
         end
       end
 
       mcp_servers.compact
     rescue StandardError => e
-      @logger.error("Failed to parse MCP config: #{e.message}")
+      logger.error { "Failed to parse MCP config: #{e.message}" }
       {}
     end
 
@@ -346,7 +230,7 @@ module ClaudeSwarm
       @additional_directories.each do |dir|
         # This is a placeholder - the SDK doesn't directly support file system servers
         # You would need to implement a proper MCP server that provides file access
-        @logger.warn("Additional directories not fully supported: #{dir}")
+        logger.warn { "Additional directories not fully supported: #{dir}" }
       end
     end
 
@@ -451,8 +335,5 @@ module ClaudeSwarm
         end
       end
     end
-
-    class ExecutionError < StandardError; end
-    class ParseError < StandardError; end
   end
 end

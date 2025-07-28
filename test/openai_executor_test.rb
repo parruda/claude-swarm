@@ -27,6 +27,7 @@ module OpenAI
         instance_name: "test-instance",
         instance_id: "test-123",
         openai_token_env: "TEST_OPENAI_API_KEY",
+        debug: false,
       )
 
       assert_equal(@tmpdir, executor.working_directory)
@@ -44,6 +45,7 @@ module OpenAI
         api_version: "responses",
         openai_token_env: "TEST_OPENAI_API_KEY",
         base_url: "https://custom.openai.com/v1",
+        debug: false,
       )
 
       assert_equal(@tmpdir, executor.working_directory)
@@ -69,6 +71,7 @@ module OpenAI
         instance_name: "test-instance",
         claude_session_id: "existing-session",
         openai_token_env: "TEST_OPENAI_API_KEY",
+        debug: false,
       )
 
       assert_predicate(executor, :has_session?)
@@ -86,6 +89,7 @@ module OpenAI
         instance_name: "test-instance",
         instance_id: "test-123",
         openai_token_env: "TEST_OPENAI_API_KEY",
+        debug: false,
       )
 
       # Check that log files are created
@@ -97,7 +101,7 @@ module OpenAI
       # Verify log content
       log_content = File.read(log_file)
 
-      assert_match(/Started OpenAI executor for instance: test-instance \(test-123\)/, log_content)
+      assert_match(/Started ClaudeSwarm::OpenAI::Executor for instance: test-instance \(test-123\)/, log_content)
     end
 
     def test_mcp_config_loading
@@ -128,6 +132,7 @@ module OpenAI
             mcp_config: mcp_config_path,
             instance_name: "test-instance",
             openai_token_env: "TEST_OPENAI_API_KEY",
+            debug: false,
           )
 
           # Verify the executor was created successfully
@@ -169,6 +174,7 @@ module OpenAI
             mcp_config: mcp_config_path,
             instance_name: "test-instance",
             openai_token_env: "TEST_OPENAI_API_KEY",
+            debug: false,
           )
         end
       end
@@ -210,6 +216,7 @@ module OpenAI
             mcp_config: mcp_config_path,
             instance_name: "test-instance",
             openai_token_env: "TEST_OPENAI_API_KEY",
+            debug: false,
           )
         end
       end
@@ -249,6 +256,7 @@ module OpenAI
             mcp_config: mcp_config_path,
             instance_name: "test-instance",
             openai_token_env: "TEST_OPENAI_API_KEY",
+            debug: false,
           )
         end
       end
@@ -302,6 +310,7 @@ module OpenAI
         mcp_config: "/non/existent/path.json",
         instance_name: "test-instance",
         openai_token_env: "TEST_OPENAI_API_KEY",
+        debug: false,
       )
 
       # Should initialize without error
@@ -322,6 +331,7 @@ module OpenAI
         mcp_config: mcp_config_path,
         instance_name: "test-instance",
         openai_token_env: "TEST_OPENAI_API_KEY",
+        debug: false,
       )
 
       # Should initialize without creating MCP client
@@ -499,6 +509,7 @@ module OpenAI
             mcp_config: mcp_config_path,
             instance_name: "test-instance",
             openai_token_env: "TEST_OPENAI_API_KEY",
+            debug: false,
           )
         end
       end

@@ -44,7 +44,7 @@ class ClaudeMcpServerTest < Minitest::Test
   end
 
   def test_initialization
-    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller")
+    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller", debug: false)
 
     # Check class variables are set
     assert(ClaudeSwarm::ClaudeMcpServer.executor)
@@ -53,7 +53,7 @@ class ClaudeMcpServerTest < Minitest::Test
   end
 
   def test_initialization_with_calling_instance_id
-    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller", calling_instance_id: "test_caller_1234abcd")
+    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller", calling_instance_id: "test_caller_1234abcd", debug: false)
 
     # Check class variables are set
     assert(ClaudeSwarm::ClaudeMcpServer.executor)
@@ -66,7 +66,7 @@ class ClaudeMcpServerTest < Minitest::Test
     session_path = File.join(ClaudeSwarm::SessionPath.swarm_home, "sessions/test+project/20240101_120000")
     ENV["CLAUDE_SWARM_SESSION_PATH"] = session_path
 
-    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller")
+    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller", debug: false)
 
     assert_equal(session_path, ClaudeSwarm::ClaudeMcpServer.session_path)
 
@@ -76,11 +76,11 @@ class ClaudeMcpServerTest < Minitest::Test
 
     log_content = File.read(log_file)
 
-    assert_match(/Started Claude Code executor for instance: test_instance/, log_content)
+    assert_match(/Started ClaudeSwarm::ClaudeCodeExecutor for instance: test_instance/, log_content)
   end
 
   def test_logging_without_environment_session_path
-    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller")
+    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller", debug: false)
 
     session_path = ClaudeSwarm::ClaudeMcpServer.session_path
 
@@ -92,7 +92,7 @@ class ClaudeMcpServerTest < Minitest::Test
   end
 
   def test_start_method
-    server = ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller")
+    server = ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller", debug: false)
 
     # Mock FastMcp::Server
     mock_server = Minitest::Mock.new
@@ -109,7 +109,7 @@ class ClaudeMcpServerTest < Minitest::Test
   end
 
   def test_task_tool_basic
-    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller")
+    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller", debug: false)
 
     # Mock executor
     mock_executor = Minitest::Mock.new
@@ -135,7 +135,7 @@ class ClaudeMcpServerTest < Minitest::Test
   end
 
   def test_task_tool_with_new_session
-    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller")
+    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller", debug: false)
 
     mock_executor = Minitest::Mock.new
     mock_executor.expect(
@@ -160,7 +160,7 @@ class ClaudeMcpServerTest < Minitest::Test
   end
 
   def test_task_tool_with_custom_system_prompt
-    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller")
+    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller", debug: false)
 
     mock_executor = Minitest::Mock.new
     mock_executor.expect(
@@ -185,7 +185,7 @@ class ClaudeMcpServerTest < Minitest::Test
   end
 
   def test_task_tool_with_thinking_budget
-    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller")
+    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller", debug: false)
 
     # Test each thinking budget level
     thinking_budgets = ["think", "think hard", "think harder", "ultrathink"]
@@ -215,7 +215,7 @@ class ClaudeMcpServerTest < Minitest::Test
   end
 
   def test_task_tool_without_thinking_budget
-    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller")
+    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller", debug: false)
 
     mock_executor = Minitest::Mock.new
     mock_executor.expect(
@@ -240,7 +240,7 @@ class ClaudeMcpServerTest < Minitest::Test
   end
 
   def test_task_tool_with_all_parameters
-    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller")
+    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller", debug: false)
 
     mock_executor = Minitest::Mock.new
     mock_executor.expect(
@@ -272,7 +272,7 @@ class ClaudeMcpServerTest < Minitest::Test
 
   def test_task_tool_logging
     # Since logging is now done in ClaudeCodeExecutor, we need to test through a real instance
-    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller")
+    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller", debug: false)
 
     # Create mock SDK messages
     mock_messages = []
@@ -343,7 +343,7 @@ class ClaudeMcpServerTest < Minitest::Test
   end
 
   def test_session_info_tool
-    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller")
+    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller", debug: false)
 
     mock_executor = Minitest::Mock.new
     mock_executor.expect(:has_session?, true)
@@ -368,7 +368,7 @@ class ClaudeMcpServerTest < Minitest::Test
   end
 
   def test_reset_session_tool
-    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller")
+    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller", debug: false)
 
     mock_executor = Minitest::Mock.new
     mock_executor.expect(:reset_session, nil)
@@ -393,7 +393,7 @@ class ClaudeMcpServerTest < Minitest::Test
     config = @instance_config.dup
     config[:allowed_tools] = nil
 
-    ClaudeSwarm::ClaudeMcpServer.new(config, calling_instance: "test_caller")
+    ClaudeSwarm::ClaudeMcpServer.new(config, calling_instance: "test_caller", debug: false)
 
     mock_executor = Minitest::Mock.new
     mock_executor.expect(
@@ -433,10 +433,10 @@ class ClaudeMcpServerTest < Minitest::Test
       description: "Expert in Ruby development",
     )
 
-    ClaudeSwarm::ClaudeMcpServer.new(config_with_desc, calling_instance: "test_caller")
+    ClaudeSwarm::ClaudeMcpServer.new(config_with_desc, calling_instance: "test_caller", debug: false)
 
     # Create and start server to set the description
-    server = ClaudeSwarm::ClaudeMcpServer.new(config_with_desc, calling_instance: "test_caller")
+    server = ClaudeSwarm::ClaudeMcpServer.new(config_with_desc, calling_instance: "test_caller", debug: false)
 
     # Mock the FastMcp server to avoid actually starting it
     mock_server = Minitest::Mock.new
@@ -463,10 +463,10 @@ class ClaudeMcpServerTest < Minitest::Test
       description: nil,
     )
 
-    ClaudeSwarm::ClaudeMcpServer.new(config_without_desc, calling_instance: "test_caller")
+    ClaudeSwarm::ClaudeMcpServer.new(config_without_desc, calling_instance: "test_caller", debug: false)
 
     # Create and start server to set the description
-    server = ClaudeSwarm::ClaudeMcpServer.new(config_without_desc, calling_instance: "test_caller")
+    server = ClaudeSwarm::ClaudeMcpServer.new(config_without_desc, calling_instance: "test_caller", debug: false)
 
     # Mock the FastMcp server
     mock_server = Minitest::Mock.new
@@ -504,7 +504,7 @@ class ClaudeMcpServerTest < Minitest::Test
       base_url: "https://custom.openai.com/v1",
     )
 
-    ClaudeSwarm::ClaudeMcpServer.new(openai_config, calling_instance: "test_caller")
+    ClaudeSwarm::ClaudeMcpServer.new(openai_config, calling_instance: "test_caller", debug: false)
 
     # Verify that OpenAIExecutor was created
     executor = ClaudeSwarm::ClaudeMcpServer.executor
@@ -516,7 +516,7 @@ class ClaudeMcpServerTest < Minitest::Test
   end
 
   def test_server_with_claude_provider_default
-    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller")
+    ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller", debug: false)
 
     # Verify that ClaudeCodeExecutor was created (default)
     executor = ClaudeSwarm::ClaudeMcpServer.executor
@@ -528,7 +528,7 @@ class ClaudeMcpServerTest < Minitest::Test
   def test_server_with_explicit_claude_provider
     claude_config = @instance_config.merge(provider: "claude")
 
-    ClaudeSwarm::ClaudeMcpServer.new(claude_config, calling_instance: "test_caller")
+    ClaudeSwarm::ClaudeMcpServer.new(claude_config, calling_instance: "test_caller", debug: false)
 
     # Verify that ClaudeCodeExecutor was created
     executor = ClaudeSwarm::ClaudeMcpServer.executor

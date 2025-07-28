@@ -352,7 +352,7 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator, prompt: "Execute test task")
 
     expected_command = nil
-    orchestrator.stub(:system, lambda { |*args|
+    orchestrator.stub(:stream_to_session_log, lambda { |*args|
       expected_command = args
       true
     }) do
@@ -374,7 +374,7 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator, prompt: "Fix the 'bug' in module X")
 
     expected_command = nil
-    orchestrator.stub(:system, lambda { |*args|
+    orchestrator.stub(:stream_to_session_log, lambda { |*args|
       expected_command = args
       true
     }) do
@@ -396,7 +396,7 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator, prompt: "Test prompt")
 
     output = nil
-    orchestrator.stub(:system, true) do
+    orchestrator.stub(:stream_to_session_log, true) do
       output = capture_io { orchestrator.start }[0]
     end
 
@@ -435,7 +435,7 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator, prompt: "Debug test")
 
     output = nil
-    orchestrator.stub(:system, true) do
+    orchestrator.stub(:stream_to_session_log, true) do
       output = capture_io { orchestrator.start }[0]
     end
 
@@ -449,7 +449,7 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator, vibe: true, prompt: "Vibe test")
 
     expected_command = nil
-    orchestrator.stub(:system, lambda { |*args|
+    orchestrator.stub(:stream_to_session_log, lambda { |*args|
       expected_command = args
       true
     }) do

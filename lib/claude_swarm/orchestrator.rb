@@ -3,6 +3,9 @@
 module ClaudeSwarm
   class Orchestrator
     include SystemUtils
+
+    attr_reader :config, :session_path, :session_log_path
+
     RUN_DIR = File.expand_path("~/.claude-swarm/run")
     ["INT", "TERM", "QUIT"].each do |signal|
       Signal.trap(signal) do
@@ -21,6 +24,7 @@ module ClaudeSwarm
       @debug = debug
       @restore_session_path = restore_session_path
       @session_path = nil
+      @session_log_path = nil
       @provided_session_id = session_id
       # Store worktree option for later use
       @worktree_option = worktree
@@ -40,24 +44,23 @@ module ClaudeSwarm
       @start_time = Time.now
 
       if @restore_session_path
-        unless @non_interactive_prompt
+        non_interactive_output do
           puts "🔄 Restoring Claude Swarm: #{@config.swarm_name}"
           puts "😎 Vibe mode ON" if @vibe
-          puts
         end
 
         # Use existing session path
         session_path = @restore_session_path
         @session_path = session_path
+        @session_log_path = File.join(@session_path, "session.log")
         ENV["CLAUDE_SWARM_SESSION_PATH"] = session_path
         ENV["CLAUDE_SWARM_ROOT_DIR"] = ClaudeSwarm.root_dir
 
         # Create run symlink for restored session
         create_run_symlink
 
-        unless @non_interactive_prompt
+        non_interactive_output do
           puts "📝 Using existing session: #{session_path}/"
-          puts
         end
 
         # Initialize process tracker
@@ -68,25 +71,22 @@ module ClaudeSwarm
 
         # Regenerate MCP configurations with session IDs for restoration
         @generator.generate_all
-        unless @non_interactive_prompt
+        non_interactive_output do
           puts "✓ Regenerated MCP configurations with session IDs"
-          puts
         end
       else
-        unless @non_interactive_prompt
+        non_interactive_output do
           puts "🐝 Starting Claude Swarm: #{@config.swarm_name}"
           puts "😎 Vibe mode ON" if @vibe
-          puts
         end
 
         # Generate and set session path for all instances
-        session_path = if @provided_session_id
-          SessionPath.generate(working_dir: ClaudeSwarm.root_dir, session_id: @provided_session_id)
-        else
-          SessionPath.generate(working_dir: ClaudeSwarm.root_dir)
-        end
+        session_params = { working_dir: ClaudeSwarm.root_dir }
+        session_params[:session_id] = @provided_session_id if @provided_session_id
+        session_path = SessionPath.generate(**session_params)
         SessionPath.ensure_directory(session_path)
         @session_path = session_path
+        @session_log_path = File.join(@session_path, "session.log")
 
         # Extract session ID from path (the timestamp part)
         @session_id = File.basename(session_path)
@@ -97,9 +97,8 @@ module ClaudeSwarm
         # Create run symlink for new session
         create_run_symlink
 
-        unless @non_interactive_prompt
+        non_interactive_output do
           puts "📝 Session files will be saved to: #{session_path}/"
-          puts
         end
 
         # Initialize process tracker
@@ -109,7 +108,7 @@ module ClaudeSwarm
         if @needs_worktree_manager
           cli_option = @worktree_option.is_a?(String) && !@worktree_option.empty? ? @worktree_option : nil
           @worktree_manager = WorktreeManager.new(cli_option, session_id: @session_id)
-          puts "🌳 Setting up Git worktrees..." unless @non_interactive_prompt
+          non_interactive_output { print("🌳 Setting up Git worktrees...") }
 
           # Get all instances for worktree setup
           # Note: instances.values already includes the main instance
@@ -117,17 +116,15 @@ module ClaudeSwarm
 
           @worktree_manager.setup_worktrees(all_instances)
 
-          unless @non_interactive_prompt
+          non_interactive_output do
             puts "✓ Worktrees created with branch: #{@worktree_manager.worktree_name}"
-            puts
           end
         end
 
         # Generate all MCP configuration files
         @generator.generate_all
-        unless @non_interactive_prompt
+        non_interactive_output do
           puts "✓ Generated MCP configurations in session directory"
-          puts
         end
 
         # Save swarm config path for restoration
@@ -136,7 +133,7 @@ module ClaudeSwarm
 
       # Launch the main instance (fetch after worktree setup to get modified paths)
       main_instance = @config.main_instance_config
-      unless @non_interactive_prompt
+      non_interactive_output do
         puts "🚀 Launching main instance: #{@config.main_instance}"
         puts "   Model: #{main_instance[:model]}"
         if main_instance[:directories].size == 1
@@ -149,13 +146,13 @@ module ClaudeSwarm
         puts "   Disallowed tools: #{main_instance[:disallowed_tools].join(", ")}" if main_instance[:disallowed_tools]&.any?
         puts "   Connections: #{main_instance[:connections].join(", ")}" if main_instance[:connections].any?
         puts "   😎 Vibe mode ON for this instance" if main_instance[:vibe]
-        puts
       end
 
       command = build_main_command(main_instance)
-      if @debug && !@non_interactive_prompt
-        puts "🏃 Running: #{format_command_for_display(command)}"
-        puts
+      if @debug
+        non_interactive_output do
+          puts "🏃 Running: #{format_command_for_display(command)}"
+        end
       end
 
       # Start log streaming thread if in non-interactive mode with --stream-logs
@@ -171,23 +168,21 @@ module ClaudeSwarm
         # Execute before commands if specified
         before_commands = @config.before_commands
         if before_commands.any? && !@restore_session_path
-          unless @non_interactive_prompt
+          non_interactive_output do
             puts "⚙️  Executing before commands..."
-            puts
           end
 
           success = execute_before_commands?(before_commands)
           unless success
-            puts "❌ Before commands failed. Aborting swarm launch." unless @non_interactive_prompt
+            non_interactive_output { print("❌ Before commands failed. Aborting swarm launch.") }
             cleanup_processes
             cleanup_run_symlink
             cleanup_worktrees
             exit(1)
           end
 
-          unless @non_interactive_prompt
+          non_interactive_output do
             puts "✓ Before commands completed successfully"
-            puts
           end
         end
 
@@ -195,7 +190,11 @@ module ClaudeSwarm
         # This ensures the main instance runs in a clean environment without inheriting
         # Claude Swarm's BUNDLE_* environment variables
         Bundler.with_unbundled_env do
-          system!(*command)
+          if @non_interactive_prompt
+            stream_to_session_log(*command)
+          else
+            system!(*command)
+          end
         end
       end
 
@@ -212,16 +211,15 @@ module ClaudeSwarm
       after_commands = @config.after_commands
       if after_commands.any? && !@restore_session_path
         Dir.chdir(main_instance[:directory]) do
-          unless @non_interactive_prompt
-            puts
-            puts "⚙️  Executing after commands..."
-            puts
+          non_interactive_output do
+            print("⚙️  Executing after commands...")
           end
 
           success = execute_after_commands?(after_commands)
-          if !success && !@non_interactive_prompt
-            puts "⚠️  Some after commands failed"
-            puts
+          unless success
+            non_interactive_output do
+              puts "⚠️  Some after commands failed"
+            end
           end
         end
       end
@@ -234,115 +232,19 @@ module ClaudeSwarm
 
     private
 
+    def non_interactive_output
+      return if @non_interactive_prompt
+
+      yield
+      puts
+    end
+
     def execute_before_commands?(commands)
-      log_file = File.join(@session_path, "session.log") if @session_path
-
-      commands.each_with_index do |command, index|
-        # Log the command execution to session log
-        if @session_path
-          File.open(log_file, "a") do |f|
-            f.puts "[#{Time.now.strftime("%Y-%m-%d %H:%M:%S")}] Executing before command #{index + 1}/#{commands.size}: #{command}"
-          end
-        end
-
-        # Execute the command and capture output
-        begin
-          puts "Debug: Executing command #{index + 1}/#{commands.size}: #{command}" if @debug && !@non_interactive_prompt
-
-          # Use system with output capture
-          output = %x(#{command} 2>&1)
-          success = $CHILD_STATUS.success?
-
-          # Log the output
-          if @session_path
-            File.open(log_file, "a") do |f|
-              f.puts "Command output:"
-              f.puts output
-              f.puts "Exit status: #{$CHILD_STATUS.exitstatus}"
-              f.puts "-" * 80
-            end
-          end
-
-          # Show output if in debug mode or if command failed
-          if (@debug || !success) && !@non_interactive_prompt
-            puts "Command #{index + 1} output:"
-            puts output
-            puts "Exit status: #{$CHILD_STATUS.exitstatus}"
-          end
-
-          unless success
-            puts "❌ Before command #{index + 1} failed: #{command}" unless @non_interactive_prompt
-            return false
-          end
-        rescue StandardError => e
-          puts "Error executing before command #{index + 1}: #{e.message}" unless @non_interactive_prompt
-          if @session_path
-            File.open(log_file, "a") do |f|
-              f.puts "Error: #{e.message}"
-              f.puts "-" * 80
-            end
-          end
-          return false
-        end
-      end
-
-      true
+      execute_commands(commands, phase: "before", fail_fast: true)
     end
 
     def execute_after_commands?(commands)
-      log_file = File.join(@session_path, "session.log") if @session_path
-      all_succeeded = true
-
-      commands.each_with_index do |command, index|
-        # Log the command execution to session log
-        if @session_path
-          File.open(log_file, "a") do |f|
-            f.puts "[#{Time.now.strftime("%Y-%m-%d %H:%M:%S")}] Executing after command #{index + 1}/#{commands.size}: #{command}"
-          end
-        end
-
-        # Execute the command and capture output
-        begin
-          puts "Debug: Executing after command #{index + 1}/#{commands.size}: #{command}" if @debug && !@non_interactive_prompt
-
-          # Use system with output capture
-          output = %x(#{command} 2>&1)
-          success = $CHILD_STATUS.success?
-
-          # Log the output
-          if @session_path
-            File.open(log_file, "a") do |f|
-              f.puts "Command output:"
-              f.puts output
-              f.puts "Exit status: #{$CHILD_STATUS.exitstatus}"
-              f.puts "-" * 80
-            end
-          end
-
-          # Show output if in debug mode or if command failed
-          if (@debug || !success) && !@non_interactive_prompt
-            puts "After command #{index + 1} output:"
-            puts output
-            puts "Exit status: #{$CHILD_STATUS.exitstatus}"
-          end
-
-          unless success
-            puts "❌ After command #{index + 1} failed: #{command}" unless @non_interactive_prompt
-            all_succeeded = false
-          end
-        rescue StandardError => e
-          puts "Error executing after command #{index + 1}: #{e.message}" unless @non_interactive_prompt
-          if @session_path
-            File.open(log_file, "a") do |f|
-              f.puts "Error: #{e.message}"
-              f.puts "-" * 80
-            end
-          end
-          all_succeeded = false
-        end
-      end
-
-      all_succeeded
+      execute_commands(commands, phase: "after", fail_fast: false)
     end
 
     def save_swarm_config_path(session_path)
@@ -355,19 +257,21 @@ module ClaudeSwarm
       File.write(root_dir_file, ClaudeSwarm.root_dir)
 
       # Save session metadata
-      metadata = {
+      metadata_file = File.join(session_path, "session_metadata.json")
+      File.write(metadata_file, JSON.pretty_generate(build_session_metadata))
+    end
+
+    def build_session_metadata
+      {
         "root_directory" => ClaudeSwarm.root_dir,
         "timestamp" => Time.now.utc.iso8601,
         "start_time" => @start_time.utc.iso8601,
         "swarm_name" => @config.swarm_name,
         "claude_swarm_version" => VERSION,
-      }
-
-      # Add worktree info if applicable
-      metadata["worktree"] = @worktree_manager.session_metadata if @worktree_manager
-
-      metadata_file = File.join(session_path, "session_metadata.json")
-      File.write(metadata_file, JSON.pretty_generate(metadata))
+      }.tap do |metadata|
+        # Add worktree info if applicable
+        metadata["worktree"] = @worktree_manager.session_metadata if @worktree_manager
+      end
     end
 
     def cleanup_processes
@@ -378,9 +282,7 @@ module ClaudeSwarm
     end
 
     def cleanup_worktrees
-      return unless @worktree_manager
-
-      @worktree_manager.cleanup_worktrees
+      @worktree_manager&.cleanup_worktrees
     rescue StandardError => e
       puts "⚠️  Error during worktree cleanup: #{e.message}"
     end
@@ -417,7 +319,7 @@ module ClaudeSwarm
 
       File.write(metadata_file, JSON.pretty_generate(metadata))
     rescue StandardError => e
-      puts "⚠️  Error updating session metadata: #{e.message}" unless @non_interactive_prompt
+      non_interactive_output { print("⚠️  Error updating session metadata: #{e.message}") }
     end
 
     def calculate_total_cost
@@ -466,7 +368,7 @@ module ClaudeSwarm
       File.symlink(@session_path, symlink_path)
     rescue StandardError => e
       # Don't fail the process if symlink creation fails
-      puts "⚠️  Warning: Could not create run symlink: #{e.message}" unless @non_interactive_prompt
+      non_interactive_output { print("⚠️  Warning: Could not create run symlink: #{e.message}") }
     end
 
     def cleanup_run_symlink
@@ -481,15 +383,11 @@ module ClaudeSwarm
 
     def start_log_streaming
       Thread.new do
-        session_log_path = File.join(ENV.fetch("CLAUDE_SWARM_SESSION_PATH", nil), "session.log")
-
         # Wait for log file to be created
-        sleep(0.1) until File.exist?(session_log_path)
+        sleep(0.1) until File.exist?(@session_log_path)
 
         # Open file and seek to end
-        File.open(session_log_path, "r") do |file|
-          file.seek(0, IO::SEEK_END)
-
+        File.open(@session_log_path, "r") do |file|
           loop do
             changes = file.read
             if changes
@@ -593,6 +491,8 @@ module ClaudeSwarm
         # Non-interactive mode with -p
         parts << "-p"
         parts << @non_interactive_prompt
+        parts << "--verbose"
+        parts << "--output-format=stream-json"
       elsif @interactive_prompt
         # Interactive mode with initial prompt (no -p flag)
         parts << @interactive_prompt
@@ -610,9 +510,8 @@ module ClaudeSwarm
       worktree_data = metadata["worktree"]
       return unless worktree_data && worktree_data["enabled"]
 
-      unless @non_interactive_prompt
+      non_interactive_output do
         puts "🌳 Restoring Git worktrees..."
-        puts
       end
 
       # Restore worktrees using the saved configuration
@@ -624,10 +523,91 @@ module ClaudeSwarm
       all_instances = @config.instances.values
       @worktree_manager.setup_worktrees(all_instances)
 
-      return if @non_interactive_prompt
+      non_interactive_output do
+        puts "✓ Worktrees restored with branch: #{@worktree_manager.worktree_name}"
+      end
+    end
 
-      puts "✓ Worktrees restored with branch: #{@worktree_manager.worktree_name}"
-      puts
+    def stream_to_session_log(*command)
+      # Setup logger for session logging
+      logger = Logger.new(@session_log_path, level: :info, progname: @config.main_instance)
+
+      # Use Open3.popen2e to capture stdout and stderr merged for formatting
+      Open3.popen2e(*command) do |stdin, stdout_and_stderr, wait_thr|
+        stdin.close
+
+        # Read and process the merged output
+        stdout_and_stderr.each_line do |line|
+          # Try to parse and prettify JSON lines
+
+          json_data = JSON.parse(line.chomp)
+          pretty_json = JSON.pretty_generate(json_data)
+          logger.info { pretty_json }
+        rescue JSON::ParserError
+          # Warn about non-JSON output since we expect stream-json format
+          warn("⚠️  Warning: Non-JSON output detected in stream-json mode: #{line.chomp}")
+          # Log the line as-is
+          logger.info { line.chomp }
+        end
+
+        wait_thr.value
+      end
+    end
+
+    def execute_commands(commands, phase:, fail_fast:)
+      all_succeeded = true
+
+      # Setup logger for session logging if we have a session path
+      logger = Logger.new(@session_log_path, level: :info)
+
+      commands.each_with_index do |command, index|
+        # Log the command execution to session log
+        logger.info { "Executing #{phase} command #{index + 1}/#{commands.size}: #{command}" }
+
+        # Execute the command and capture output
+        begin
+          if @debug
+            non_interactive_output do
+              debug_prefix = phase == "after" ? "after " : ""
+              print("Debug: Executing #{debug_prefix} command #{index + 1}/#{commands.size}: #{format_command_for_display(command)}")
+            end
+          end
+
+          output = %x(#{command} 2>&1)
+          success = $CHILD_STATUS.success?
+          output_separator = "-" * 80
+
+          logger.info { "Command output:" }
+          logger.info { output }
+          logger.info { "Exit status: #{$CHILD_STATUS.exitstatus}" }
+          logger.info { output_separator }
+
+          # Show output if in debug mode or if command failed
+          if @debug || !success
+            non_interactive_output do
+              output_prefix = phase == "after" ? "After command" : "Command"
+              puts "#{output_prefix} #{index + 1} output:"
+              puts output
+              print("Exit status: #{$CHILD_STATUS.exitstatus}")
+            end
+          end
+
+          unless success
+            error_prefix = phase.capitalize
+            non_interactive_output { print("❌ #{error_prefix} command #{index + 1} failed: #{command}") }
+            all_succeeded = false
+            return false if fail_fast
+          end
+        rescue StandardError => e
+          non_interactive_output { print("Error executing #{phase} command #{index + 1}: #{e.message}") }
+          logger.info { "Error: #{e.message}" }
+          logger.info { output_separator }
+          all_succeeded = false
+          return false if fail_fast
+        end
+      end
+
+      all_succeeded
     end
   end
 end

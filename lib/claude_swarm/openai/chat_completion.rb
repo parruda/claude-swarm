@@ -5,11 +5,11 @@ module ClaudeSwarm
     class ChatCompletion
       MAX_TURNS_WITH_TOOLS = 100_000 # virtually infinite
 
-      def initialize(openai_client:, mcp_client:, available_tools:, logger:, instance_name:, model:, temperature: nil, reasoning_effort: nil)
+      def initialize(openai_client:, mcp_client:, available_tools:, executor:, instance_name:, model:, temperature: nil, reasoning_effort: nil)
         @openai_client = openai_client
         @mcp_client = mcp_client
         @available_tools = available_tools
-        @executor = logger # This is actually the executor, not a logger
+        @executor = executor
         @instance_name = instance_name
         @model = model
         @temperature = temperature
@@ -57,7 +57,7 @@ module ClaudeSwarm
       def process_chat_completion(messages, depth = 0)
         # Prevent infinite recursion
         if depth > MAX_TURNS_WITH_TOOLS
-          @executor.error("Maximum recursion depth reached in tool execution")
+          @executor.logger.error { "Maximum recursion depth reached in tool execution" }
           return "Error: Maximum tool call depth exceeded"
         end
 
@@ -83,7 +83,7 @@ module ClaudeSwarm
         parameters[:tools] = @mcp_client.to_openai_tools if @available_tools&.any? && @mcp_client
 
         # Log the request parameters
-        @executor.info("Chat API Request (depth=#{depth}): #{JSON.pretty_generate(parameters)}")
+        @executor.logger.info { "Chat API Request (depth=#{depth}): #{JSON.pretty_generate(parameters)}" }
 
         # Append to session JSON
         append_to_session_json({
@@ -97,16 +97,16 @@ module ClaudeSwarm
         begin
           response = @openai_client.chat(parameters: parameters)
         rescue StandardError => e
-          @executor.error("Chat API error: #{e.class} - #{e.message}")
-          @executor.error("Request parameters: #{JSON.pretty_generate(parameters)}")
+          @executor.logger.error { "Chat API error: #{e.class} - #{e.message}" }
+          @executor.logger.error { "Request parameters: #{JSON.pretty_generate(parameters)}" }
 
           # Try to extract and log the response body for better debugging
           if e.respond_to?(:response)
             begin
               error_body = e.response[:body]
-              @executor.error("Error response body: #{error_body}")
+              @executor.logger.error { "Error response body: #{error_body}" }
             rescue StandardError => parse_error
-              @executor.error("Could not parse error response: #{parse_error.message}")
+              @executor.logger.error { "Could not parse error response: #{parse_error.message}" }
             end
           end
 
@@ -127,7 +127,7 @@ module ClaudeSwarm
         end
 
         # Log the response
-        @executor.info("Chat API Response (depth=#{depth}): #{JSON.pretty_generate(response)}")
+        @executor.logger.info { "Chat API Response (depth=#{depth}): #{JSON.pretty_generate(response)}" }
 
         # Append to session JSON
         append_to_session_json({
@@ -141,7 +141,7 @@ module ClaudeSwarm
         message = response.dig("choices", 0, "message")
 
         if message.nil?
-          @executor.error("No message in response: #{response.inspect}")
+          @executor.logger.error { "No message in response: #{response.inspect}" }
           return "Error: No response from OpenAI"
         end
 
@@ -169,7 +169,7 @@ module ClaudeSwarm
 
       def execute_and_append_tool_results(tool_calls, messages)
         # Log tool calls
-        @executor.info("Executing tool calls: #{JSON.pretty_generate(tool_calls)}")
+        @executor.logger.info { "Executing tool calls: #{JSON.pretty_generate(tool_calls)}" }
 
         # Append to session JSON
         append_to_session_json({
@@ -189,13 +189,13 @@ module ClaudeSwarm
               tool_args = tool_args_str.is_a?(String) ? JSON.parse(tool_args_str) : tool_args_str
 
               # Log tool execution
-              @executor.info("Executing tool: #{tool_name} with args: #{JSON.pretty_generate(tool_args)}")
+              @executor.logger.info { "Executing tool: #{tool_name} with args: #{JSON.pretty_generate(tool_args)}" }
 
               # Execute tool via MCP
               result = @mcp_client.call_tool(tool_name, tool_args)
 
               # Log result
-              @executor.info("Tool result for #{tool_name}: #{result}")
+              @executor.logger.info { "Tool result for #{tool_name}: #{result}" }
 
               # Append to session JSON
               append_to_session_json({
@@ -214,8 +214,8 @@ module ClaudeSwarm
                 content: result.to_s,
               }
             rescue StandardError => e
-              @executor.error("Tool execution failed for #{tool_name}: #{e.message}")
-              @executor.error(e.backtrace.join("\n"))
+              @executor.logger.error { "Tool execution failed for #{tool_name}: #{e.message}" }
+              @executor.logger.error { e.backtrace.join("\n") }
 
               # Append error to session JSON
               append_to_session_json({

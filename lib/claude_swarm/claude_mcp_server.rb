@@ -7,7 +7,7 @@ module ClaudeSwarm
       attr_accessor :executor, :instance_config, :logger, :session_path, :calling_instance, :calling_instance_id
     end
 
-    def initialize(instance_config, calling_instance:, calling_instance_id: nil)
+    def initialize(instance_config, calling_instance:, calling_instance_id: nil, debug: false)
       @instance_config = instance_config
       @calling_instance = calling_instance
       @calling_instance_id = calling_instance_id
@@ -24,6 +24,7 @@ module ClaudeSwarm
         calling_instance_id: calling_instance_id,
         claude_session_id: instance_config[:claude_session_id],
         additional_directories: instance_config[:directories][1..] || [],
+        debug: debug,
       }
 
       @executor = if instance_config[:provider] == "openai"
