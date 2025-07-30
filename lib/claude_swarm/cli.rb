@@ -230,6 +230,7 @@ module ClaudeSwarm
           instance_config,
           calling_instance: options[:calling_instance],
           calling_instance_id: options[:calling_instance_id],
+          debug: options[:debug],
         )
         server.start
       rescue StandardError => e

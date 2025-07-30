@@ -5,11 +5,11 @@ module ClaudeSwarm
     class Responses
       MAX_TURNS_WITH_TOOLS = 100_000 # virtually infinite
 
-      def initialize(openai_client:, mcp_client:, available_tools:, logger:, instance_name:, model:, temperature: nil, reasoning_effort: nil)
+      def initialize(openai_client:, mcp_client:, available_tools:, executor:, instance_name:, model:, temperature: nil, reasoning_effort: nil)
         @openai_client = openai_client
         @mcp_client = mcp_client
         @available_tools = available_tools
-        @executor = logger # This is actually the executor, not a logger
+        @executor = executor
         @instance_name = instance_name
         @model = model
         @temperature = temperature
@@ -37,7 +37,7 @@ module ClaudeSwarm
       def process_responses_api(input, conversation_array, previous_response_id, depth = 0)
         # Prevent infinite recursion
         if depth > MAX_TURNS_WITH_TOOLS
-          @executor.error("Maximum recursion depth reached in tool execution")
+          @executor.logger.error { "Maximum recursion depth reached in tool execution" }
           return "Error: Maximum tool call depth exceeded"
         end
 
@@ -72,11 +72,11 @@ module ClaudeSwarm
           parameters[:input] = conversation_array
 
           # Log conversation array to debug duplicates
-          @executor.info("Conversation array size: #{conversation_array.size}")
+          @executor.logger.info { "Conversation array size: #{conversation_array.size}" }
           conversation_ids = conversation_array.map do |item|
             item["call_id"] || item["id"] || "no-id-#{item["type"]}"
           end.compact
-          @executor.info("Conversation item IDs: #{conversation_ids.inspect}")
+          @executor.logger.info { "Conversation item IDs: #{conversation_ids.inspect}" }
         end
 
         # Add previous response ID for conversation continuity
@@ -93,11 +93,11 @@ module ClaudeSwarm
               "parameters" => tool.schema || {},
             }
           end
-          @executor.info("Available tools for responses API: #{parameters[:tools].map { |t| t["name"] }.join(", ")}")
+          @executor.logger.info { "Available tools for responses API: #{parameters[:tools].map { |t| t["name"] }.join(", ")}" }
         end
 
         # Log the request parameters
-        @executor.info("Responses API Request (depth=#{depth}): #{JSON.pretty_generate(parameters)}")
+        @executor.logger.info { "Responses API Request (depth=#{depth}): #{JSON.pretty_generate(parameters)}" }
 
         # Append to session JSON
         append_to_session_json({
@@ -111,16 +111,16 @@ module ClaudeSwarm
         begin
           response = @openai_client.responses.create(parameters: parameters)
         rescue StandardError => e
-          @executor.error("Responses API error: #{e.class} - #{e.message}")
-          @executor.error("Request parameters: #{JSON.pretty_generate(parameters)}")
+          @executor.logger.error { "Responses API error: #{e.class} - #{e.message}" }
+          @executor.logger.error { "Request parameters: #{JSON.pretty_generate(parameters)}" }
 
           # Try to extract and log the response body for better debugging
           if e.respond_to?(:response)
             begin
               error_body = e.response[:body]
-              @executor.error("Error response body: #{error_body}")
+              @executor.logger.error { "Error response body: #{error_body}" }
             rescue StandardError => parse_error
-              @executor.error("Could not parse error response: #{parse_error.message}")
+              @executor.logger.error { "Could not parse error response: #{parse_error.message}" }
             end
           end
 
@@ -140,7 +140,7 @@ module ClaudeSwarm
         end
 
         # Log the full response
-        @executor.info("Responses API Full Response (depth=#{depth}): #{JSON.pretty_generate(response)}")
+        @executor.logger.info { "Responses API Full Response (depth=#{depth}): #{JSON.pretty_generate(response)}" }
 
         # Append to session JSON
         append_to_session_json({
@@ -157,7 +157,7 @@ module ClaudeSwarm
         output = response["output"]
 
         if output.nil?
-          @executor.error("No output in response")
+          @executor.logger.error { "No output in response" }
           return "Error: No output in OpenAI response"
         end
 
@@ -185,7 +185,7 @@ module ClaudeSwarm
             extract_text_response(output)
           end
         else
-          @executor.error("Unexpected output format: #{output.inspect}")
+          @executor.logger.error { "Unexpected output format: #{output.inspect}" }
           "Error: Unexpected response format"
         end
       end
@@ -200,12 +200,12 @@ module ClaudeSwarm
 
       def build_conversation_with_outputs(function_calls)
         # Log tool calls
-        @executor.info("Responses API - Handling #{function_calls.size} function calls")
+        @executor.logger.info { "Responses API - Handling #{function_calls.size} function calls" }
 
         # Log IDs to check for duplicates
         call_ids = function_calls.map { |fc| fc["call_id"] || fc["id"] }
-        @executor.info("Function call IDs: #{call_ids.inspect}")
-        @executor.warn("WARNING: Duplicate function call IDs detected!") if call_ids.size != call_ids.uniq.size
+        @executor.logger.info { "Function call IDs: #{call_ids.inspect}" }
+        @executor.logger.warn { "WARNING: Duplicate function call IDs detected!" } if call_ids.size != call_ids.uniq.size
 
         # Append to session JSON
         append_to_session_json({
@@ -226,20 +226,20 @@ module ClaudeSwarm
           call_id = function_call["call_id"]
 
           # Log both IDs to debug
-          @executor.info("Function call has id=#{function_call["id"]}, call_id=#{function_call["call_id"]}")
+          @executor.logger.info { "Function call has id=#{function_call["id"]}, call_id=#{function_call["call_id"]}" }
 
           begin
             # Parse arguments
             tool_args = JSON.parse(tool_args_str)
 
             # Log tool execution
-            @executor.info("Responses API - Executing tool: #{tool_name} with args: #{JSON.pretty_generate(tool_args)}")
+            @executor.logger.info { "Responses API - Executing tool: #{tool_name} with args: #{JSON.pretty_generate(tool_args)}" }
 
             # Execute tool via MCP
             result = @mcp_client.call_tool(tool_name, tool_args)
 
             # Log result
-            @executor.info("Responses API - Tool result for #{tool_name}: #{result}")
+            @executor.logger.info { "Responses API - Tool result for #{tool_name}: #{result}" }
 
             # Append to session JSON
             append_to_session_json({
@@ -257,8 +257,8 @@ module ClaudeSwarm
               output: result.to_json, # Must be JSON string
             }
           rescue StandardError => e
-            @executor.error("Responses API - Tool execution failed for #{tool_name}: #{e.message}")
-            @executor.error(e.backtrace.join("\n"))
+            @executor.logger.error { "Responses API - Tool execution failed for #{tool_name}: #{e.message}" }
+            @executor.logger.error { e.backtrace.join("\n") }
 
             # Append error to session JSON
             append_to_session_json({
@@ -282,8 +282,8 @@ module ClaudeSwarm
           end
         end
 
-        @executor.info("Responses API - Built conversation with #{conversation.size} function outputs")
-        @executor.debug("Final conversation structure: #{JSON.pretty_generate(conversation)}")
+        @executor.logger.info { "Responses API - Built conversation with #{conversation.size} function outputs" }
+        @executor.logger.debug { "Final conversation structure: #{JSON.pretty_generate(conversation)}" }
         conversation
       end
 
@@ -302,13 +302,13 @@ module ClaudeSwarm
             tool_args = JSON.parse(tool_args_str)
 
             # Log tool execution
-            @executor.info("Responses API - Executing tool: #{tool_name} with args: #{JSON.pretty_generate(tool_args)}")
+            @executor.logger.info { "Responses API - Executing tool: #{tool_name} with args: #{JSON.pretty_generate(tool_args)}" }
 
             # Execute tool via MCP
             result = @mcp_client.call_tool(tool_name, tool_args)
 
             # Log result
-            @executor.info("Responses API - Tool result for #{tool_name}: #{result}")
+            @executor.logger.info { "Responses API - Tool result for #{tool_name}: #{result}" }
 
             # Add function output to conversation
             conversation << {
@@ -317,7 +317,7 @@ module ClaudeSwarm
               output: result.to_json, # Must be JSON string
             }
           rescue StandardError => e
-            @executor.error("Responses API - Tool execution failed for #{tool_name}: #{e.message}")
+            @executor.logger.error { "Responses API - Tool execution failed for #{tool_name}: #{e.message}" }
 
             # Add error output to conversation
             conversation << {

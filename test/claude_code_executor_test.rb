@@ -15,6 +15,7 @@ class ClaudeCodeExecutorTest < Minitest::Test
     @executor = ClaudeSwarm::ClaudeCodeExecutor.new(
       instance_name: "test_instance",
       calling_instance: "test_caller",
+      debug: false,
     )
   end
 
@@ -108,6 +109,7 @@ class ClaudeCodeExecutorTest < Minitest::Test
     executor = ClaudeSwarm::ClaudeCodeExecutor.new(
       instance_name: "env_test",
       calling_instance: "env_caller",
+      debug: false,
     )
 
     assert_equal(session_path, executor.session_path)
@@ -143,13 +145,13 @@ class ClaudeCodeExecutorTest < Minitest::Test
 
   def test_custom_working_directory
     custom_dir = "/tmp"
-    executor = ClaudeSwarm::ClaudeCodeExecutor.new(working_directory: custom_dir)
+    executor = ClaudeSwarm::ClaudeCodeExecutor.new(working_directory: custom_dir, debug: false)
 
     assert_equal(custom_dir, executor.working_directory)
   end
 
   def test_build_sdk_options_with_model
-    executor = ClaudeSwarm::ClaudeCodeExecutor.new(model: "opus")
+    executor = ClaudeSwarm::ClaudeCodeExecutor.new(model: "opus", debug: false)
     options = executor.send(:build_sdk_options, "test prompt", {})
 
     assert_equal("opus", options.model)
@@ -170,7 +172,7 @@ class ClaudeCodeExecutorTest < Minitest::Test
     config_path = File.join(@tmpdir, "mcp_config.json")
     File.write(config_path, JSON.pretty_generate(mcp_config))
 
-    executor = ClaudeSwarm::ClaudeCodeExecutor.new(mcp_config: config_path)
+    executor = ClaudeSwarm::ClaudeCodeExecutor.new(mcp_config: config_path, debug: false)
     options = executor.send(:build_sdk_options, "test prompt", {})
 
     assert_kind_of(Hash, options.mcp_servers)
@@ -298,7 +300,7 @@ class ClaudeCodeExecutorTest < Minitest::Test
     assert_match(/Processing.../, log_content)
 
     # Check that the logger was started with instance name
-    assert_match(/Started Claude Code executor for instance: test_instance/, log_content)
+    assert_match(/Started ClaudeSwarm::ClaudeCodeExecutor for instance: test_instance/, log_content)
   end
 
   def test_logging_with_tool_calls
@@ -323,14 +325,14 @@ class ClaudeCodeExecutorTest < Minitest::Test
   end
 
   def test_vibe_mode
-    executor = ClaudeSwarm::ClaudeCodeExecutor.new(vibe: true)
+    executor = ClaudeSwarm::ClaudeCodeExecutor.new(vibe: true, debug: false)
     options = executor.send(:build_sdk_options, "test prompt", {})
 
     assert_equal(ClaudeSDK::PermissionMode::BYPASS_PERMISSIONS, options.permission_mode)
   end
 
   def test_vibe_mode_overrides_allowed_tools
-    executor = ClaudeSwarm::ClaudeCodeExecutor.new(vibe: true)
+    executor = ClaudeSwarm::ClaudeCodeExecutor.new(vibe: true, debug: false)
     options = executor.send(:build_sdk_options, "test prompt", { allowed_tools: ["Read", "Write"] })
 
     assert_equal(ClaudeSDK::PermissionMode::BYPASS_PERMISSIONS, options.permission_mode)
@@ -376,6 +378,7 @@ class ClaudeCodeExecutorTest < Minitest::Test
   def test_additional_directories_warning
     executor = ClaudeSwarm::ClaudeCodeExecutor.new(
       additional_directories: ["/path/to/dir1", "/path/to/dir2"],
+      debug: false,
     )
 
     # Capture log output

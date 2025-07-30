@@ -4,12 +4,34 @@ require "test_helper"
 
 module OpenAI
   class IntegrationTest < Minitest::Test
-    def test_chat_completion_simple_message
-      # Create a logger that accepts anything
+    def create_mock_executor
       mock_logger = Minitest::Mock.new
       def mock_logger.info(*args); end
       def mock_logger.error(*args); end
+      def mock_logger.warn(*args); end
+      def mock_logger.debug(*args); end
       def mock_logger.log(*args); end
+
+      mock_executor = Minitest::Mock.new
+      mock_executor.expect(:logger, mock_logger)
+      # Make logger callable multiple times
+      def mock_executor.logger
+        @mock_logger ||= begin
+          logger = Minitest::Mock.new
+          def logger.info(*args); end
+          def logger.error(*args); end
+          def logger.warn(*args); end
+          def logger.debug(*args); end
+          def logger.log(*args); end
+          logger
+        end
+      end
+      mock_executor
+    end
+
+    def test_chat_completion_simple_message
+      # Create mock executor with logger
+      mock_executor = create_mock_executor
 
       mock_mcp_client = Minitest::Mock.new
       mock_openai_client = Minitest::Mock.new
@@ -18,7 +40,7 @@ module OpenAI
         openai_client: mock_openai_client,
         mcp_client: mock_mcp_client,
         available_tools: [],
-        logger: mock_logger,
+        executor: mock_executor,
         instance_name: "test",
         model: "gpt-4o",
       )
@@ -45,11 +67,8 @@ module OpenAI
     end
 
     def test_chat_completion_with_reasoning_effort
-      # Create a logger that accepts anything
-      mock_logger = Minitest::Mock.new
-      def mock_logger.info(*args); end
-      def mock_logger.error(*args); end
-      def mock_logger.log(*args); end
+      # Create mock executor with logger
+      mock_executor = create_mock_executor
 
       mock_mcp_client = Minitest::Mock.new
       mock_openai_client = Minitest::Mock.new
@@ -58,7 +77,7 @@ module OpenAI
         openai_client: mock_openai_client,
         mcp_client: mock_mcp_client,
         available_tools: [],
-        logger: mock_logger,
+        executor: mock_executor,
         instance_name: "test",
         model: "o3-pro",
         reasoning_effort: "high",
@@ -90,11 +109,8 @@ module OpenAI
 
     def test_chat_completion_with_all_o_series_models
       ["o1", "o1 Preview", "o1-mini", "o1-pro", "o3", "o3-mini", "o3-pro", "o3-deep-research", "o4-mini", "o4-mini-deep-research"].each do |model|
-        # Create a logger that accepts anything
-        mock_logger = Minitest::Mock.new
-        def mock_logger.info(*args); end
-        def mock_logger.error(*args); end
-        def mock_logger.log(*args); end
+        # Create mock executor with logger
+        mock_executor = create_mock_executor
 
         mock_mcp_client = Minitest::Mock.new
         mock_openai_client = Minitest::Mock.new
@@ -103,7 +119,7 @@ module OpenAI
           openai_client: mock_openai_client,
           mcp_client: mock_mcp_client,
           available_tools: [],
-          logger: mock_logger,
+          executor: mock_executor,
           instance_name: "test",
           model: model,
           reasoning_effort: "medium",
@@ -133,11 +149,8 @@ module OpenAI
     end
 
     def test_chat_completion_without_reasoning_effort_parameter
-      # Create a logger that accepts anything
-      mock_logger = Minitest::Mock.new
-      def mock_logger.info(*args); end
-      def mock_logger.error(*args); end
-      def mock_logger.log(*args); end
+      # Create mock executor with logger
+      mock_executor = create_mock_executor
 
       mock_mcp_client = Minitest::Mock.new
       mock_openai_client = Minitest::Mock.new
@@ -146,7 +159,7 @@ module OpenAI
         openai_client: mock_openai_client,
         mcp_client: mock_mcp_client,
         available_tools: [],
-        logger: mock_logger,
+        executor: mock_executor,
         instance_name: "test",
         model: "gpt-4o",
         reasoning_effort: nil,
@@ -175,11 +188,8 @@ module OpenAI
     end
 
     def test_responses_api_simple_message
-      # Create a logger that accepts anything
-      mock_logger = Minitest::Mock.new
-      def mock_logger.info(*args); end
-      def mock_logger.error(*args); end
-      def mock_logger.log(*args); end
+      # Create mock executor with logger
+      mock_executor = create_mock_executor
 
       mock_mcp_client = Minitest::Mock.new
       mock_openai_client = Minitest::Mock.new
@@ -192,7 +202,7 @@ module OpenAI
         openai_client: mock_openai_client,
         mcp_client: mock_mcp_client,
         available_tools: [],
-        logger: mock_logger,
+        executor: mock_executor,
         instance_name: "test",
         model: "o3-pro",
       )
@@ -222,11 +232,8 @@ module OpenAI
     end
 
     def test_responses_api_with_reasoning_effort
-      # Create a logger that accepts anything
-      mock_logger = Minitest::Mock.new
-      def mock_logger.info(*args); end
-      def mock_logger.error(*args); end
-      def mock_logger.log(*args); end
+      # Create mock executor with logger
+      mock_executor = create_mock_executor
 
       mock_mcp_client = Minitest::Mock.new
       mock_openai_client = Minitest::Mock.new
@@ -239,7 +246,7 @@ module OpenAI
         openai_client: mock_openai_client,
         mcp_client: mock_mcp_client,
         available_tools: [],
-        logger: mock_logger,
+        executor: mock_executor,
         instance_name: "test",
         model: "o3-pro",
         reasoning_effort: "medium",
@@ -272,11 +279,8 @@ module OpenAI
     end
 
     def test_responses_api_without_reasoning_effort_parameter
-      # Create a logger that accepts anything
-      mock_logger = Minitest::Mock.new
-      def mock_logger.info(*args); end
-      def mock_logger.error(*args); end
-      def mock_logger.log(*args); end
+      # Create mock executor with logger
+      mock_executor = create_mock_executor
 
       mock_mcp_client = Minitest::Mock.new
       mock_openai_client = Minitest::Mock.new
@@ -289,7 +293,7 @@ module OpenAI
         openai_client: mock_openai_client,
         mcp_client: mock_mcp_client,
         available_tools: [],
-        logger: mock_logger,
+        executor: mock_executor,
         instance_name: "test",
         model: "o3-pro",
         reasoning_effort: nil,
@@ -322,11 +326,8 @@ module OpenAI
 
     def test_responses_api_with_all_o_series_models
       ["o1", "o1 Preview", "o1-mini", "o1-pro", "o3", "o3-mini", "o3-pro", "o3-deep-research", "o4-mini", "o4-mini-deep-research"].each do |model|
-        # Create a logger that accepts anything
-        mock_logger = Minitest::Mock.new
-        def mock_logger.info(*args); end
-        def mock_logger.error(*args); end
-        def mock_logger.log(*args); end
+        # Create mock executor with logger
+        mock_executor = create_mock_executor
 
         mock_mcp_client = Minitest::Mock.new
         mock_openai_client = Minitest::Mock.new
@@ -339,7 +340,7 @@ module OpenAI
           openai_client: mock_openai_client,
           mcp_client: mock_mcp_client,
           available_tools: [],
-          logger: mock_logger,
+          executor: mock_executor,
           instance_name: "test",
           model: model,
           reasoning_effort: "low",
@@ -372,12 +373,8 @@ module OpenAI
     end
 
     def test_chat_completion_with_tools
-      # Create a flexible logger
-      mock_logger = Minitest::Mock.new
-      def mock_logger.info(*args); end
-      def mock_logger.error(*args); end
-      def mock_logger.log(*args); end
-      def mock_logger.debug(*args); end
+      # Create mock executor with logger
+      mock_executor = create_mock_executor
 
       mock_mcp_client = Minitest::Mock.new
       mock_openai_client = Minitest::Mock.new
@@ -393,7 +390,7 @@ module OpenAI
         openai_client: mock_openai_client,
         mcp_client: mock_mcp_client,
         available_tools: [mock_tool],
-        logger: mock_logger,
+        executor: mock_executor,
         instance_name: "test",
         model: "gpt-4o",
       )
@@ -463,12 +460,8 @@ module OpenAI
     end
 
     def test_chat_completion_with_tools_and_reasoning_effort
-      # Create a flexible logger
-      mock_logger = Minitest::Mock.new
-      def mock_logger.info(*args); end
-      def mock_logger.error(*args); end
-      def mock_logger.log(*args); end
-      def mock_logger.debug(*args); end
+      # Create mock executor with logger
+      mock_executor = create_mock_executor
 
       mock_mcp_client = Minitest::Mock.new
       mock_openai_client = Minitest::Mock.new
@@ -484,7 +477,7 @@ module OpenAI
         openai_client: mock_openai_client,
         mcp_client: mock_mcp_client,
         available_tools: [mock_tool],
-        logger: mock_logger,
+        executor: mock_executor,
         instance_name: "test",
         model: "o3",
         reasoning_effort: "low",
@@ -557,12 +550,8 @@ module OpenAI
     end
 
     def test_responses_api_with_tools
-      # Create a flexible logger
-      mock_logger = Minitest::Mock.new
-      def mock_logger.info(*args); end
-      def mock_logger.error(*args); end
-      def mock_logger.log(*args); end
-      def mock_logger.debug(*args); end
+      # Create mock executor with logger
+      mock_executor = create_mock_executor
 
       mock_mcp_client = Minitest::Mock.new
       mock_openai_client = Minitest::Mock.new
@@ -584,7 +573,7 @@ module OpenAI
         openai_client: mock_openai_client,
         mcp_client: mock_mcp_client,
         available_tools: [mock_tool],
-        logger: mock_logger,
+        executor: mock_executor,
         instance_name: "test",
         model: "o3-pro",
       )
@@ -643,12 +632,8 @@ module OpenAI
     end
 
     def test_responses_api_with_tools_and_reasoning_effort
-      # Create a flexible logger
-      mock_logger = Minitest::Mock.new
-      def mock_logger.info(*args); end
-      def mock_logger.error(*args); end
-      def mock_logger.log(*args); end
-      def mock_logger.debug(*args); end
+      # Create mock executor with logger
+      mock_executor = create_mock_executor
 
       mock_mcp_client = Minitest::Mock.new
       mock_openai_client = Minitest::Mock.new
@@ -670,7 +655,7 @@ module OpenAI
         openai_client: mock_openai_client,
         mcp_client: mock_mcp_client,
         available_tools: [mock_tool],
-        logger: mock_logger,
+        executor: mock_executor,
         instance_name: "test",
         model: "o3-pro",
         reasoning_effort: "high",
@@ -734,11 +719,8 @@ module OpenAI
     # Temperature parameter tests
 
     def test_chat_completion_with_temperature_for_gpt_model
-      # Create a logger that accepts anything
-      mock_logger = Minitest::Mock.new
-      def mock_logger.info(*args); end
-      def mock_logger.error(*args); end
-      def mock_logger.log(*args); end
+      # Create mock executor with logger
+      mock_executor = create_mock_executor
 
       mock_mcp_client = Minitest::Mock.new
       mock_openai_client = Minitest::Mock.new
@@ -747,7 +729,7 @@ module OpenAI
         openai_client: mock_openai_client,
         mcp_client: mock_mcp_client,
         available_tools: [],
-        logger: mock_logger,
+        executor: mock_executor,
         instance_name: "test",
         model: "gpt-4",
         temperature: 0.8,
@@ -776,11 +758,8 @@ module OpenAI
     end
 
     def test_chat_completion_without_temperature_for_o_series_model
-      # Create a logger that accepts anything
-      mock_logger = Minitest::Mock.new
-      def mock_logger.info(*args); end
-      def mock_logger.error(*args); end
-      def mock_logger.log(*args); end
+      # Create mock executor with logger
+      mock_executor = create_mock_executor
 
       mock_mcp_client = Minitest::Mock.new
       mock_openai_client = Minitest::Mock.new
@@ -789,7 +768,7 @@ module OpenAI
         openai_client: mock_openai_client,
         mcp_client: mock_mcp_client,
         available_tools: [],
-        logger: mock_logger,
+        executor: mock_executor,
         instance_name: "test",
         model: "o1",
         temperature: 0.8, # This should be ignored
@@ -818,11 +797,8 @@ module OpenAI
     end
 
     def test_responses_api_with_temperature_for_gpt_model
-      # Create a logger that accepts anything
-      mock_logger = Minitest::Mock.new
-      def mock_logger.info(*args); end
-      def mock_logger.error(*args); end
-      def mock_logger.log(*args); end
+      # Create mock executor with logger
+      mock_executor = create_mock_executor
 
       mock_mcp_client = Minitest::Mock.new
       mock_openai_client = Minitest::Mock.new
@@ -835,7 +811,7 @@ module OpenAI
         openai_client: mock_openai_client,
         mcp_client: mock_mcp_client,
         available_tools: [],
-        logger: mock_logger,
+        executor: mock_executor,
         instance_name: "test",
         model: "gpt-4o",
         temperature: 0.7,
@@ -867,11 +843,8 @@ module OpenAI
     end
 
     def test_responses_api_without_temperature_for_o_series_model
-      # Create a logger that accepts anything
-      mock_logger = Minitest::Mock.new
-      def mock_logger.info(*args); end
-      def mock_logger.error(*args); end
-      def mock_logger.log(*args); end
+      # Create mock executor with logger
+      mock_executor = create_mock_executor
 
       mock_mcp_client = Minitest::Mock.new
       mock_openai_client = Minitest::Mock.new
@@ -884,7 +857,7 @@ module OpenAI
         openai_client: mock_openai_client,
         mcp_client: mock_mcp_client,
         available_tools: [],
-        logger: mock_logger,
+        executor: mock_executor,
         instance_name: "test",
         model: "o3",
         temperature: 0.9, # This should be ignored
@@ -917,11 +890,8 @@ module OpenAI
 
     def test_chat_completion_all_o_series_models_exclude_temperature
       ["o1", "o1 Preview", "o1-mini", "o1-pro", "o3", "o3-mini", "o3-pro", "o3-deep-research", "o4-mini", "o4-mini-deep-research"].each do |model|
-        # Create a logger that accepts anything
-        mock_logger = Minitest::Mock.new
-        def mock_logger.info(*args); end
-        def mock_logger.error(*args); end
-        def mock_logger.log(*args); end
+        # Create mock executor with logger
+        mock_executor = create_mock_executor
 
         mock_mcp_client = Minitest::Mock.new
         mock_openai_client = Minitest::Mock.new
@@ -930,7 +900,7 @@ module OpenAI
           openai_client: mock_openai_client,
           mcp_client: mock_mcp_client,
           available_tools: [],
-          logger: mock_logger,
+          executor: mock_executor,
           instance_name: "test",
           model: model,
           temperature: 0.5,
@@ -961,11 +931,8 @@ module OpenAI
 
     def test_responses_api_all_o_series_models_exclude_temperature
       ["o1", "o1 Preview", "o1-mini", "o1-pro", "o3", "o3-mini", "o3-pro", "o3-deep-research", "o4-mini", "o4-mini-deep-research"].each do |model|
-        # Create a logger that accepts anything
-        mock_logger = Minitest::Mock.new
-        def mock_logger.info(*args); end
-        def mock_logger.error(*args); end
-        def mock_logger.log(*args); end
+        # Create mock executor with logger
+        mock_executor = create_mock_executor
 
         mock_mcp_client = Minitest::Mock.new
         mock_openai_client = Minitest::Mock.new
@@ -978,7 +945,7 @@ module OpenAI
           openai_client: mock_openai_client,
           mcp_client: mock_mcp_client,
           available_tools: [],
-          logger: mock_logger,
+          executor: mock_executor,
           instance_name: "test",
           model: model,
           temperature: 0.5,
@@ -1013,11 +980,8 @@ module OpenAI
     # Tests for reasoning_effort restriction to O series models
 
     def test_chat_completion_with_reasoning_effort_for_gpt_model_excludes_it
-      # Create a logger that accepts anything
-      mock_logger = Minitest::Mock.new
-      def mock_logger.info(*args); end
-      def mock_logger.error(*args); end
-      def mock_logger.log(*args); end
+      # Create mock executor with logger
+      mock_executor = create_mock_executor
 
       mock_mcp_client = Minitest::Mock.new
       mock_openai_client = Minitest::Mock.new
@@ -1026,7 +990,7 @@ module OpenAI
         openai_client: mock_openai_client,
         mcp_client: mock_mcp_client,
         available_tools: [],
-        logger: mock_logger,
+        executor: mock_executor,
         instance_name: "test",
         model: "gpt-4",
         reasoning_effort: "high", # This should be ignored for GPT models
@@ -1055,11 +1019,8 @@ module OpenAI
     end
 
     def test_responses_api_with_reasoning_effort_for_gpt_model_excludes_it
-      # Create a logger that accepts anything
-      mock_logger = Minitest::Mock.new
-      def mock_logger.info(*args); end
-      def mock_logger.error(*args); end
-      def mock_logger.log(*args); end
+      # Create mock executor with logger
+      mock_executor = create_mock_executor
 
       mock_mcp_client = Minitest::Mock.new
       mock_openai_client = Minitest::Mock.new
@@ -1072,7 +1033,7 @@ module OpenAI
         openai_client: mock_openai_client,
         mcp_client: mock_mcp_client,
         available_tools: [],
-        logger: mock_logger,
+        executor: mock_executor,
         instance_name: "test",
         model: "gpt-4o",
         reasoning_effort: "medium", # This should be ignored for GPT models
@@ -1105,10 +1066,7 @@ module OpenAI
 
     def test_chat_completion_includes_reasoning_effort_only_for_o_series
       # Test that reasoning_effort is included for O series model
-      mock_logger = Minitest::Mock.new
-      def mock_logger.info(*args); end
-      def mock_logger.error(*args); end
-      def mock_logger.log(*args); end
+      mock_executor = create_mock_executor
 
       mock_mcp_client = Minitest::Mock.new
       mock_openai_client = Minitest::Mock.new
@@ -1117,7 +1075,7 @@ module OpenAI
         openai_client: mock_openai_client,
         mcp_client: mock_mcp_client,
         available_tools: [],
-        logger: mock_logger,
+        executor: mock_executor,
         instance_name: "test",
         model: "o3",
         reasoning_effort: "low",
@@ -1147,10 +1105,7 @@ module OpenAI
 
     def test_responses_api_includes_reasoning_only_for_o_series
       # Test that reasoning is included for O series model
-      mock_logger = Minitest::Mock.new
-      def mock_logger.info(*args); end
-      def mock_logger.error(*args); end
-      def mock_logger.log(*args); end
+      mock_executor = create_mock_executor
 
       mock_mcp_client = Minitest::Mock.new
       mock_openai_client = Minitest::Mock.new
@@ -1162,7 +1117,7 @@ module OpenAI
         openai_client: mock_openai_client,
         mcp_client: mock_mcp_client,
         available_tools: [],
-        logger: mock_logger,
+        executor: mock_executor,
         instance_name: "test",
         model: "o1-pro",
         reasoning_effort: "high",

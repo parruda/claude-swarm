@@ -215,7 +215,7 @@ class CLITest < Minitest::Test
       reasoning_effort: nil,
     }
 
-    ClaudeSwarm::ClaudeMcpServer.stub(:new, lambda { |config, calling_instance:, calling_instance_id: nil| # rubocop:disable Lint/UnusedBlockArgument
+    ClaudeSwarm::ClaudeMcpServer.stub(:new, lambda { |config, calling_instance:, calling_instance_id: nil, debug: nil| # rubocop:disable Lint/UnusedBlockArgument
       assert_equal(expected_config, config)
       assert_equal("parent_instance", calling_instance)
       server_mock
@@ -259,7 +259,7 @@ class CLITest < Minitest::Test
       reasoning_effort: nil,
     }
 
-    ClaudeSwarm::ClaudeMcpServer.stub(:new, lambda { |config, calling_instance:, calling_instance_id: nil| # rubocop:disable Lint/UnusedBlockArgument
+    ClaudeSwarm::ClaudeMcpServer.stub(:new, lambda { |config, calling_instance:, calling_instance_id: nil, debug: nil| # rubocop:disable Lint/UnusedBlockArgument
       assert_equal(expected_config, config)
       assert_equal("test_caller", calling_instance)
       server_mock
@@ -279,7 +279,7 @@ class CLITest < Minitest::Test
       calling_instance: "test_caller",
     }
 
-    ClaudeSwarm::ClaudeMcpServer.stub(:new, lambda { |_, calling_instance:, calling_instance_id: nil| # rubocop:disable Lint/UnusedBlockArgument
+    ClaudeSwarm::ClaudeMcpServer.stub(:new, lambda { |_, calling_instance:, calling_instance_id: nil, debug: nil| # rubocop:disable Lint/UnusedBlockArgument
       raise StandardError, "Test error"
     }) do
       out, = capture_cli_output do
@@ -300,7 +300,7 @@ class CLITest < Minitest::Test
       calling_instance: "test_caller",
     }
 
-    ClaudeSwarm::ClaudeMcpServer.stub(:new, lambda { |_, calling_instance:, calling_instance_id: nil| # rubocop:disable Lint/UnusedBlockArgument
+    ClaudeSwarm::ClaudeMcpServer.stub(:new, lambda { |_, calling_instance:, calling_instance_id: nil, debug: nil| # rubocop:disable Lint/UnusedBlockArgument
       raise StandardError, "Test error"
     }) do
       out, = capture_cli_output do
@@ -325,7 +325,7 @@ class CLITest < Minitest::Test
     server_mock = Minitest::Mock.new
     server_mock.expect(:start, nil)
 
-    ClaudeSwarm::ClaudeMcpServer.stub(:new, lambda { |config, calling_instance:, calling_instance_id: nil| # rubocop:disable Lint/UnusedBlockArgument
+    ClaudeSwarm::ClaudeMcpServer.stub(:new, lambda { |config, calling_instance:, calling_instance_id: nil, debug: nil| # rubocop:disable Lint/UnusedBlockArgument
       assert_equal("medium", config[:reasoning_effort])
       assert_equal("o3-pro", config[:model])
       server_mock
@@ -404,7 +404,7 @@ class CLITest < Minitest::Test
       server_mock = Minitest::Mock.new
       server_mock.expect(:start, nil)
 
-      ClaudeSwarm::ClaudeMcpServer.stub(:new, lambda { |config, calling_instance:, calling_instance_id: nil| # rubocop:disable Lint/UnusedBlockArgument
+      ClaudeSwarm::ClaudeMcpServer.stub(:new, lambda { |config, calling_instance:, calling_instance_id: nil, debug: nil| # rubocop:disable Lint/UnusedBlockArgument
         assert_equal("low", config[:reasoning_effort])
         assert_equal(model, config[:model])
         server_mock
@@ -447,7 +447,7 @@ class CLITest < Minitest::Test
     server_mock = Minitest::Mock.new
     server_mock.expect(:start, nil)
 
-    ClaudeSwarm::ClaudeMcpServer.stub(:new, lambda { |config, calling_instance:, calling_instance_id: nil| # rubocop:disable Lint/UnusedBlockArgument
+    ClaudeSwarm::ClaudeMcpServer.stub(:new, lambda { |config, calling_instance:, calling_instance_id: nil, debug: nil| # rubocop:disable Lint/UnusedBlockArgument
       assert_in_delta(0.8, config[:temperature])
       assert_equal("gpt-4", config[:model])
       server_mock
