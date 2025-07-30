@@ -1,3 +1,9 @@
+## [Unreleased]
+
+### Changed
+- **Updated claude-code-sdk-ruby dependency**: Bumped from 0.1.4 to 0.1.6
+  - Includes latest SDK improvements and bug fixes
+
 ## [0.3.6]
 
 ### Added
