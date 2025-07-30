@@ -1,4 +1,4 @@
-## [Unreleased]
+## [0.3.7]
 
 ### Added
 - **Main instance logging**: Captures main Claude instance output in `session.log` with prettified JSON format
