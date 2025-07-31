@@ -200,6 +200,7 @@ module ClaudeSwarm
         vibe: config["vibe"],
         worktree: parse_worktree_value(config["worktree"]),
         provider: provider, # nil means Claude (default)
+        hooks: config["hooks"], # Pass hooks configuration as-is
       }
 
       # Add OpenAI-specific fields only when provider is "openai"

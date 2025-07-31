@@ -17,6 +17,7 @@ module ClaudeSwarm
       restore_session_path: nil, worktree: nil, session_id: nil)
       @config = configuration
       @generator = mcp_generator
+      @settings_generator = SettingsGenerator.new(configuration)
       @vibe = vibe
       @non_interactive_prompt = prompt
       @interactive_prompt = interactive_prompt
@@ -74,6 +75,12 @@ module ClaudeSwarm
         non_interactive_output do
           puts "✓ Regenerated MCP configurations with session IDs"
         end
+
+        # Generate settings files
+        @settings_generator.generate_all
+        non_interactive_output do
+          puts "✓ Generated settings files with hooks"
+        end
       else
         non_interactive_output do
           puts "🐝 Starting Claude Swarm: #{@config.swarm_name}"
@@ -125,6 +132,12 @@ module ClaudeSwarm
         @generator.generate_all
         non_interactive_output do
           puts "✓ Generated MCP configurations in session directory"
+        end
+
+        # Generate settings files
+        @settings_generator.generate_all
+        non_interactive_output do
+          puts "✓ Generated settings files with hooks"
         end
 
         # Save swarm config path for restoration
@@ -487,6 +500,13 @@ module ClaudeSwarm
       mcp_config_path = @generator.mcp_config_path(@config.main_instance)
       parts << "--mcp-config"
       parts << mcp_config_path
+
+      # Add settings file if it exists for the main instance
+      settings_file = @settings_generator.settings_path(@config.main_instance)
+      if File.exist?(settings_file)
+        parts << "--settings"
+        parts << settings_file
+      end
 
       # Handle different modes
       if @non_interactive_prompt

@@ -130,9 +130,10 @@ The gem is fully implemented with the following components:
 1. User creates a `claude-swarm.yml` file defining the swarm topology
 2. Running `claude-swarm` parses the configuration and validates it
 3. MCP configuration files are generated for each instance in a session directory
-4. The main instance is launched with `exec`, replacing the current process
-5. Connected instances are available as MCP servers to the main instance
-6. When an instance has connections, those connections are automatically added to its allowed tools as `mcp__<connection_name>`
+4. Settings files (with hooks) are generated for each instance if hooks are configured
+5. The main instance is launched with `exec`, replacing the current process
+6. Connected instances are available as MCP servers to the main instance
+7. When an instance has connections, those connections are automatically added to its allowed tools as `mcp__<connection_name>`
 
 ### Configuration Example
 
@@ -158,6 +159,52 @@ swarm:
       tools: [Edit, Write, Bash]
       worktree: false  # Optional: disable worktree for this instance
 ```
+
+### Hooks Support
+
+Claude Swarm supports configuring [Claude Code hooks](https://docs.anthropic.com/en/docs/claude-code/hooks) for each instance. This allows you to run custom scripts before/after tools, on prompt submission, and more.
+
+#### Configuration Example with Hooks
+
+```yaml
+version: 1
+swarm:
+  name: "Dev Team"
+  main: lead
+  instances:
+    lead:
+      description: "Lead developer"
+      directory: .
+      model: opus
+      # Hooks configuration follows Claude Code's format exactly
+      hooks:
+        PreToolUse:
+          - matcher: "Write|Edit"
+            hooks:
+              - type: "command"
+                command: "$CLAUDE_PROJECT_DIR/.claude/hooks/validate-code.py"
+                timeout: 10
+        PostToolUse:
+          - matcher: "Bash"
+            hooks:
+              - type: "command"
+                command: "echo 'Command executed by lead' >> /tmp/lead.log"
+        UserPromptSubmit:
+          - hooks:
+              - type: "command"
+                command: "$CLAUDE_PROJECT_DIR/.claude/hooks/add-context.py"
+    frontend:
+      description: "Frontend developer"
+      directory: ./frontend
+      hooks:
+        PreToolUse:
+          - matcher: "Write"
+            hooks:
+              - type: "command"
+                command: "npm run lint"
+```
+
+The hooks configuration is passed directly to Claude Code via a generated settings.json file in the session directory. Each instance gets its own settings file with its specific hooks.
 
 ## Testing
 
