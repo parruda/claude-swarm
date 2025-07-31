@@ -23,9 +23,7 @@ require "yaml"
 # External dependencies
 require "claude_sdk"
 require "fast_mcp_annotations"
-require "faraday/retry"
 require "mcp_client"
-require "openai"
 require "thor"
 
 # Zeitwerk setup
