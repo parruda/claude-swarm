@@ -133,8 +133,12 @@ class OrchestratorTest < Minitest::Test
 
     # Verify command array components
     assert_equal("claude", expected_command[0])
-    assert_includes(expected_command, "--model")
-    assert_includes(expected_command, "opus")
+    # Only check for model if ANTHROPIC_MODEL is not set
+    unless ENV["ANTHROPIC_MODEL"]
+      assert_includes(expected_command, "--model")
+      assert_includes(expected_command, "opus")
+    end
+
     assert_includes(expected_command, "--allowedTools")
     assert_includes(expected_command, "Read,Edit,Bash,mcp__backend")
     assert_includes(expected_command, "--append-system-prompt")
@@ -257,7 +261,76 @@ class OrchestratorTest < Minitest::Test
       output = capture_io { orchestrator.start }[0]
     end
 
-    assert_match(/🏃 Running: claude --model.*/, output)
+    # The debug output should show the command, but --model may not be present if ANTHROPIC_MODEL is set
+    assert_match(/🏃 Running: claude/, output)
+  end
+
+  def test_build_main_command_includes_settings_when_hooks_exist
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+            directory: #{@tmpdir}/src
+            model: opus
+            allowed_tools: [Read, Edit]
+            hooks:
+              PreToolUse:
+                - matcher: "Write"
+                  hooks:
+                    - type: "command"
+                      command: "echo 'pre-hook'"
+    YAML
+
+    Dir.mkdir(File.join(@tmpdir, "src"))
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    generator = ClaudeSwarm::McpGenerator.new(config)
+    orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
+
+    expected_command = nil
+    orchestrator.stub(:system, lambda { |*args|
+      expected_command = args
+      true
+    }) do
+      Dir.chdir(@tmpdir) do
+        capture_io { orchestrator.start }
+      end
+    end
+
+    # Should include --settings flag
+    assert_includes(expected_command, "--settings")
+
+    # Find the settings path in the array
+    settings_index = expected_command.index("--settings")
+
+    assert(settings_index)
+
+    settings_path = expected_command[settings_index + 1]
+
+    assert_match(/lead_settings\.json$/, settings_path)
+    assert_path_exists(settings_path, "Settings file should exist at #{settings_path}")
+  end
+
+  def test_build_main_command_no_settings_when_no_hooks
+    config = create_test_config
+    generator = ClaudeSwarm::McpGenerator.new(config)
+    orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
+
+    expected_command = nil
+    orchestrator.stub(:system, lambda { |*args|
+      expected_command = args
+      true
+    }) do
+      Dir.chdir(@tmpdir) do
+        capture_io { orchestrator.start }
+      end
+    end
+
+    # Should NOT include --settings flag when no hooks
+    refute_includes(expected_command, "--settings")
   end
 
   def test_empty_connections_and_tools

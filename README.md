@@ -303,6 +303,7 @@ Each instance can have:
 - **vibe**: Enable vibe mode (--dangerously-skip-permissions) for this instance (default: false)
 - **worktree**: Configure Git worktree usage for this instance (true/false/string)
 - **provider**: AI provider to use - "claude" (default) or "openai"
+- **hooks**: Configure Claude Code hooks for this instance (see Hooks Configuration section below)
 
 #### OpenAI Provider Configuration
 
@@ -393,6 +394,69 @@ mcps:
       Authorization: "Bearer ${API_TOKEN}"
       X-Custom-Header: "value"
 ```
+
+### Hooks Configuration
+
+Claude Swarm supports configuring [Claude Code hooks](https://docs.anthropic.com/en/docs/claude-code/hooks) for each instance. Hooks allow you to run custom scripts before/after tools, on prompt submission, and more. Each instance can have its own hooks configuration.
+
+#### Supported Hook Events
+
+- **PreToolUse**: Run before a tool is executed
+- **PostToolUse**: Run after a tool completes
+- **UserPromptSubmit**: Run when a user prompt is submitted
+- **Stop**: Run when the Claude instance stops
+- **SessionStart**: Run when a session starts
+- **And more...** (see Claude Code hooks documentation)
+
+#### Configuration Example
+
+```yaml
+instances:
+  lead:
+    description: "Lead developer"
+    directory: .
+    # Hooks configuration follows Claude Code's format exactly
+    hooks:
+      PreToolUse:
+        - matcher: "Write|Edit"
+          hooks:
+            - type: "command"
+              command: "$CLAUDE_PROJECT_DIR/.claude/hooks/validate-code.py"
+              timeout: 10
+      PostToolUse:
+        - matcher: "Bash"
+          hooks:
+            - type: "command"
+              command: "echo 'Bash executed by ${INSTANCE_NAME}' >> ${LOG_DIR}/commands.log"
+      UserPromptSubmit:
+        - hooks:
+            - type: "command"
+              command: "${HOOKS_DIR:=$CLAUDE_PROJECT_DIR/.claude/hooks}/add-context.py"
+  frontend:
+    description: "Frontend developer"
+    directory: ./frontend
+    hooks:
+      PreToolUse:
+        - matcher: "Write"
+          hooks:
+            - type: "command"
+              command: "npm run lint"
+              timeout: 5
+```
+
+#### How It Works
+
+1. Define hooks in your instance configuration using the exact format expected by Claude Code
+2. Claude Swarm generates a `settings.json` file for each instance with hooks
+3. The settings file is passed to Claude Code SDK via the `--settings` parameter
+4. Each instance runs with its own hooks configuration
+
+#### Environment Variables in Hooks
+
+Hooks have access to standard Claude Code environment variables plus:
+- `$CLAUDE_PROJECT_DIR` - The project directory
+- `$CLAUDE_SWARM_SESSION_DIR` - The swarm session directory
+- `$CLAUDE_SWARM_INSTANCE_NAME` - The name of the current instance
 
 ### Tools
 

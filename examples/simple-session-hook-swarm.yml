@@ -1,0 +1,37 @@
+version: 1
+swarm:
+  name: "Simple Session Hook Swarm"
+  main: developer
+  instances:
+    developer:
+      description: "Main developer instance"
+      directory: .
+      model: sonnet
+      allowed_tools:
+        - Read
+        - Edit
+        - Write
+        - Bash
+      connections: [session_tracker]
+      prompt: |
+        You are the main developer. You can delegate session tracking tasks to the session_tracker instance.
+        
+        For maximum efficiency, whenever you need to perform multiple independent operations, invoke all relevant tools simultaneously rather than sequentially.
+    
+    session_tracker:
+      description: "Session tracking specialist that monitors and logs session information"
+      directory: .
+      model: sonnet
+      allowed_tools:
+        - Write
+        - Bash
+      hooks:
+        SessionStart:
+          - hooks:
+              - type: "command"
+                command: "cat > session_id.txt"
+                timeout: 5
+      prompt: |
+        You specialize in session tracking and monitoring. You automatically create session tracking files when you start.
+        
+        For maximum efficiency, whenever you need to perform multiple independent operations, invoke all relevant tools simultaneously rather than sequentially.

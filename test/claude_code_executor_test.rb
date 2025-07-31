@@ -151,10 +151,76 @@ class ClaudeCodeExecutorTest < Minitest::Test
   end
 
   def test_build_sdk_options_with_model
+    # Ensure ANTHROPIC_MODEL is not set for this test
+    original_env = ENV["ANTHROPIC_MODEL"]
+    ENV.delete("ANTHROPIC_MODEL")
+
     executor = ClaudeSwarm::ClaudeCodeExecutor.new(model: "opus", debug: false)
     options = executor.send(:build_sdk_options, "test prompt", {})
 
     assert_equal("opus", options.model)
+  ensure
+    ENV["ANTHROPIC_MODEL"] = original_env if original_env
+  end
+
+  def test_build_sdk_options_with_settings_file
+    Dir.mktmpdir do |tmpdir|
+      # Set up session path
+      ENV["CLAUDE_SWARM_SESSION_PATH"] = tmpdir
+
+      # Create a settings file
+      settings_file_path = File.join(tmpdir, "test_instance_settings.json")
+      settings_content = {
+        "hooks" => {
+          "PreToolUse" => [
+            {
+              "matcher" => "Write",
+              "hooks" => [
+                {
+                  "type" => "command",
+                  "command" => "echo 'test hook'",
+                },
+              ],
+            },
+          ],
+        },
+      }
+      File.write(settings_file_path, JSON.pretty_generate(settings_content))
+
+      # Create executor with matching instance name
+      executor = ClaudeSwarm::ClaudeCodeExecutor.new(
+        instance_name: "test_instance",
+        model: "opus",
+        debug: false,
+      )
+
+      options = executor.send(:build_sdk_options, "test prompt", {})
+
+      # Should have settings attribute set to the file path
+      assert_equal(settings_file_path, options.settings)
+    ensure
+      ENV.delete("CLAUDE_SWARM_SESSION_PATH")
+    end
+  end
+
+  def test_build_sdk_options_no_settings_when_file_missing
+    Dir.mktmpdir do |tmpdir|
+      ENV["CLAUDE_SWARM_SESSION_PATH"] = tmpdir
+
+      # Create executor but don't create settings file
+      executor = ClaudeSwarm::ClaudeCodeExecutor.new(
+        instance_name: "test_instance",
+        model: "opus",
+        debug: false,
+      )
+
+      options = executor.send(:build_sdk_options, "test prompt", {})
+
+      # Should not have settings attribute when file doesn't exist
+      assert_nil(options.settings)
+    ensure
+      ENV.delete("CLAUDE_SWARM_SESSION_PATH")
+    end
   end
 
   def test_build_sdk_options_with_mcp_config

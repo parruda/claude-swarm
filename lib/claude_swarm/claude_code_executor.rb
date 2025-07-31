@@ -184,6 +184,10 @@ module ClaudeSwarm
         setup_additional_directories_mcp(sdk_options)
       end
 
+      # Add settings file path if it exists
+      settings_file = File.join(@session_path, "#{@instance_name}_settings.json")
+      sdk_options.settings = settings_file if File.exist?(settings_file)
+
       sdk_options
     end
 

@@ -2095,4 +2095,143 @@ class ConfigurationTest < Minitest::Test
 
     assert_equal("feature-branch", config.main_instance_config[:worktree])
   end
+
+  # Hooks configuration tests
+
+  def test_instance_with_hooks_configuration
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+            hooks:
+              PreToolUse:
+                - matcher: "Write|Edit"
+                  hooks:
+                    - type: "command"
+                      command: "$CLAUDE_PROJECT_DIR/.claude/hooks/validate.py"
+                      timeout: 10
+              PostToolUse:
+                - matcher: "Bash"
+                  hooks:
+                    - type: "command"
+                      command: "echo 'Command executed' >> /tmp/commands.log"
+              UserPromptSubmit:
+                - hooks:
+                    - type: "command"
+                      command: "$CLAUDE_PROJECT_DIR/.claude/hooks/context.py"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    hooks = config.main_instance_config[:hooks]
+
+    assert(hooks, "Hooks should be present")
+    assert(hooks["PreToolUse"], "PreToolUse hooks should be present")
+    assert_equal(1, hooks["PreToolUse"].size)
+    assert_equal("Write|Edit", hooks["PreToolUse"][0]["matcher"])
+    assert_equal(1, hooks["PreToolUse"][0]["hooks"].size)
+    assert_equal("command", hooks["PreToolUse"][0]["hooks"][0]["type"])
+    assert_equal("$CLAUDE_PROJECT_DIR/.claude/hooks/validate.py", hooks["PreToolUse"][0]["hooks"][0]["command"])
+    assert_equal(10, hooks["PreToolUse"][0]["hooks"][0]["timeout"])
+
+    assert(hooks["PostToolUse"], "PostToolUse hooks should be present")
+    assert_equal("Bash", hooks["PostToolUse"][0]["matcher"])
+
+    assert(hooks["UserPromptSubmit"], "UserPromptSubmit hooks should be present")
+    assert_nil(hooks["UserPromptSubmit"][0]["matcher"], "UserPromptSubmit should not have matcher")
+  end
+
+  def test_instance_without_hooks
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_nil(config.main_instance_config[:hooks], "Hooks should be nil when not specified")
+  end
+
+  def test_multiple_instances_with_different_hooks
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+            hooks:
+              PreToolUse:
+                - matcher: "*"
+                  hooks:
+                    - type: "command"
+                      command: "echo 'Lead executing tool'"
+          frontend:
+            description: "Frontend developer"
+            hooks:
+              PreToolUse:
+                - matcher: "Write"
+                  hooks:
+                    - type: "command"
+                      command: "npm run lint"
+          backend:
+            description: "Backend developer"
+            # No hooks
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    # Check lead hooks
+    lead_hooks = config.instances["lead"][:hooks]
+
+    assert(lead_hooks["PreToolUse"])
+    assert_equal("*", lead_hooks["PreToolUse"][0]["matcher"])
+
+    # Check frontend hooks
+    frontend_hooks = config.instances["frontend"][:hooks]
+
+    assert(frontend_hooks["PreToolUse"])
+    assert_equal("Write", frontend_hooks["PreToolUse"][0]["matcher"])
+    assert_equal("npm run lint", frontend_hooks["PreToolUse"][0]["hooks"][0]["command"])
+
+    # Check backend has no hooks
+    assert_nil(config.instances["backend"][:hooks])
+  end
+
+  def test_hooks_with_env_var_interpolation
+    ENV["TEST_ENV_HOOK_CMD"] = "python3 validate.py"
+    ENV["TEST_ENV_TIMEOUT"] = "30"
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+            hooks:
+              PreToolUse:
+                - matcher: "Write"
+                  hooks:
+                    - type: "command"
+                      command: "${TEST_ENV_HOOK_CMD}"
+                      timeout: ${TEST_ENV_TIMEOUT}
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    hook = config.main_instance_config[:hooks]["PreToolUse"][0]["hooks"][0]
+
+    assert_equal("python3 validate.py", hook["command"])
+    assert_equal("30", hook["timeout"]) # YAML parses numbers in strings as strings
+  end
 end
