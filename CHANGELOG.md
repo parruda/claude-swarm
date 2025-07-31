@@ -1,3 +1,20 @@
+## [0.3.8]
+
+### Added
+- **Hooks support**: Claude Swarm now supports configuring Claude Code hooks for each instance
+  - Configure hooks directly in the YAML configuration file using Claude Code's format
+  - Each instance can have its own hooks configuration (PreToolUse, PostToolUse, UserPromptSubmit, etc.)
+  - Automatically generates `settings.json` files in the session directory when hooks are configured
+  - Main instance receives hooks via `--settings` CLI flag
+  - Connected instances receive hooks via SDK's `settings` attribute
+  - Full environment variable interpolation support in hook configurations
+  - See README.md "Hooks Configuration" section for usage examples
+
+### Fixed
+- **Settings integration**: Fixed passing settings to Claude instances
+  - Corrected SDK attribute name from `settings_path` to `settings`
+  - Added missing `--settings` flag for main instance CLI command
+
 ## [0.3.7]
 
 ### Added
