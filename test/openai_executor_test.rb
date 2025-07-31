@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "openai"
 
 module OpenAI
   class ExecutorTest < Minitest::Test
@@ -526,6 +527,9 @@ module OpenAI
       mock_faraday_builder = Minitest::Mock.new
       captured_retry_config = nil
 
+      # Expect adapter call first, then request
+      mock_faraday_builder.expect(:adapter, nil, [:net_http_persistent])
+
       # Capture the retry middleware configuration
       mock_faraday_builder.expect(:request, nil) do |middleware, *args, **kwargs|
         if middleware == :retry
@@ -574,9 +578,9 @@ module OpenAI
 
       assert_equal(expected_statuses, captured_retry_config[:kwargs][:retry_statuses])
 
-      # Verify retry_block is provided
+      # Verify retry_block is provided and callable
       refute_nil(captured_retry_config[:kwargs][:retry_block])
-      assert_instance_of(Proc, captured_retry_config[:kwargs][:retry_block])
+      assert_respond_to(captured_retry_config[:kwargs][:retry_block], :call)
 
       # Verify mock expectations
       mock_faraday_builder.verify
@@ -587,6 +591,7 @@ module OpenAI
       retry_block = nil
 
       mock_faraday_builder = Minitest::Mock.new
+      mock_faraday_builder.expect(:adapter, nil, [:net_http_persistent])
       mock_faraday_builder.expect(:request, nil) do |middleware, *_args, **kwargs|
         if middleware == :retry && kwargs[:retry_block]
           retry_block = kwargs[:retry_block]
@@ -670,6 +675,7 @@ module OpenAI
     def test_retry_middleware_handles_http_status_without_exception
       retry_block = nil
       mock_faraday_builder = Minitest::Mock.new
+      mock_faraday_builder.expect(:adapter, nil, [:net_http_persistent])
       mock_faraday_builder.expect(:request, nil) do |middleware, *_args, **kwargs|
         if middleware == :retry && kwargs[:retry_block]
           retry_block = kwargs[:retry_block]
@@ -715,6 +721,7 @@ module OpenAI
     def test_exponential_backoff_calculation
       retry_block = nil
       mock_faraday_builder = Minitest::Mock.new
+      mock_faraday_builder.expect(:adapter, nil, [:net_http_persistent])
       mock_faraday_builder.expect(:request, nil) do |middleware, *_args, **kwargs|
         if middleware == :retry && kwargs[:retry_block]
           retry_block = kwargs[:retry_block]
@@ -769,6 +776,7 @@ module OpenAI
     def test_retry_middleware_configured_for_all_error_types
       captured_config = nil
       mock_faraday_builder = Minitest::Mock.new
+      mock_faraday_builder.expect(:adapter, nil, [:net_http_persistent])
       mock_faraday_builder.expect(:request, nil) do |middleware, *_args, **kwargs|
         if middleware == :retry
           captured_config = kwargs
@@ -796,6 +804,22 @@ module OpenAI
       [429, 500, 502, 503, 504].each do |status|
         assert_includes(captured_config[:retry_statuses], status)
       end
+    end
+
+    def test_openai_client_initialization_succeeds_with_faraday_configuration
+      # This test verifies that the OpenAI client is properly initialized with our Faraday configuration.
+      # The fact that initialization succeeds means the net_http_persistent adapter is available and working.
+      executor = ClaudeSwarm::OpenAI::Executor.new(
+        working_directory: @tmpdir,
+        model: "gpt-4o",
+        instance_name: "test-instance",
+        openai_token_env: "TEST_OPENAI_API_KEY",
+      )
+
+      # Verify the client was created successfully
+      client = executor.instance_variable_get(:@openai_client)
+
+      assert_instance_of(::OpenAI::Client, client, "Expected @openai_client to be an OpenAI::Client instance")
     end
 
     private
