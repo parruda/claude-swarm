@@ -35,6 +35,8 @@ module ClaudeSwarm
       @modified_instances = nil
       # Track start time for runtime calculation
       @start_time = nil
+      # Track transcript tailing thread
+      @transcript_thread = nil
 
       # Set environment variable for prompt mode to suppress output
       ENV["CLAUDE_SWARM_PROMPT"] = "1" if @non_interactive_prompt
@@ -172,6 +174,9 @@ module ClaudeSwarm
       log_thread = nil
       log_thread = start_log_streaming if @non_interactive_prompt && @stream_logs
 
+      # Start transcript tailing thread for main instance
+      @transcript_thread = start_transcript_tailing
+
       # Write the current process PID (orchestrator) to a file for easy access
       main_pid_file = File.join(@session_path, "main_pid")
       File.write(main_pid_file, Process.pid.to_s)
@@ -216,6 +221,9 @@ module ClaudeSwarm
         log_thread.terminate
         log_thread.join
       end
+
+      # Clean up transcript tailing thread
+      cleanup_transcript_thread
 
       # Display runtime and cost summary
       display_summary
@@ -289,6 +297,7 @@ module ClaudeSwarm
 
     def cleanup_processes
       @process_tracker.cleanup_all
+      cleanup_transcript_thread
       puts "✓ Cleanup complete"
     rescue StandardError => e
       puts "⚠️  Error during cleanup: #{e.message}"
@@ -574,6 +583,86 @@ module ClaudeSwarm
 
         wait_thr.value
       end
+    end
+
+    def start_transcript_tailing
+      Thread.new do
+        path_file = File.join(@session_path, "main_instance_transcript.path")
+
+        # Wait for path file to exist (created by SessionStart hook)
+        sleep(0.5) until File.exist?(path_file)
+
+        # Read the transcript path
+        transcript_path = File.read(path_file).strip
+
+        # Wait for transcript file to exist
+        sleep(0.5) until File.exist?(transcript_path)
+
+        # Tail the transcript file continuously (like tail -f)
+        File.open(transcript_path, "r") do |file|
+          # Start from the beginning to capture all entries
+          file.seek(0, IO::SEEK_SET) # Start at beginning of file
+          
+          loop do
+            line = file.gets
+            if line
+              begin
+                # Parse JSONL entry
+                transcript_entry = JSON.parse(line)
+                
+                # Skip summary entries - these are just conversation titles
+                next if transcript_entry["type"] == "summary"
+
+                # Convert to session.log.json format
+                session_entry = convert_transcript_to_session_format(transcript_entry)
+
+                # Write with file locking (same pattern as BaseExecutor)
+                session_json_path = File.join(@session_path, "session.log.json")
+                File.open(session_json_path, File::WRONLY | File::APPEND | File::CREAT) do |log_file|
+                  log_file.flock(File::LOCK_EX)
+                  log_file.puts(session_entry.to_json)
+                  log_file.flock(File::LOCK_UN)
+                end
+              rescue JSON::ParserError
+                # Silently skip unparseable lines
+              rescue StandardError
+                # Silently handle other errors to keep thread running
+              end
+            else
+              # No new data, sleep briefly
+              sleep(0.1)
+            end
+          end
+        end
+      rescue StandardError
+        # Silently handle thread errors
+      end
+    end
+
+    def convert_transcript_to_session_format(transcript_entry)
+      {
+        instance: @config.main_instance,
+        instance_id: "main",
+        timestamp: transcript_entry["timestamp"] || Time.now.iso8601,
+        event: {
+          type: "transcript",
+          source: "main_instance",
+          data: transcript_entry,
+        },
+      }
+    end
+
+    def cleanup_transcript_thread
+      return unless @transcript_thread
+
+      @transcript_thread.terminate if @transcript_thread.alive?
+      @transcript_thread.join(1) # Wait up to 1 second for thread to finish
+    rescue StandardError => e
+      logger.error { "Error cleaning up transcript thread: #{e.message}" }
+    end
+
+    def logger
+      @logger ||= Logger.new(File.join(@session_path, "session.log"), level: :info, progname: "orchestrator")
     end
 
     def execute_commands(commands, phase:, fail_fast:)

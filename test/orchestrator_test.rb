@@ -314,7 +314,7 @@ class OrchestratorTest < Minitest::Test
     assert_path_exists(settings_path, "Settings file should exist at #{settings_path}")
   end
 
-  def test_build_main_command_no_settings_when_no_hooks
+  def test_build_main_command_always_has_settings_for_session_start_hook
     config = create_test_config
     generator = ClaudeSwarm::McpGenerator.new(config)
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
@@ -329,8 +329,8 @@ class OrchestratorTest < Minitest::Test
       end
     end
 
-    # Should NOT include --settings flag when no hooks
-    refute_includes(expected_command, "--settings")
+    # Should always include --settings flag for main instance (due to SessionStart hook)
+    assert_includes(expected_command, "--settings")
   end
 
   def test_empty_connections_and_tools
