@@ -21,16 +21,7 @@ module ClaudeSwarm
     private
 
     def session_path
-      # In tests, use the session path from env if available, otherwise use a temp path
-      @session_path ||= if ENV["CLAUDE_SWARM_SESSION_PATH"]
-        SessionPath.from_env
-      else
-        # This should only happen in unit tests
-        # In tests, use a safe temporary directory to avoid creating files in the repository
-        test_tmp_dir = File.join(Dir.tmpdir, "claude_swarm_test_#{Process.pid}")
-        FileUtils.mkdir_p(test_tmp_dir)
-        test_tmp_dir
-      end
+      @session_path ||= SessionPath.from_env
     end
 
     def ensure_session_directory

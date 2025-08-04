@@ -17,15 +17,12 @@ module ClaudeSwarm
       restore_session_path: nil, worktree: nil, session_id: nil)
       @config = configuration
       @generator = mcp_generator
-      @settings_generator = nil # Will be initialized after session path is set
       @vibe = vibe
       @non_interactive_prompt = prompt
       @interactive_prompt = interactive_prompt
       @stream_logs = stream_logs
       @debug = debug
       @restore_session_path = restore_session_path
-      @session_path = nil
-      @session_log_path = nil
       @provided_session_id = session_id
       # Store worktree option for later use
       @worktree_option = worktree
@@ -40,6 +37,36 @@ module ClaudeSwarm
 
       # Set environment variable for prompt mode to suppress output
       ENV["CLAUDE_SWARM_PROMPT"] = "1" if @non_interactive_prompt
+
+      # Initialize session path
+      if @restore_session_path
+        # Use existing session path for restoration
+        @session_path = @restore_session_path
+        @session_log_path = File.join(@session_path, "session.log")
+      else
+        # Generate new session path
+        session_params = { working_dir: ClaudeSwarm.root_dir }
+        session_params[:session_id] = @provided_session_id if @provided_session_id
+        @session_path = SessionPath.generate(**session_params)
+        SessionPath.ensure_directory(@session_path)
+        @session_log_path = File.join(@session_path, "session.log")
+
+        # Extract session ID from path (the timestamp part)
+        @session_id = File.basename(@session_path)
+
+      end
+      ENV["CLAUDE_SWARM_SESSION_PATH"] = @session_path
+      ENV["CLAUDE_SWARM_ROOT_DIR"] = ClaudeSwarm.root_dir
+
+      # Initialize components that depend on session path
+      @process_tracker = ProcessTracker.new(@session_path)
+      @settings_generator = SettingsGenerator.new(@config)
+
+      # Initialize WorktreeManager if needed
+      if @needs_worktree_manager && !@restore_session_path
+        cli_option = @worktree_option.is_a?(String) && !@worktree_option.empty? ? @worktree_option : nil
+        @worktree_manager = WorktreeManager.new(cli_option, session_id: @session_id)
+      end
     end
 
     def start
@@ -52,34 +79,21 @@ module ClaudeSwarm
           puts "😎 Vibe mode ON" if @vibe
         end
 
-        # Use existing session path
-        session_path = @restore_session_path
-        @session_path = session_path
-        @session_log_path = File.join(@session_path, "session.log")
-        ENV["CLAUDE_SWARM_SESSION_PATH"] = session_path
-        ENV["CLAUDE_SWARM_ROOT_DIR"] = ClaudeSwarm.root_dir
-
         # Create run symlink for restored session
         create_run_symlink
 
         non_interactive_output do
-          puts "📝 Using existing session: #{session_path}/"
+          puts "📝 Using existing session: #{@session_path}/"
         end
 
-        # Initialize process tracker
-        @process_tracker = ProcessTracker.new(session_path)
-
         # Check if the original session used worktrees
-        restore_worktrees_if_needed(session_path)
+        restore_worktrees_if_needed(@session_path)
 
         # Regenerate MCP configurations with session IDs for restoration
         @generator.generate_all
         non_interactive_output do
           puts "✓ Regenerated MCP configurations with session IDs"
         end
-
-        # Initialize settings generator after session path is set
-        @settings_generator = SettingsGenerator.new(@config)
 
         # Generate settings files
         @settings_generator.generate_all
@@ -92,34 +106,15 @@ module ClaudeSwarm
           puts "😎 Vibe mode ON" if @vibe
         end
 
-        # Generate and set session path for all instances
-        session_params = { working_dir: ClaudeSwarm.root_dir }
-        session_params[:session_id] = @provided_session_id if @provided_session_id
-        session_path = SessionPath.generate(**session_params)
-        SessionPath.ensure_directory(session_path)
-        @session_path = session_path
-        @session_log_path = File.join(@session_path, "session.log")
-
-        # Extract session ID from path (the timestamp part)
-        @session_id = File.basename(session_path)
-
-        ENV["CLAUDE_SWARM_SESSION_PATH"] = session_path
-        ENV["CLAUDE_SWARM_ROOT_DIR"] = ClaudeSwarm.root_dir
-
         # Create run symlink for new session
         create_run_symlink
 
         non_interactive_output do
-          puts "📝 Session files will be saved to: #{session_path}/"
+          puts "📝 Session files will be saved to: #{@session_path}/"
         end
 
-        # Initialize process tracker
-        @process_tracker = ProcessTracker.new(session_path)
-
-        # Create WorktreeManager if needed with session ID
-        if @needs_worktree_manager
-          cli_option = @worktree_option.is_a?(String) && !@worktree_option.empty? ? @worktree_option : nil
-          @worktree_manager = WorktreeManager.new(cli_option, session_id: @session_id)
+        # Setup worktrees if needed
+        if @worktree_manager
           non_interactive_output { print("🌳 Setting up Git worktrees...") }
 
           # Get all instances for worktree setup
@@ -139,9 +134,6 @@ module ClaudeSwarm
           puts "✓ Generated MCP configurations in session directory"
         end
 
-        # Initialize settings generator after session path is set
-        @settings_generator = SettingsGenerator.new(@config)
-
         # Generate settings files
         @settings_generator.generate_all
         non_interactive_output do
@@ -149,7 +141,7 @@ module ClaudeSwarm
         end
 
         # Save swarm config path for restoration
-        save_swarm_config_path(session_path)
+        save_swarm_config_path(@session_path)
       end
 
       # Launch the main instance (fetch after worktree setup to get modified paths)

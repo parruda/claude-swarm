@@ -58,21 +58,20 @@ class OrchestratorTest < Minitest::Test
     ClaudeSwarm::Configuration.new(@config_path)
   end
 
-  def test_start_sets_session_path
+  def test_initializer_sets_session_path
     config = create_test_config
     generator = ClaudeSwarm::McpGenerator.new(config)
-    orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
-    # Mock system to prevent actual execution
-    orchestrator.stub(:system, true) do
-      capture_io do
-        orchestrator.start
-      end
-    end
+    # Session path should be set during initialization
+    orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     assert(ENV.fetch("CLAUDE_SWARM_SESSION_PATH", nil))
     assert(ENV.fetch("CLAUDE_SWARM_ROOT_DIR", nil))
     assert_match(%r{/sessions/.+/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}, ENV.fetch("CLAUDE_SWARM_SESSION_PATH", nil))
+
+    # Session path should be available immediately
+    assert(orchestrator.session_path)
+    assert_equal(ENV["CLAUDE_SWARM_SESSION_PATH"], orchestrator.session_path)
   end
 
   def test_start_generates_mcp_configs
