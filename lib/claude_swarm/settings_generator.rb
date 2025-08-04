@@ -26,7 +26,10 @@ module ClaudeSwarm
         SessionPath.from_env
       else
         # This should only happen in unit tests
-        Dir.pwd
+        # In tests, use a safe temporary directory to avoid creating files in the repository
+        test_tmp_dir = File.join(Dir.tmpdir, "claude_swarm_test_#{Process.pid}")
+        FileUtils.mkdir_p(test_tmp_dir)
+        test_tmp_dir
       end
     end
 

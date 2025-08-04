@@ -67,10 +67,10 @@ class OrchestratorTranscriptTest < Minitest::Test
 
     # Start transcript tailing
     thread = orchestrator.send(:start_transcript_tailing)
-    
+
     # Wait for thread to be ready
     sleep(0.5)
-    
+
     # Now append entries to the file
     File.open(transcript_file, "a") do |f|
       create_transcript_entries.each do |entry|
@@ -82,6 +82,7 @@ class OrchestratorTranscriptTest < Minitest::Test
     session_json = File.join(@session_path, "session.log.json")
     10.times do
       break if File.exist?(session_json)
+
       sleep(0.2)
     end
 
@@ -134,6 +135,7 @@ class OrchestratorTranscriptTest < Minitest::Test
     session_json = File.join(@session_path, "session.log.json")
     10.times do
       break if File.exist?(session_json)
+
       sleep(0.2)
     end
 
@@ -252,6 +254,104 @@ class OrchestratorTranscriptTest < Minitest::Test
     # Should have generated timestamp
     assert(result[:timestamp])
     assert_match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/, result[:timestamp])
+  end
+
+  def test_transcript_tailing_skips_summary_entries
+    orchestrator = ClaudeSwarm::Orchestrator.new(@config, @generator)
+    orchestrator.instance_variable_set(:@session_path, @session_path)
+
+    # Create transcript file with summary entries
+    transcript_file = File.join(@tmpdir, "transcript.jsonl")
+    File.open(transcript_file, "w") do |f|
+      f.puts('{"type":"summary","title":"Test Conversation","timestamp":"2025-01-01T00:00:00Z"}')
+      f.puts('{"type":"user","message":"Hello","timestamp":"2025-01-01T00:00:01Z"}')
+      f.puts('{"type":"summary","title":"Updated Title","timestamp":"2025-01-01T00:00:02Z"}')
+      f.puts('{"type":"assistant","message":"Hi there","timestamp":"2025-01-01T00:00:03Z"}')
+    end
+
+    # Create path file
+    path_file = File.join(@session_path, "main_instance_transcript.path")
+    File.write(path_file, transcript_file)
+
+    # Start transcript tailing
+    thread = orchestrator.send(:start_transcript_tailing)
+
+    # Give thread time to process
+    sleep(0.5)
+
+    # Check session.log.json
+    session_json = File.join(@session_path, "session.log.json")
+
+    assert_path_exists(session_json)
+
+    entries = File.readlines(session_json).map { |line| JSON.parse(line) }
+
+    # Should only have 2 entries (user and assistant), not the summary entries
+    assert_equal(2, entries.size)
+
+    # Verify the entries are the correct ones
+    assert_equal("user", entries[0]["event"]["data"]["type"])
+    assert_equal("Hello", entries[0]["event"]["data"]["message"])
+
+    assert_equal("assistant", entries[1]["event"]["data"]["type"])
+    assert_equal("Hi there", entries[1]["event"]["data"]["message"])
+
+    # Clean up thread
+    thread.terminate
+    thread.join(1)
+  end
+
+  def test_transcript_tailing_reads_from_beginning
+    orchestrator = ClaudeSwarm::Orchestrator.new(@config, @generator)
+    orchestrator.instance_variable_set(:@session_path, @session_path)
+
+    # Create transcript file with existing entries
+    transcript_file = File.join(@tmpdir, "transcript.jsonl")
+    File.open(transcript_file, "w") do |f|
+      f.puts('{"type":"user","message":"First entry","timestamp":"2025-01-01T00:00:00Z"}')
+      f.puts('{"type":"assistant","message":"Second entry","timestamp":"2025-01-01T00:00:01Z"}')
+    end
+
+    # Create path file
+    path_file = File.join(@session_path, "main_instance_transcript.path")
+    File.write(path_file, transcript_file)
+
+    # Start transcript tailing - should read from beginning
+    thread = orchestrator.send(:start_transcript_tailing)
+
+    # Give thread time to process existing entries
+    sleep(0.5)
+
+    # Check that existing entries were captured
+    session_json = File.join(@session_path, "session.log.json")
+
+    assert_path_exists(session_json)
+
+    entries = File.readlines(session_json).map { |line| JSON.parse(line) }
+
+    # Should have both existing entries
+    assert_equal(2, entries.size)
+    assert_equal("First entry", entries[0]["event"]["data"]["message"])
+    assert_equal("Second entry", entries[1]["event"]["data"]["message"])
+
+    # Now add a new entry
+    File.open(transcript_file, "a") do |f|
+      f.puts('{"type":"user","message":"Third entry","timestamp":"2025-01-01T00:00:02Z"}')
+    end
+
+    # Give thread time to process new entry
+    sleep(0.5)
+
+    # Re-read entries
+    entries = File.readlines(session_json).map { |line| JSON.parse(line) }
+
+    # Should now have 3 entries total
+    assert_equal(3, entries.size)
+    assert_equal("Third entry", entries[2]["event"]["data"]["message"])
+
+    # Clean up thread
+    thread.terminate
+    thread.join(1)
   end
 
   private

@@ -11,52 +11,52 @@ class SettingsGeneratorTest < Minitest::Test
     @config = MockConfiguration.new(
       {
         "lead" => {
-        name: "lead",
-        description: "Lead developer",
-        directory: ".",
-        model: "opus",
-        hooks: {
-          "PreToolUse" => [
-            {
-              "matcher" => "Write|Edit",
-              "hooks" => [
-                {
-                  "type" => "command",
-                  "command" => "echo 'pre-write'",
-                },
-              ],
-            },
-          ],
+          name: "lead",
+          description: "Lead developer",
+          directory: ".",
+          model: "opus",
+          hooks: {
+            "PreToolUse" => [
+              {
+                "matcher" => "Write|Edit",
+                "hooks" => [
+                  {
+                    "type" => "command",
+                    "command" => "echo 'pre-write'",
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        "frontend" => {
+          name: "frontend",
+          description: "Frontend developer",
+          directory: "./frontend",
+          model: "sonnet",
+          hooks: {
+            "PostToolUse" => [
+              {
+                "matcher" => "Bash",
+                "hooks" => [
+                  {
+                    "type" => "command",
+                    "command" => "echo 'post-bash'",
+                    "timeout" => 10,
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        "backend" => {
+          name: "backend",
+          description: "Backend developer",
+          directory: "./backend",
+          model: "sonnet",
+          # No hooks
         },
       },
-      "frontend" => {
-        name: "frontend",
-        description: "Frontend developer",
-        directory: "./frontend",
-        model: "sonnet",
-        hooks: {
-          "PostToolUse" => [
-            {
-              "matcher" => "Bash",
-              "hooks" => [
-                {
-                  "type" => "command",
-                  "command" => "echo 'post-bash'",
-                  "timeout" => 10,
-                },
-              ],
-            },
-          ],
-        },
-      },
-      "backend" => {
-        name: "backend",
-        description: "Backend developer",
-        directory: "./backend",
-        model: "sonnet",
-        # No hooks
-      },
-      }
     )
 
     @generator = ClaudeSwarm::SettingsGenerator.new(@config)
@@ -112,7 +112,7 @@ class SettingsGeneratorTest < Minitest::Test
           model: "sonnet",
           hooks: {},
         },
-      }
+      },
     )
 
     generator = ClaudeSwarm::SettingsGenerator.new(config)

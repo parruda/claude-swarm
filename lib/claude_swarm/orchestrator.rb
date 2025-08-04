@@ -17,7 +17,7 @@ module ClaudeSwarm
       restore_session_path: nil, worktree: nil, session_id: nil)
       @config = configuration
       @generator = mcp_generator
-      @settings_generator = SettingsGenerator.new(configuration)
+      @settings_generator = nil # Will be initialized after session path is set
       @vibe = vibe
       @non_interactive_prompt = prompt
       @interactive_prompt = interactive_prompt
@@ -78,6 +78,9 @@ module ClaudeSwarm
           puts "✓ Regenerated MCP configurations with session IDs"
         end
 
+        # Initialize settings generator after session path is set
+        @settings_generator = SettingsGenerator.new(@config)
+
         # Generate settings files
         @settings_generator.generate_all
         non_interactive_output do
@@ -135,6 +138,9 @@ module ClaudeSwarm
         non_interactive_output do
           puts "✓ Generated MCP configurations in session directory"
         end
+
+        # Initialize settings generator after session path is set
+        @settings_generator = SettingsGenerator.new(@config)
 
         # Generate settings files
         @settings_generator.generate_all
@@ -602,14 +608,14 @@ module ClaudeSwarm
         File.open(transcript_path, "r") do |file|
           # Start from the beginning to capture all entries
           file.seek(0, IO::SEEK_SET) # Start at beginning of file
-          
+
           loop do
             line = file.gets
             if line
               begin
                 # Parse JSONL entry
                 transcript_entry = JSON.parse(line)
-                
+
                 # Skip summary entries - these are just conversation titles
                 next if transcript_entry["type"] == "summary"
 
