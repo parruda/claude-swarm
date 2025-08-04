@@ -1,3 +1,13 @@
+## [Unreleased]
+
+### Added
+- **Main instance transcript integration**: Main Claude instance activity is now captured in session.log.json during interactive mode
+  - Automatically configures SessionStart hook for main instance to capture transcript path
+  - Background thread continuously tails transcript file and integrates entries into session.log.json
+  - Filters out summary entries to avoid duplicate conversation titles
+  - Uses file locking for thread-safe writes to maintain consistency
+  - Provides complete session history including main instance interactions
+
 ## [0.3.8]
 
 ### Added
