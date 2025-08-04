@@ -358,22 +358,10 @@ class OrchestratorTranscriptTest < Minitest::Test
 
   def mock_config
     config = Minitest::Mock.new
-    config.expect(:main_instance, "lead")
-    config.expect(:main_instance, "lead")
-    config.expect(:main_instance, "lead")
-    config.expect(:main_instance, "lead")
-    config.expect(:main_instance, "lead")
-    config.expect(:main_instance, "lead")
-    config.expect(:main_instance, "lead")
-    config.expect(:main_instance, "lead")
-    # Add instances expectation for orchestrator initialization
-    config.expect(:instances, {})
-    config.expect(:instances, {})
-    config.expect(:instances, {})
-    config.expect(:instances, {})
-    config.expect(:instances, {})
-    config.expect(:instances, {})
-    config.expect(:instances, {})
+    # Expect main_instance to be called multiple times (once per test that uses it)
+    8.times { config.expect(:main_instance, "lead") }
+    # Expect instances to be called multiple times for orchestrator initialization
+    7.times { config.expect(:instances, {}) }
     config
   end
 
