@@ -573,9 +573,6 @@ module ClaudeSwarm
           pretty_json = JSON.pretty_generate(json_data)
           logger.info { pretty_json }
         rescue JSON::ParserError
-          # Warn about non-JSON output since we expect stream-json format
-          warn("⚠️  Warning: Non-JSON output detected in stream-json mode: #{line.chomp}")
-          # Log the line as-is
           logger.info { line.chomp }
         end
 
@@ -619,7 +616,6 @@ module ClaudeSwarm
                 File.open(session_json_path, File::WRONLY | File::APPEND | File::CREAT) do |log_file|
                   log_file.flock(File::LOCK_EX)
                   log_file.puts(session_entry.to_json)
-                  log_file.flock(File::LOCK_UN)
                 end
               rescue JSON::ParserError
                 # Silently skip unparseable lines
