@@ -9,6 +9,14 @@
   - Connected instances receive hooks via SDK's `settings` attribute
   - Full environment variable interpolation support in hook configurations
   - See README.md "Hooks Configuration" section for usage examples
+- **Persistent HTTP connections for OpenAI**: Added `faraday-net_http_persistent` dependency and configured OpenAI client to use persistent connections
+  - Improves performance when making multiple API requests by reusing HTTP connections
+  - Automatically configured for all OpenAI instances
+
+### Changed
+- **Improved OpenAI executor code organization**: Refactored internal methods for better maintainability
+  - Extracted configuration building and response handling into focused private methods
+  - Improved code readability with functional patterns
 
 ### Fixed
 - **Settings integration**: Fixed passing settings to Claude instances
