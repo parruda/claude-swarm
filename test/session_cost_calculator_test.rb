@@ -241,6 +241,128 @@ class SessionCostCalculatorTest < Minitest::Test
     assert_equal(3, instances["agent1"][:calls])
   end
 
+  def test_main_instance_token_cost_calculation
+    # Create session log with main instance token usage
+    File.open(@session_log_path, "w") do |f|
+      # Main instance assistant message with Opus model
+      f.puts({
+        instance: "lead_developer",
+        instance_id: "main",
+        event: {
+          type: "assistant",
+          message: {
+            type: "message",
+            role: "assistant",
+            content: [{ type: "text", text: "Hello!" }],
+            model: "claude-opus-4-1-20250805",
+            usage: {
+              "input_tokens" => 4,
+              "cache_creation_input_tokens" => 19783,
+              "cache_read_input_tokens" => 0,
+              "output_tokens" => 26,
+            },
+          },
+        },
+      }.to_json)
+    end
+
+    result = ClaudeSwarm::SessionCostCalculator.calculate_total_cost(@session_log_path)
+
+    # Calculate expected cost for Opus model:
+    # Input: 4 / 1M * $15 = $0.00006
+    # Cache write: 19783 / 1M * $18.75 = $0.37093125
+    # Output: 26 / 1M * $75 = $0.00195
+    # Total: ~$0.37294125
+    assert_in_delta(0.37294125, result[:total_cost], 0.0001)
+    assert_equal(Set.new(["lead_developer"]), result[:instances_with_cost])
+  end
+
+  def test_mixed_main_and_other_instances
+    # Create session log with both main instance token costs and other instance cumulative costs
+    File.open(@session_log_path, "w") do |f|
+      # Main instance with Sonnet model
+      f.puts({
+        instance: "main",
+        instance_id: "main",
+        event: {
+          type: "assistant",
+          message: {
+            model: "claude-3-5-sonnet-20241022",
+            usage: {
+              "input_tokens" => 1000,
+              "output_tokens" => 500,
+              "cache_read_input_tokens" => 2000,
+            },
+          },
+        },
+      }.to_json)
+
+      # Other instance with cumulative cost
+      f.puts({
+        instance: "worker",
+        instance_id: "worker_123",
+        event: { type: "result", total_cost_usd: 0.10 },
+      }.to_json)
+
+      # Another main instance message with Haiku
+      f.puts({
+        instance: "main",
+        instance_id: "main",
+        event: {
+          type: "assistant",
+          message: {
+            model: "claude-3-5-haiku-20241022",
+            usage: {
+              "input_tokens" => 5000,
+              "output_tokens" => 1000,
+            },
+          },
+        },
+      }.to_json)
+    end
+
+    result = ClaudeSwarm::SessionCostCalculator.calculate_total_cost(@session_log_path)
+
+    # Sonnet costs: 1000/1M * $3 + 500/1M * $15 + 2000/1M * $0.30 = $0.003 + $0.0075 + $0.0006 = $0.0111
+    # Haiku costs: 5000/1M * $0.80 + 1000/1M * $4 = $0.004 + $0.004 = $0.008
+    # Worker: $0.10
+    # Total: $0.0111 + $0.008 + $0.10 = $0.1191
+    assert_in_delta(0.1191, result[:total_cost], 0.0001)
+    assert_equal(Set.new(["main", "worker"]), result[:instances_with_cost])
+  end
+
+  def test_model_type_detection
+    calc = ClaudeSwarm::SessionCostCalculator
+
+    assert_equal(:opus, calc.model_type_from_name("claude-opus-4-1-20250805"))
+    assert_equal(:sonnet, calc.model_type_from_name("claude-3-5-sonnet-20241022"))
+    assert_equal(:haiku, calc.model_type_from_name("claude-3-5-haiku-20241022"))
+    assert_nil(calc.model_type_from_name("unknown-model"))
+    assert_nil(calc.model_type_from_name(nil))
+  end
+
+  def test_calculate_token_cost
+    calc = ClaudeSwarm::SessionCostCalculator
+
+    # Test Opus pricing
+    usage = {
+      "input_tokens" => 1_000_000,  # 1M tokens
+      "output_tokens" => 100_000,   # 100k tokens
+      "cache_creation_input_tokens" => 50_000,  # 50k tokens
+      "cache_read_input_tokens" => 200_000,     # 200k tokens
+    }
+
+    cost = calc.calculate_token_cost(usage, "claude-opus-4-1")
+    # 1M * $15 + 100k * $75 + 50k * $18.75 + 200k * $1.50 = $15 + $7.5 + $0.9375 + $0.30 = $23.7375
+    assert_in_delta(23.7375, cost, 0.0001)
+
+    # Test with nil model
+    assert_in_delta(0.0, calc.calculate_token_cost(usage, nil))
+
+    # Test with nil usage
+    assert_in_delta(0.0, calc.calculate_token_cost(nil, "claude-opus-4-1"))
+  end
+
   def test_multiple_instances_with_resets
     # Create session log with multiple instances and resets
     File.open(@session_log_path, "w") do |f|
