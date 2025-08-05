@@ -824,8 +824,8 @@ swarm:
 claude-swarm
 
 # Specify a different configuration file
-claude-swarm my-swarm.yml
-claude-swarm team-config.yml
+claude-swarm start my-swarm.yml
+claude-swarm start team-config.yml
 
 # Run with --dangerously-skip-permissions for all instances
 claude-swarm --vibe
