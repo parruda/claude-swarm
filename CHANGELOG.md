@@ -1,4 +1,4 @@
-## [Unreleased]
+## [0.3.9]
 
 ### Added
 - **Main instance transcript integration**: Main Claude instance activity is now captured in session.log.json during interactive mode
