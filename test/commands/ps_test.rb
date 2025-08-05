@@ -50,10 +50,10 @@ module ClaudeSwarm
         }
         File.write(File.join(@test_session_dir, "config.yml"), config.to_yaml)
 
-        # Create test JSON log with costs
+        # Create test JSON log with cumulative costs from same instance
         json_log = [
-          { "event" => { "type" => "result", "total_cost_usd" => 0.1234 } },
-          { "event" => { "type" => "result", "total_cost_usd" => 0.2345 } },
+          { "instance" => "agent1", "event" => { "type" => "result", "total_cost_usd" => 0.1234 } },
+          { "instance" => "agent1", "event" => { "type" => "result", "total_cost_usd" => 0.2345 } },
           { "event" => { "type" => "other" } },
         ].map(&:to_json).join("\n")
         File.write(File.join(@test_session_dir, "session.log.json"), json_log)
@@ -70,7 +70,8 @@ module ClaudeSwarm
         assert_includes(output, "DIRECTORY")
         assert_match(/test-session-123/, output)
         assert_match(/Test Swarm/, output)
-        assert_match(/\$0\.3579/, output)
+        # Should show only the last cumulative cost for the instance
+        assert_match(/\$0\.2345/, output)
         assert_match(/\d+s/, output) # Should show uptime
         assert_match(/\./, output) # Should show directory
       end

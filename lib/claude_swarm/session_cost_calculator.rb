@@ -6,23 +6,29 @@ module ClaudeSwarm
 
     # Calculate total cost from session log file
     # Returns a hash with:
-    # - total_cost: Total cost in USD
+    # - total_cost: Total cost in USD (sum of last cumulative costs per instance)
     # - instances_with_cost: Set of instance names that have cost data
     def calculate_total_cost(session_log_path)
       return { total_cost: 0.0, instances_with_cost: Set.new } unless File.exist?(session_log_path)
 
-      total_cost = 0.0
+      # Track the last cumulative cost per instance
+      last_cost_per_instance = {}
       instances_with_cost = Set.new
 
       File.foreach(session_log_path) do |line|
         data = JSON.parse(line)
         if data.dig("event", "type") == "result" && (cost = data.dig("event", "total_cost_usd"))
-          total_cost += cost
-          instances_with_cost << data["instance"]
+          instance_name = data["instance"]
+          # Store the latest cumulative cost for this instance
+          last_cost_per_instance[instance_name] = cost
+          instances_with_cost << instance_name
         end
       rescue JSON::ParserError
         next
       end
+
+      # Sum up the last cumulative costs from all instances
+      total_cost = last_cost_per_instance.values.sum
 
       {
         total_cost: total_cost,
@@ -79,7 +85,8 @@ module ClaudeSwarm
         if data.dig("event", "type") == "result"
           instances[instance_name][:calls] += 1
           if (cost = data.dig("event", "total_cost_usd"))
-            instances[instance_name][:cost] += cost
+            # Store the latest cumulative cost (not additive)
+            instances[instance_name][:cost] = cost
             instances[instance_name][:has_cost_data] = true
           end
         end
