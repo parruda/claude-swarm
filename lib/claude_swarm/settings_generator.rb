@@ -21,13 +21,7 @@ module ClaudeSwarm
     private
 
     def session_path
-      # In tests, use the session path from env if available, otherwise use a temp path
-      @session_path ||= if ENV["CLAUDE_SWARM_SESSION_PATH"]
-        SessionPath.from_env
-      else
-        # This should only happen in unit tests
-        Dir.pwd
-      end
+      @session_path ||= SessionPath.from_env
     end
 
     def ensure_session_directory
@@ -44,11 +38,40 @@ module ClaudeSwarm
         settings["hooks"] = instance[:hooks]
       end
 
+      # Add SessionStart hook for main instance to capture transcript path
+      if name == @config.main_instance
+        session_start_hook = build_session_start_hook
+
+        # Initialize hooks if not present
+        settings["hooks"] ||= {}
+        settings["hooks"]["SessionStart"] ||= []
+
+        # Add our hook to the SessionStart hooks
+        settings["hooks"]["SessionStart"] << session_start_hook
+      end
+
       # Only write settings file if there are settings to write
       return if settings.empty?
 
       # Write settings file
       File.write(settings_path(name), JSON.pretty_generate(settings))
+    end
+
+    def build_session_start_hook
+      hook_script_path = File.expand_path("hooks/session_start_hook.rb", __dir__)
+      # Pass session path as an argument since ENV may not be inherited
+      session_path_arg = session_path
+
+      {
+        "matcher" => "startup",
+        "hooks" => [
+          {
+            "type" => "command",
+            "command" => "ruby #{hook_script_path} '#{session_path_arg}'",
+            "timeout" => 5,
+          },
+        ],
+      }
     end
   end
 end

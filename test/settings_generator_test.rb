@@ -9,51 +9,53 @@ class SettingsGeneratorTest < Minitest::Test
 
     # Create a basic configuration with hooks
     @config = MockConfiguration.new(
-      "lead" => {
-        name: "lead",
-        description: "Lead developer",
-        directory: ".",
-        model: "opus",
-        hooks: {
-          "PreToolUse" => [
-            {
-              "matcher" => "Write|Edit",
-              "hooks" => [
-                {
-                  "type" => "command",
-                  "command" => "echo 'pre-write'",
-                },
-              ],
-            },
-          ],
+      {
+        "lead" => {
+          name: "lead",
+          description: "Lead developer",
+          directory: ".",
+          model: "opus",
+          hooks: {
+            "PreToolUse" => [
+              {
+                "matcher" => "Write|Edit",
+                "hooks" => [
+                  {
+                    "type" => "command",
+                    "command" => "echo 'pre-write'",
+                  },
+                ],
+              },
+            ],
+          },
         },
-      },
-      "frontend" => {
-        name: "frontend",
-        description: "Frontend developer",
-        directory: "./frontend",
-        model: "sonnet",
-        hooks: {
-          "PostToolUse" => [
-            {
-              "matcher" => "Bash",
-              "hooks" => [
-                {
-                  "type" => "command",
-                  "command" => "echo 'post-bash'",
-                  "timeout" => 10,
-                },
-              ],
-            },
-          ],
+        "frontend" => {
+          name: "frontend",
+          description: "Frontend developer",
+          directory: "./frontend",
+          model: "sonnet",
+          hooks: {
+            "PostToolUse" => [
+              {
+                "matcher" => "Bash",
+                "hooks" => [
+                  {
+                    "type" => "command",
+                    "command" => "echo 'post-bash'",
+                    "timeout" => 10,
+                  },
+                ],
+              },
+            ],
+          },
         },
-      },
-      "backend" => {
-        name: "backend",
-        description: "Backend developer",
-        directory: "./backend",
-        model: "sonnet",
-        # No hooks
+        "backend" => {
+          name: "backend",
+          description: "Backend developer",
+          directory: "./backend",
+          model: "sonnet",
+          # No hooks
+        },
       },
     )
 
@@ -102,12 +104,14 @@ class SettingsGeneratorTest < Minitest::Test
 
   def test_empty_hooks_configuration
     config = MockConfiguration.new(
-      "test" => {
-        name: "test",
-        description: "Test instance",
-        directory: ".",
-        model: "sonnet",
-        hooks: {},
+      {
+        "test" => {
+          name: "test",
+          description: "Test instance",
+          directory: ".",
+          model: "sonnet",
+          hooks: {},
+        },
       },
     )
 
@@ -118,12 +122,115 @@ class SettingsGeneratorTest < Minitest::Test
     refute_path_exists(File.join(@temp_dir, "test_settings.json"))
   end
 
+  def test_main_instance_gets_session_start_hook
+    # Create config with main instance specified
+    config = MockConfiguration.new(
+      {
+        "lead" => {
+          name: "lead",
+          description: "Lead developer",
+          directory: ".",
+          model: "opus",
+        },
+        "frontend" => {
+          name: "frontend",
+          description: "Frontend developer",
+          directory: "./frontend",
+          model: "sonnet",
+        },
+      },
+      main_instance: "lead",
+    )
+
+    generator = ClaudeSwarm::SettingsGenerator.new(config)
+    generator.generate_all
+
+    # Check that main instance has SessionStart hook
+    lead_settings = JSON.parse(File.read(File.join(@temp_dir, "lead_settings.json")))
+
+    assert(lead_settings["hooks"])
+    assert(lead_settings["hooks"]["SessionStart"])
+    assert_equal(1, lead_settings["hooks"]["SessionStart"].size)
+
+    session_start_hook = lead_settings["hooks"]["SessionStart"][0]
+
+    assert_equal("startup", session_start_hook["matcher"])
+    assert_equal(1, session_start_hook["hooks"].size)
+    assert_equal("command", session_start_hook["hooks"][0]["type"])
+    assert_match(/session_start_hook\.rb/, session_start_hook["hooks"][0]["command"])
+    assert_equal(5, session_start_hook["hooks"][0]["timeout"])
+
+    # Non-main instance should not have the automatic SessionStart hook
+    refute_path_exists(File.join(@temp_dir, "frontend_settings.json"))
+  end
+
+  def test_main_instance_with_existing_hooks_merges_session_start
+    # Create config with main instance that already has hooks
+    config = MockConfiguration.new(
+      {
+        "lead" => {
+          name: "lead",
+          description: "Lead developer",
+          directory: ".",
+          model: "opus",
+          hooks: {
+            "PreToolUse" => [
+              {
+                "matcher" => "Write",
+                "hooks" => [
+                  {
+                    "type" => "command",
+                    "command" => "echo 'pre-write'",
+                  },
+                ],
+              },
+            ],
+            "SessionStart" => [
+              {
+                "matcher" => "resume",
+                "hooks" => [
+                  {
+                    "type" => "command",
+                    "command" => "echo 'resuming'",
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+      main_instance: "lead",
+    )
+
+    generator = ClaudeSwarm::SettingsGenerator.new(config)
+    generator.generate_all
+
+    # Check that both hooks are present
+    lead_settings = JSON.parse(File.read(File.join(@temp_dir, "lead_settings.json")))
+
+    # PreToolUse should be preserved
+    assert_equal(1, lead_settings["hooks"]["PreToolUse"].size)
+    assert_equal("Write", lead_settings["hooks"]["PreToolUse"][0]["matcher"])
+
+    # SessionStart should have both the existing and the new hook
+    assert_equal(2, lead_settings["hooks"]["SessionStart"].size)
+
+    # First should be the existing resume hook
+    assert_equal("resume", lead_settings["hooks"]["SessionStart"][0]["matcher"])
+    assert_equal("echo 'resuming'", lead_settings["hooks"]["SessionStart"][0]["hooks"][0]["command"])
+
+    # Second should be our automatic startup hook
+    assert_equal("startup", lead_settings["hooks"]["SessionStart"][1]["matcher"])
+    assert_match(/session_start_hook\.rb/, lead_settings["hooks"]["SessionStart"][1]["hooks"][0]["command"])
+  end
+
   # Mock configuration class for testing
   class MockConfiguration
-    attr_reader :instances
+    attr_reader :instances, :main_instance
 
-    def initialize(instances)
+    def initialize(instances, main_instance: "lead")
       @instances = instances
+      @main_instance = main_instance
     end
   end
 end

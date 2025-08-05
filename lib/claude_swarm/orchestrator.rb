@@ -17,15 +17,12 @@ module ClaudeSwarm
       restore_session_path: nil, worktree: nil, session_id: nil)
       @config = configuration
       @generator = mcp_generator
-      @settings_generator = SettingsGenerator.new(configuration)
       @vibe = vibe
       @non_interactive_prompt = prompt
       @interactive_prompt = interactive_prompt
       @stream_logs = stream_logs
       @debug = debug
       @restore_session_path = restore_session_path
-      @session_path = nil
-      @session_log_path = nil
       @provided_session_id = session_id
       # Store worktree option for later use
       @worktree_option = worktree
@@ -35,9 +32,41 @@ module ClaudeSwarm
       @modified_instances = nil
       # Track start time for runtime calculation
       @start_time = nil
+      # Track transcript tailing thread
+      @transcript_thread = nil
 
       # Set environment variable for prompt mode to suppress output
       ENV["CLAUDE_SWARM_PROMPT"] = "1" if @non_interactive_prompt
+
+      # Initialize session path
+      if @restore_session_path
+        # Use existing session path for restoration
+        @session_path = @restore_session_path
+        @session_log_path = File.join(@session_path, "session.log")
+      else
+        # Generate new session path
+        session_params = { working_dir: ClaudeSwarm.root_dir }
+        session_params[:session_id] = @provided_session_id if @provided_session_id
+        @session_path = SessionPath.generate(**session_params)
+        SessionPath.ensure_directory(@session_path)
+        @session_log_path = File.join(@session_path, "session.log")
+
+        # Extract session ID from path (the timestamp part)
+        @session_id = File.basename(@session_path)
+
+      end
+      ENV["CLAUDE_SWARM_SESSION_PATH"] = @session_path
+      ENV["CLAUDE_SWARM_ROOT_DIR"] = ClaudeSwarm.root_dir
+
+      # Initialize components that depend on session path
+      @process_tracker = ProcessTracker.new(@session_path)
+      @settings_generator = SettingsGenerator.new(@config)
+
+      # Initialize WorktreeManager if needed
+      if @needs_worktree_manager && !@restore_session_path
+        cli_option = @worktree_option.is_a?(String) && !@worktree_option.empty? ? @worktree_option : nil
+        @worktree_manager = WorktreeManager.new(cli_option, session_id: @session_id)
+      end
     end
 
     def start
@@ -50,25 +79,15 @@ module ClaudeSwarm
           puts "😎 Vibe mode ON" if @vibe
         end
 
-        # Use existing session path
-        session_path = @restore_session_path
-        @session_path = session_path
-        @session_log_path = File.join(@session_path, "session.log")
-        ENV["CLAUDE_SWARM_SESSION_PATH"] = session_path
-        ENV["CLAUDE_SWARM_ROOT_DIR"] = ClaudeSwarm.root_dir
-
         # Create run symlink for restored session
         create_run_symlink
 
         non_interactive_output do
-          puts "📝 Using existing session: #{session_path}/"
+          puts "📝 Using existing session: #{@session_path}/"
         end
 
-        # Initialize process tracker
-        @process_tracker = ProcessTracker.new(session_path)
-
         # Check if the original session used worktrees
-        restore_worktrees_if_needed(session_path)
+        restore_worktrees_if_needed(@session_path)
 
         # Regenerate MCP configurations with session IDs for restoration
         @generator.generate_all
@@ -87,34 +106,15 @@ module ClaudeSwarm
           puts "😎 Vibe mode ON" if @vibe
         end
 
-        # Generate and set session path for all instances
-        session_params = { working_dir: ClaudeSwarm.root_dir }
-        session_params[:session_id] = @provided_session_id if @provided_session_id
-        session_path = SessionPath.generate(**session_params)
-        SessionPath.ensure_directory(session_path)
-        @session_path = session_path
-        @session_log_path = File.join(@session_path, "session.log")
-
-        # Extract session ID from path (the timestamp part)
-        @session_id = File.basename(session_path)
-
-        ENV["CLAUDE_SWARM_SESSION_PATH"] = session_path
-        ENV["CLAUDE_SWARM_ROOT_DIR"] = ClaudeSwarm.root_dir
-
         # Create run symlink for new session
         create_run_symlink
 
         non_interactive_output do
-          puts "📝 Session files will be saved to: #{session_path}/"
+          puts "📝 Session files will be saved to: #{@session_path}/"
         end
 
-        # Initialize process tracker
-        @process_tracker = ProcessTracker.new(session_path)
-
-        # Create WorktreeManager if needed with session ID
-        if @needs_worktree_manager
-          cli_option = @worktree_option.is_a?(String) && !@worktree_option.empty? ? @worktree_option : nil
-          @worktree_manager = WorktreeManager.new(cli_option, session_id: @session_id)
+        # Setup worktrees if needed
+        if @worktree_manager
           non_interactive_output { print("🌳 Setting up Git worktrees...") }
 
           # Get all instances for worktree setup
@@ -141,7 +141,7 @@ module ClaudeSwarm
         end
 
         # Save swarm config path for restoration
-        save_swarm_config_path(session_path)
+        save_swarm_config_path(@session_path)
       end
 
       # Launch the main instance (fetch after worktree setup to get modified paths)
@@ -171,6 +171,9 @@ module ClaudeSwarm
       # Start log streaming thread if in non-interactive mode with --stream-logs
       log_thread = nil
       log_thread = start_log_streaming if @non_interactive_prompt && @stream_logs
+
+      # Start transcript tailing thread for main instance
+      @transcript_thread = start_transcript_tailing
 
       # Write the current process PID (orchestrator) to a file for easy access
       main_pid_file = File.join(@session_path, "main_pid")
@@ -216,6 +219,9 @@ module ClaudeSwarm
         log_thread.terminate
         log_thread.join
       end
+
+      # Clean up transcript tailing thread
+      cleanup_transcript_thread
 
       # Display runtime and cost summary
       display_summary
@@ -289,6 +295,7 @@ module ClaudeSwarm
 
     def cleanup_processes
       @process_tracker.cleanup_all
+      cleanup_transcript_thread
       puts "✓ Cleanup complete"
     rescue StandardError => e
       puts "⚠️  Error during cleanup: #{e.message}"
@@ -574,6 +581,86 @@ module ClaudeSwarm
 
         wait_thr.value
       end
+    end
+
+    def start_transcript_tailing
+      Thread.new do
+        path_file = File.join(@session_path, "main_instance_transcript.path")
+
+        # Wait for path file to exist (created by SessionStart hook)
+        sleep(0.5) until File.exist?(path_file)
+
+        # Read the transcript path
+        transcript_path = File.read(path_file).strip
+
+        # Wait for transcript file to exist
+        sleep(0.5) until File.exist?(transcript_path)
+
+        # Tail the transcript file continuously (like tail -f)
+        File.open(transcript_path, "r") do |file|
+          # Start from the beginning to capture all entries
+          file.seek(0, IO::SEEK_SET) # Start at beginning of file
+
+          loop do
+            line = file.gets
+            if line
+              begin
+                # Parse JSONL entry
+                transcript_entry = JSON.parse(line)
+
+                # Skip summary entries - these are just conversation titles
+                next if transcript_entry["type"] == "summary"
+
+                # Convert to session.log.json format
+                session_entry = convert_transcript_to_session_format(transcript_entry)
+
+                # Write with file locking (same pattern as BaseExecutor)
+                session_json_path = File.join(@session_path, "session.log.json")
+                File.open(session_json_path, File::WRONLY | File::APPEND | File::CREAT) do |log_file|
+                  log_file.flock(File::LOCK_EX)
+                  log_file.puts(session_entry.to_json)
+                  log_file.flock(File::LOCK_UN)
+                end
+              rescue JSON::ParserError
+                # Silently skip unparseable lines
+              rescue StandardError
+                # Silently handle other errors to keep thread running
+              end
+            else
+              # No new data, sleep briefly
+              sleep(0.1)
+            end
+          end
+        end
+      rescue StandardError
+        # Silently handle thread errors
+      end
+    end
+
+    def convert_transcript_to_session_format(transcript_entry)
+      {
+        instance: @config.main_instance,
+        instance_id: "main",
+        timestamp: transcript_entry["timestamp"] || Time.now.iso8601,
+        event: {
+          type: "transcript",
+          source: "main_instance",
+          data: transcript_entry,
+        },
+      }
+    end
+
+    def cleanup_transcript_thread
+      return unless @transcript_thread
+
+      @transcript_thread.terminate if @transcript_thread.alive?
+      @transcript_thread.join(1) # Wait up to 1 second for thread to finish
+    rescue StandardError => e
+      logger.error { "Error cleaning up transcript thread: #{e.message}" }
+    end
+
+    def logger
+      @logger ||= Logger.new(File.join(@session_path, "session.log"), level: :info, progname: "orchestrator")
     end
 
     def execute_commands(commands, phase:, fail_fast:)

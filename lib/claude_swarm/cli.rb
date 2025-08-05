@@ -693,7 +693,12 @@ module ClaudeSwarm
     def build_generation_prompt(readme_content, output_file)
       template_path = File.expand_path("templates/generation_prompt.md.erb", __dir__)
       template = File.read(template_path)
-      ERB.new(template, trim_mode: "-").result(binding)
+      <<~PROMPT
+        #{ERB.new(template, trim_mode: "-").result(binding)}
+
+        Start the conversation by greeting the user and asking: 'What kind of project would you like to create a Claude Swarm for?'
+        Say: 'I am ready to start'
+      PROMPT
     end
   end
 end
