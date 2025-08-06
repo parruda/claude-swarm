@@ -1,4 +1,4 @@
-## [Unreleased]
+## [0.3.10]
 
 ### Added
 - **Token-based cost calculation for main instance**: Main instance costs in interactive mode are now calculated from token usage using Claude model pricing
