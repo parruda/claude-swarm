@@ -64,13 +64,13 @@ module ClaudeSwarm
               },
             },
           },
-          # Other instance with cumulative cost
+          # Other instance with cost_usd
           {
             "instance" => "worker",
             "instance_id" => "worker_123",
             "calling_instance" => "lead_developer",
             "calling_instance_id" => "main",
-            "event" => { "type" => "result", "total_cost_usd" => 0.05 },
+            "event" => { "type" => "result", "cost_usd" => 0.05 },
           },
         ].map(&:to_json).join("\n")
         File.write(File.join(@session_path, "session.log.json"), json_log)
@@ -124,7 +124,7 @@ module ClaudeSwarm
           {
             "instance" => "worker",
             "instance_id" => "worker_123",
-            "event" => { "type" => "result", "total_cost_usd" => 0.10 },
+            "event" => { "type" => "result", "cost_usd" => 0.10 },
           },
         ].map(&:to_json).join("\n")
         File.write(File.join(@session_path, "session.log.json"), json_log)

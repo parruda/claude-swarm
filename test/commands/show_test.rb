@@ -74,7 +74,7 @@ module ClaudeSwarm
         json_log = {
           "instance" => "orchestrator",
           "instance_id" => "orchestrator_123",
-          "event" => { "type" => "result", "total_cost_usd" => 0.5 },
+          "event" => { "type" => "result", "cost_usd" => 0.5 },
         }.to_json
         File.write(File.join(@test_session_dir, "session.log.json"), json_log)
 
@@ -164,17 +164,17 @@ module ClaudeSwarm
           {
             "instance" => "frontend",
             "instance_id" => "frontend_123",
-            "event" => { "type" => "result", "total_cost_usd" => 0.1 },
+            "event" => { "type" => "result", "cost_usd" => 0.1 },
           },
           {
             "instance" => "backend",
             "instance_id" => "backend_123",
-            "event" => { "type" => "result", "total_cost_usd" => 0.2 },
+            "event" => { "type" => "result", "cost_usd" => 0.2 },
           },
           {
             "instance" => "database",
             "instance_id" => "database_123",
-            "event" => { "type" => "result", "total_cost_usd" => 0.05 },
+            "event" => { "type" => "result", "cost_usd" => 0.05 },
           },
         ].map(&:to_json).join("\n")
 
@@ -238,7 +238,7 @@ module ClaudeSwarm
           {
             "instance" => "worker",
             "instance_id" => "worker_123",
-            "event" => { "type" => "result", "total_cost_usd" => 0.3579 },
+            "event" => { "type" => "result", "cost_usd" => 0.3579 },
           },
         ].map(&:to_json).join("\n")
 

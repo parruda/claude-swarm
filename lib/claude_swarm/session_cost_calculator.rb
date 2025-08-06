@@ -75,12 +75,12 @@ module ClaudeSwarm
 
     # Calculate total cost from session log file
     # Returns a hash with:
-    # - total_cost: Total cost in USD (handles session resets and main instance token costs)
+    # - total_cost: Total cost in USD (sum of cost_usd for instances, token costs for main)
     # - instances_with_cost: Set of instance names that have cost data
     def calculate_total_cost(session_log_path)
       return { total_cost: 0.0, instances_with_cost: Set.new } unless File.exist?(session_log_path)
 
-      # Track costs per instance, handling session resets
+      # Track costs per instance - simple sum of cost_usd
       instance_costs = {}
       instances_with_cost = Set.new
       main_instance_cost = 0.0
@@ -99,31 +99,21 @@ module ClaudeSwarm
             main_instance_cost += token_cost
             instances_with_cost << instance_name if token_cost > 0
           end
-        # Handle other instances with cumulative costs (exclude main instance)
-        elsif instance_id != "main" && data.dig("event", "type") == "result" && (cost = data.dig("event", "total_cost_usd"))
-          instances_with_cost << instance_name
-
-          # Initialize tracking for this instance if needed
-          instance_costs[instance_name] ||= {
-            accumulated: 0.0,  # Total accumulated from previous sessions
-            last_seen: 0.0,    # Last cumulative value seen
-          }
-
-          # Check if session was reset (cost went down)
-          if cost < instance_costs[instance_name][:last_seen]
-            # Session was reset - add the previous session's total to accumulated
-            instance_costs[instance_name][:accumulated] += instance_costs[instance_name][:last_seen]
+        # Handle other instances with cost_usd (non-cumulative)
+        elsif instance_id != "main" && data.dig("event", "type") == "result"
+          # Use cost_usd (non-cumulative) instead of total_cost_usd (cumulative)
+          if (cost = data.dig("event", "cost_usd"))
+            instances_with_cost << instance_name
+            instance_costs[instance_name] ||= 0.0
+            instance_costs[instance_name] += cost
           end
-
-          # Update last seen cost
-          instance_costs[instance_name][:last_seen] = cost
         end
       rescue JSON::ParserError
         next
       end
 
-      # Calculate total: accumulated + current cumulative for each instance + main instance token costs
-      other_instances_cost = instance_costs.values.sum { |costs| costs[:accumulated] + costs[:last_seen] }
+      # Calculate total: sum of all instance costs + main instance token costs
+      other_instances_cost = instance_costs.values.sum
       total_cost = other_instances_cost + main_instance_cost
 
       {
@@ -141,8 +131,6 @@ module ClaudeSwarm
     # Returns a hash of instances with their cost data and relationships
     def parse_instance_hierarchy(session_log_path)
       instances = {}
-      # Track session resets per instance
-      cost_tracking = {}
       # Track main instance token costs
       main_instance_costs = {}
 
@@ -194,27 +182,12 @@ module ClaudeSwarm
               instances[instance_name][:calls] += 1
             end
           end
-        # Track costs and calls for non-main instances
+        # Track costs and calls for non-main instances using cost_usd
         elsif data.dig("event", "type") == "result" && instance_id != "main"
           instances[instance_name][:calls] += 1
-          if (cost = data.dig("event", "total_cost_usd"))
-            # Initialize cost tracking for this instance
-            cost_tracking[instance_name] ||= {
-              accumulated: 0.0,
-              last_seen: 0.0,
-            }
-
-            # Check if session was reset (cost went down)
-            if cost < cost_tracking[instance_name][:last_seen]
-              # Session was reset - add the previous session's total to accumulated
-              cost_tracking[instance_name][:accumulated] += cost_tracking[instance_name][:last_seen]
-            end
-
-            # Update last seen cost
-            cost_tracking[instance_name][:last_seen] = cost
-
-            # Set the total cost (accumulated + current)
-            instances[instance_name][:cost] = cost_tracking[instance_name][:accumulated] + cost
+          # Use cost_usd (non-cumulative) instead of total_cost_usd
+          if (cost = data.dig("event", "cost_usd"))
+            instances[instance_name][:cost] += cost
             instances[instance_name][:has_cost_data] = true
           end
         end

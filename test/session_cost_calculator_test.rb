@@ -14,43 +14,43 @@ class SessionCostCalculatorTest < Minitest::Test
     FileUtils.rm_rf(@tmpdir)
   end
 
-  def test_calculate_total_cost_with_cumulative_costs
-    # Create session log with cumulative costs
+  def test_calculate_total_cost_with_cost_usd
+    # Create session log with cost_usd (non-cumulative)
     File.open(@session_log_path, "w") do |f|
-      # Instance 1: Multiple results with cumulative costs
+      # Instance 1: Multiple results with cost_usd
       f.puts({
         instance: "agent1",
-        event: { type: "result", total_cost_usd: 0.05 },
+        event: { type: "result", cost_usd: 0.05 },
       }.to_json)
       f.puts({
         instance: "agent1",
-        event: { type: "result", total_cost_usd: 0.10 },
+        event: { type: "result", cost_usd: 0.05 },
       }.to_json)
       f.puts({
         instance: "agent1",
-        event: { type: "result", total_cost_usd: 0.15 },
+        event: { type: "result", cost_usd: 0.05 },
       }.to_json)
 
-      # Instance 2: Multiple results with cumulative costs
+      # Instance 2: Multiple results with cost_usd
       f.puts({
         instance: "agent2",
-        event: { type: "result", total_cost_usd: 0.02 },
+        event: { type: "result", cost_usd: 0.02 },
       }.to_json)
       f.puts({
         instance: "agent2",
-        event: { type: "result", total_cost_usd: 0.07 },
+        event: { type: "result", cost_usd: 0.05 },
       }.to_json)
 
       # Instance 3: Single result
       f.puts({
         instance: "agent3",
-        event: { type: "result", total_cost_usd: 0.03 },
+        event: { type: "result", cost_usd: 0.03 },
       }.to_json)
     end
 
     result = ClaudeSwarm::SessionCostCalculator.calculate_total_cost(@session_log_path)
 
-    # Total should be: 0.15 (last from agent1) + 0.07 (last from agent2) + 0.03 (from agent3) = 0.25
+    # Total should be: 0.15 (sum from agent1) + 0.07 (sum from agent2) + 0.03 (from agent3) = 0.25
     assert_in_delta(0.25, result[:total_cost], 0.001)
     assert_equal(Set.new(["agent1", "agent2", "agent3"]), result[:instances_with_cost])
   end
@@ -81,8 +81,8 @@ class SessionCostCalculatorTest < Minitest::Test
     assert_equal(Set.new, result[:instances_with_cost])
   end
 
-  def test_parse_instance_hierarchy_with_cumulative_costs
-    # Create session log with relationships and cumulative costs
+  def test_parse_instance_hierarchy_with_cost_usd
+    # Create session log with relationships and cost_usd
     File.open(@session_log_path, "w") do |f|
       # Agent1 calls agent2
       f.puts({
@@ -98,21 +98,21 @@ class SessionCostCalculatorTest < Minitest::Test
         instance: "agent2",
         instance_id: "agent2_123",
         calling_instance: "agent1",
-        event: { type: "result", total_cost_usd: 0.05 },
+        event: { type: "result", cost_usd: 0.05 },
       }.to_json)
 
-      # Agent2 second result (cumulative)
+      # Agent2 second result
       f.puts({
         instance: "agent2",
         instance_id: "agent2_123",
         calling_instance: "agent1",
-        event: { type: "result", total_cost_usd: 0.12 },
+        event: { type: "result", cost_usd: 0.07 },
       }.to_json)
     end
 
     instances = ClaudeSwarm::SessionCostCalculator.parse_instance_hierarchy(@session_log_path)
 
-    # Agent2 should have the last cumulative cost (0.12), not the sum
+    # Agent2 should have the sum of costs (0.12)
     assert_in_delta(0.12, instances["agent2"][:cost])
     assert_equal(2, instances["agent2"][:calls])
     assert(instances["agent2"][:has_cost_data])
@@ -127,116 +127,76 @@ class SessionCostCalculatorTest < Minitest::Test
     File.open(@session_log_path, "w") do |f|
       f.puts({
         instance: "agent1",
-        event: { type: "result", total_cost_usd: 0.05 },
+        event: { type: "result", cost_usd: 0.05 },
       }.to_json)
       f.puts({
         instance: "agent1",
-        event: { type: "result", total_cost_usd: 0.10 },
+        event: { type: "result", cost_usd: 0.05 },
       }.to_json)
     end
 
     total = ClaudeSwarm::SessionCostCalculator.calculate_simple_total(@session_log_path)
 
-    # Should return just the last cumulative cost
+    # Should return the sum of all costs
     assert_in_delta(0.10, total, 0.001)
   end
 
-  def test_calculate_total_cost_with_session_reset
-    # Create session log with session reset
+  def test_calculate_total_cost_with_multiple_calls
+    # Create session log with multiple calls that would have been session resets
     File.open(@session_log_path, "w") do |f|
-      # First session
+      # Multiple calls with cost_usd
       f.puts({
         instance: "agent1",
-        event: { type: "result", total_cost_usd: 0.05 },
+        event: { type: "result", cost_usd: 0.05 },
       }.to_json)
       f.puts({
         instance: "agent1",
-        event: { type: "result", total_cost_usd: 0.10 },
+        event: { type: "result", cost_usd: 0.05 },
       }.to_json)
       f.puts({
         instance: "agent1",
-        event: { type: "result", total_cost_usd: 0.15 },
+        event: { type: "result", cost_usd: 0.05 },
       }.to_json)
-
-      # Session reset - cost goes down
+      # This would have been a "reset" with total_cost_usd
       f.puts({
         instance: "agent1",
-        event: { type: "result", total_cost_usd: 0.02 },
+        event: { type: "result", cost_usd: 0.02 },
       }.to_json)
       f.puts({
         instance: "agent1",
-        event: { type: "result", total_cost_usd: 0.05 },
+        event: { type: "result", cost_usd: 0.03 },
       }.to_json)
     end
 
     result = ClaudeSwarm::SessionCostCalculator.calculate_total_cost(@session_log_path)
 
-    # Total should be: 0.15 (from first session) + 0.05 (from second session) = 0.20
+    # Total should be sum of all: 0.05 + 0.05 + 0.05 + 0.02 + 0.03 = 0.20
     assert_in_delta(0.20, result[:total_cost], 0.001)
   end
 
-  def test_calculate_total_cost_with_multiple_resets
-    # Create session log with multiple session resets
+  def test_parse_instance_hierarchy_with_multiple_calls
+    # Create session log with multiple calls
     File.open(@session_log_path, "w") do |f|
-      # First session
-      f.puts({
-        instance: "agent1",
-        event: { type: "result", total_cost_usd: 0.10 },
-      }.to_json)
-
-      # First reset
-      f.puts({
-        instance: "agent1",
-        event: { type: "result", total_cost_usd: 0.05 },
-      }.to_json)
-
-      # Second reset
-      f.puts({
-        instance: "agent1",
-        event: { type: "result", total_cost_usd: 0.03 },
-      }.to_json)
-
-      # Continue after second reset
-      f.puts({
-        instance: "agent1",
-        event: { type: "result", total_cost_usd: 0.08 },
-      }.to_json)
-    end
-
-    result = ClaudeSwarm::SessionCostCalculator.calculate_total_cost(@session_log_path)
-
-    # Total should be: 0.10 (first) + 0.05 (second) + 0.08 (third) = 0.23
-    assert_in_delta(0.23, result[:total_cost], 0.001)
-  end
-
-  def test_parse_instance_hierarchy_with_session_reset
-    # Create session log with session reset
-    File.open(@session_log_path, "w") do |f|
-      # First session
       f.puts({
         instance: "agent1",
         instance_id: "agent1_123",
-        event: { type: "result", total_cost_usd: 0.10 },
+        event: { type: "result", cost_usd: 0.10 },
       }.to_json)
-
-      # Session reset - cost goes down
       f.puts({
         instance: "agent1",
         instance_id: "agent1_123",
-        event: { type: "result", total_cost_usd: 0.05 },
+        event: { type: "result", cost_usd: 0.05 },
       }.to_json)
-
-      # Continue accumulating
       f.puts({
         instance: "agent1",
         instance_id: "agent1_123",
-        event: { type: "result", total_cost_usd: 0.07 },
+        event: { type: "result", cost_usd: 0.02 },
       }.to_json)
     end
 
     instances = ClaudeSwarm::SessionCostCalculator.parse_instance_hierarchy(@session_log_path)
 
-    # Total cost should be: 0.10 (first session) + 0.07 (current) = 0.17
+    # Total cost should be sum: 0.10 + 0.05 + 0.02 = 0.17
     assert_in_delta(0.17, instances["agent1"][:cost], 0.001)
     assert_equal(3, instances["agent1"][:calls])
   end
@@ -278,7 +238,7 @@ class SessionCostCalculatorTest < Minitest::Test
   end
 
   def test_mixed_main_and_other_instances
-    # Create session log with both main instance token costs and other instance cumulative costs
+    # Create session log with both main instance token costs and other instance cost_usd
     File.open(@session_log_path, "w") do |f|
       # Main instance with Sonnet model
       f.puts({
@@ -297,11 +257,11 @@ class SessionCostCalculatorTest < Minitest::Test
         },
       }.to_json)
 
-      # Other instance with cumulative cost
+      # Other instance with cost_usd
       f.puts({
         instance: "worker",
         instance_id: "worker_123",
-        event: { type: "result", total_cost_usd: 0.10 },
+        event: { type: "result", cost_usd: 0.10 },
       }.to_json)
 
       # Another main instance message with Haiku
@@ -386,7 +346,7 @@ class SessionCostCalculatorTest < Minitest::Test
       f.puts({
         instance: "lead",
         instance_id: "main",
-        event: { type: "result", total_cost_usd: 0.50 },
+        event: { type: "result", cost_usd: 0.50 },
       }.to_json)
 
       # Another token cost for main
@@ -415,45 +375,45 @@ class SessionCostCalculatorTest < Minitest::Test
     assert_in_delta(0.1575, result[:total_cost], 0.0001)
   end
 
-  def test_multiple_instances_with_resets
-    # Create session log with multiple instances and resets
+  def test_multiple_instances_with_cost_usd
+    # Create session log with multiple instances using cost_usd
     File.open(@session_log_path, "w") do |f|
-      # Agent1 accumulates
+      # Agent1 costs
       f.puts({
         instance: "agent1",
-        event: { type: "result", total_cost_usd: 0.10 },
+        event: { type: "result", cost_usd: 0.10 },
       }.to_json)
 
-      # Agent2 accumulates
+      # Agent2 costs
       f.puts({
         instance: "agent2",
-        event: { type: "result", total_cost_usd: 0.05 },
+        event: { type: "result", cost_usd: 0.05 },
       }.to_json)
 
-      # Agent1 resets
+      # Agent1 more costs
       f.puts({
         instance: "agent1",
-        event: { type: "result", total_cost_usd: 0.03 },
+        event: { type: "result", cost_usd: 0.03 },
       }.to_json)
 
-      # Agent2 continues (no reset)
+      # Agent2 more costs
       f.puts({
         instance: "agent2",
-        event: { type: "result", total_cost_usd: 0.08 },
+        event: { type: "result", cost_usd: 0.03 },
       }.to_json)
 
-      # Agent1 continues after reset
+      # Agent1 more costs
       f.puts({
         instance: "agent1",
-        event: { type: "result", total_cost_usd: 0.06 },
+        event: { type: "result", cost_usd: 0.03 },
       }.to_json)
     end
 
     result = ClaudeSwarm::SessionCostCalculator.calculate_total_cost(@session_log_path)
 
     # Total should be:
-    # Agent1: 0.10 (before reset) + 0.06 (after reset) = 0.16
-    # Agent2: 0.08 (no reset, just cumulative) = 0.08
+    # Agent1: 0.10 + 0.03 + 0.03 = 0.16
+    # Agent2: 0.05 + 0.03 = 0.08
     # Total: 0.16 + 0.08 = 0.24
     assert_in_delta(0.24, result[:total_cost], 0.001)
   end
