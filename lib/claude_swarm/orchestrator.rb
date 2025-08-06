@@ -611,11 +611,14 @@ module ClaudeSwarm
                 # Convert to session.log.json format
                 session_entry = convert_transcript_to_session_format(transcript_entry)
 
-                # Write with file locking (same pattern as BaseExecutor)
-                session_json_path = File.join(@session_path, "session.log.json")
-                File.open(session_json_path, File::WRONLY | File::APPEND | File::CREAT) do |log_file|
-                  log_file.flock(File::LOCK_EX)
-                  log_file.puts(session_entry.to_json)
+                # Only write if we got a valid conversion (skips summary and other non-relevant entries)
+                if session_entry
+                  # Write with file locking (same pattern as BaseExecutor)
+                  session_json_path = File.join(@session_path, "session.log.json")
+                  File.open(session_json_path, File::WRONLY | File::APPEND | File::CREAT) do |log_file|
+                    log_file.flock(File::LOCK_EX)
+                    log_file.puts(session_entry.to_json)
+                  end
                 end
               rescue JSON::ParserError
                 # Silently skip unparseable lines
@@ -634,16 +637,92 @@ module ClaudeSwarm
     end
 
     def convert_transcript_to_session_format(transcript_entry)
-      {
-        instance: @config.main_instance,
-        instance_id: "main",
-        timestamp: transcript_entry["timestamp"] || Time.now.iso8601,
-        event: {
-          type: "transcript",
-          source: "main_instance",
-          data: transcript_entry,
-        },
-      }
+      # Skip if no type
+      return unless transcript_entry["type"]
+
+      instance_name = @config.main_instance
+      instance_id = "main"
+      timestamp = transcript_entry["timestamp"] || Time.now.iso8601
+
+      case transcript_entry["type"]
+      when "user"
+        # User message - format as request from user to main instance
+        message = transcript_entry["message"]
+
+        # Extract prompt text - message might be a string or an object
+        prompt_text = if message.is_a?(String)
+          message
+        elsif message.is_a?(Hash)
+          content = message["content"]
+          if content.is_a?(String)
+            content
+          elsif content.is_a?(Array)
+            # For tool results or complex content, extract text
+            extract_text_from_array(content)
+          else
+            ""
+          end
+        else
+          ""
+        end
+
+        {
+          instance: instance_name,
+          instance_id: instance_id,
+          timestamp: timestamp,
+          event: {
+            type: "request",
+            from_instance: "user",
+            from_instance_id: "user",
+            to_instance: instance_name,
+            to_instance_id: instance_id,
+            prompt: prompt_text,
+            timestamp: timestamp,
+          },
+        }
+      when "assistant"
+        # Assistant message - format as assistant response
+        message = transcript_entry["message"]
+
+        # Build a clean message structure without transcript-specific fields
+        clean_message = {
+          "type" => "message",
+          "role" => "assistant",
+        }
+
+        # Handle different message formats
+        if message.is_a?(String)
+          # Simple string message
+          clean_message["content"] = [{ "type" => "text", "text" => message }]
+        elsif message.is_a?(Hash)
+          # Only include the fields that other instances include
+          clean_message["content"] = message["content"] if message["content"]
+          clean_message["model"] = message["model"] if message["model"]
+          clean_message["usage"] = message["usage"] if message["usage"]
+        end
+
+        {
+          instance: instance_name,
+          instance_id: instance_id,
+          timestamp: timestamp,
+          event: {
+            type: "assistant",
+            message: clean_message,
+            session_id: transcript_entry["sessionId"],
+          },
+        }
+      end
+      # For other types (like summary), return nil to skip them
+    end
+
+    def extract_text_from_array(content)
+      content.map do |item|
+        if item.is_a?(Hash)
+          item["text"] || item["content"] || ""
+        else
+          item.to_s
+        end
+      end.join("\n")
     end
 
     def cleanup_transcript_thread

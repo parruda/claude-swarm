@@ -34,6 +34,9 @@ module ClaudeSwarm
           return
         end
 
+        # Check if any session is missing main instance costs
+        any_missing_main = sessions.any? { |s| !s[:main_has_cost] }
+
         # Column widths
         col_session = 15
         col_swarm = 25
@@ -50,13 +53,23 @@ module ClaudeSwarm
         }  #{
           "UPTIME".ljust(col_uptime)
         }  DIRECTORY"
-        puts "\n⚠️  \e[3mTotal cost does not include the cost of the main instance\e[0m\n\n"
+
+        # Only show warning if any session is missing main instance costs
+        if any_missing_main
+          puts "\n⚠️  \e[3mTotal cost does not include the cost of the main instance for some sessions\e[0m\n\n"
+        else
+          puts
+        end
+
         puts header
         puts "-" * header.length
 
         # Display sessions sorted by start time (newest first)
         sessions.sort_by { |s| s[:start_time] }.reverse.each do |session|
           cost_str = format("$%.4f", session[:cost])
+          # Add asterisk if this session is missing main instance cost
+          cost_str += "*" unless session[:main_has_cost]
+
           puts "#{
             session[:id].ljust(col_session)
           }  #{
@@ -107,7 +120,12 @@ module ClaudeSwarm
 
         # Calculate total cost from JSON log
         log_file = File.join(session_dir, "session.log.json")
-        total_cost = SessionCostCalculator.calculate_simple_total(log_file)
+        cost_result = SessionCostCalculator.calculate_total_cost(log_file)
+        total_cost = cost_result[:total_cost]
+
+        # Check if main instance has cost data
+        instances_with_cost = cost_result[:instances_with_cost]
+        main_has_cost = main_instance && instances_with_cost.include?(main_instance)
 
         # Get uptime from session metadata or fallback to directory creation time
         start_time = get_start_time(session_dir)
@@ -117,6 +135,7 @@ module ClaudeSwarm
           id: session_id,
           name: swarm_name,
           cost: total_cost,
+          main_has_cost: main_has_cost,
           uptime: uptime,
           directory: directories_str,
           start_time: start_time,

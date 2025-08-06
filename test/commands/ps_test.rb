@@ -50,10 +50,10 @@ module ClaudeSwarm
         }
         File.write(File.join(@test_session_dir, "config.yml"), config.to_yaml)
 
-        # Create test JSON log with costs
+        # Create test JSON log with cost_usd from same instance
         json_log = [
-          { "event" => { "type" => "result", "total_cost_usd" => 0.1234 } },
-          { "event" => { "type" => "result", "total_cost_usd" => 0.2345 } },
+          { "instance" => "agent1", "event" => { "type" => "result", "cost_usd" => 0.1111 } },
+          { "instance" => "agent1", "event" => { "type" => "result", "cost_usd" => 0.1234 } },
           { "event" => { "type" => "other" } },
         ].map(&:to_json).join("\n")
         File.write(File.join(@test_session_dir, "session.log.json"), json_log)
@@ -70,9 +70,12 @@ module ClaudeSwarm
         assert_includes(output, "DIRECTORY")
         assert_match(/test-session-123/, output)
         assert_match(/Test Swarm/, output)
-        assert_match(/\$0\.3579/, output)
+        # Should show sum of costs for the instance with asterisk (no main instance cost)
+        assert_match(/\$0\.2345\*/, output)
         assert_match(/\d+s/, output) # Should show uptime
         assert_match(/\./, output) # Should show directory
+        # Should show warning about missing main instance costs
+        assert_match(/Total cost does not include the cost of the main instance/, output)
       end
 
       def test_execute_with_stale_symlink
@@ -92,6 +95,53 @@ module ClaudeSwarm
         output = capture_io { Commands::Ps.new.execute }.first
 
         assert_equal("No active sessions\n", output)
+      end
+
+      def test_execute_with_main_instance_costs
+        # Create test config
+        config = {
+          "swarm" => {
+            "name" => "Test Swarm",
+            "main" => "leader",
+            "instances" => {
+              "leader" => {
+                "directory" => ".",
+              },
+            },
+          },
+        }
+        File.write(File.join(@test_session_dir, "config.yml"), config.to_yaml)
+
+        # Create test JSON log with main instance token costs
+        json_log = [
+          {
+            "instance" => "leader",
+            "instance_id" => "main",
+            "event" => {
+              "type" => "assistant",
+              "message" => {
+                "model" => "claude-3-5-sonnet-20241022",
+                "usage" => {
+                  "input_tokens" => 1000,
+                  "output_tokens" => 500,
+                },
+              },
+            },
+          },
+          { "instance" => "agent1", "event" => { "type" => "result", "cost_usd" => 0.10 } },
+        ].map(&:to_json).join("\n")
+        File.write(File.join(@test_session_dir, "session.log.json"), json_log)
+
+        # Create symlink
+        File.symlink(@test_session_dir, File.join(@run_dir, "test-session-123"))
+
+        output = capture_io { Commands::Ps.new.execute }.first
+
+        # Should NOT show warning about missing main instance costs
+        refute_match(/Total cost does not include the cost of the main instance/, output)
+        # Should NOT have asterisk on cost (main instance cost included)
+        assert_match(/\$0\.1/, output)
+        refute_match(/\$0\.\d+\*/, output)
       end
 
       def test_execute_with_no_json_log

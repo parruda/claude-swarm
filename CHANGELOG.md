@@ -1,3 +1,28 @@
+## [Unreleased]
+
+### Added
+- **Token-based cost calculation for main instance**: Main instance costs in interactive mode are now calculated from token usage using Claude model pricing
+  - Opus: $15/MTok input, $75/MTok output, $18.75/MTok cache write, $1.50/MTok cache read
+  - Sonnet: $3/MTok input, $15/MTok output, $3.75/MTok cache write, $0.30/MTok cache read  
+  - Haiku: $0.80/MTok input, $4/MTok output, $1/MTok cache write, $0.08/MTok cache read
+  - Automatically extracts usage data from assistant messages in session logs
+
+### Changed
+- **Simplified cost calculation**: Switched from cumulative `total_cost_usd` to per-request `cost_usd` for non-main instances
+  - Removed complex session reset detection logic
+  - Now uses simple summation of individual request costs
+  - More accurate and maintainable cost tracking
+- **Improved ps command cost display**: 
+  - Only shows cost warning when sessions are missing main instance data
+  - Adds asterisk (*) indicator to costs that exclude main instance
+  - Displays accurate total costs including main instance when available
+
+### Fixed
+- **Main instance log format consistency**: Fixed transcript logs in interactive mode to match standard instance log format
+  - Converted transcript wrapper to request/assistant event structure
+  - Properly extracts text content from nested message arrays
+  - Ensures uniform log parsing across all instances
+
 ## [0.3.9]
 
 ### Added

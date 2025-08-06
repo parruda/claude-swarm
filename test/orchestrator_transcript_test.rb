@@ -99,9 +99,9 @@ class OrchestratorTranscriptTest < Minitest::Test
     assert_equal("lead", first_entry["instance"])
     assert_equal("main", first_entry["instance_id"])
     assert(first_entry["timestamp"])
-    assert_equal("transcript", first_entry["event"]["type"])
-    assert_equal("main_instance", first_entry["event"]["source"])
-    assert(first_entry["event"]["data"])
+    assert_equal("request", first_entry["event"]["type"])
+    assert_equal("user", first_entry["event"]["from_instance"])
+    assert(first_entry["event"]["prompt"])
 
     # Clean up thread
     thread.terminate
@@ -144,7 +144,7 @@ class OrchestratorTranscriptTest < Minitest::Test
     entries = File.readlines(session_json).map { |line| JSON.parse(line) }
 
     assert_equal(1, entries.size)
-    assert_equal("user", entries.first["event"]["data"]["type"])
+    assert_equal("request", entries.first["event"]["type"])
 
     # Clean up thread
     thread.terminate
@@ -235,9 +235,9 @@ class OrchestratorTranscriptTest < Minitest::Test
     assert_equal("lead", result[:instance])
     assert_equal("main", result[:instance_id])
     assert_equal("2025-01-01T00:00:00Z", result[:timestamp])
-    assert_equal("transcript", result[:event][:type])
-    assert_equal("main_instance", result[:event][:source])
-    assert_equal(transcript_entry, result[:event][:data])
+    assert_equal("request", result[:event][:type])
+    assert_equal("user", result[:event][:from_instance])
+    assert_equal("test message", result[:event][:prompt])
   end
 
   def test_convert_transcript_without_timestamp
@@ -254,6 +254,8 @@ class OrchestratorTranscriptTest < Minitest::Test
     # Should have generated timestamp
     assert(result[:timestamp])
     assert_match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/, result[:timestamp])
+    assert_equal("request", result[:event][:type])
+    assert_equal("test message", result[:event][:prompt])
   end
 
   def test_transcript_tailing_skips_summary_entries
@@ -290,11 +292,11 @@ class OrchestratorTranscriptTest < Minitest::Test
     assert_equal(2, entries.size)
 
     # Verify the entries are the correct ones
-    assert_equal("user", entries[0]["event"]["data"]["type"])
-    assert_equal("Hello", entries[0]["event"]["data"]["message"])
+    assert_equal("request", entries[0]["event"]["type"])
+    assert_equal("Hello", entries[0]["event"]["prompt"])
 
-    assert_equal("assistant", entries[1]["event"]["data"]["type"])
-    assert_equal("Hi there", entries[1]["event"]["data"]["message"])
+    assert_equal("assistant", entries[1]["event"]["type"])
+    assert_equal("Hi there", entries[1]["event"]["message"]["content"][0]["text"])
 
     # Clean up thread
     thread.terminate
@@ -331,8 +333,8 @@ class OrchestratorTranscriptTest < Minitest::Test
 
     # Should have both existing entries
     assert_equal(2, entries.size)
-    assert_equal("First entry", entries[0]["event"]["data"]["message"])
-    assert_equal("Second entry", entries[1]["event"]["data"]["message"])
+    assert_equal("First entry", entries[0]["event"]["prompt"])
+    assert_equal("Second entry", entries[1]["event"]["message"]["content"][0]["text"])
 
     # Now add a new entry
     File.open(transcript_file, "a") do |f|
@@ -347,7 +349,7 @@ class OrchestratorTranscriptTest < Minitest::Test
 
     # Should now have 3 entries total
     assert_equal(3, entries.size)
-    assert_equal("Third entry", entries[2]["event"]["data"]["message"])
+    assert_equal("Third entry", entries[2]["event"]["prompt"])
 
     # Clean up thread
     thread.terminate
