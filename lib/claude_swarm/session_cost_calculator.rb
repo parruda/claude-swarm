@@ -99,8 +99,8 @@ module ClaudeSwarm
             main_instance_cost += token_cost
             instances_with_cost << instance_name if token_cost > 0
           end
-        # Handle other instances with cumulative costs
-        elsif data.dig("event", "type") == "result" && (cost = data.dig("event", "total_cost_usd"))
+        # Handle other instances with cumulative costs (exclude main instance)
+        elsif instance_id != "main" && data.dig("event", "type") == "result" && (cost = data.dig("event", "total_cost_usd"))
           instances_with_cost << instance_name
 
           # Initialize tracking for this instance if needed
@@ -194,8 +194,8 @@ module ClaudeSwarm
               instances[instance_name][:calls] += 1
             end
           end
-        # Track costs and calls for other instances
-        elsif data.dig("event", "type") == "result"
+        # Track costs and calls for non-main instances
+        elsif data.dig("event", "type") == "result" && instance_id != "main"
           instances[instance_name][:calls] += 1
           if (cost = data.dig("event", "total_cost_usd"))
             # Initialize cost tracking for this instance
@@ -222,9 +222,12 @@ module ClaudeSwarm
         next
       end
 
-      # Add main instance token costs to final totals
+      # Set main instance costs (replace, don't add)
       main_instance_costs.each do |name, cost|
-        instances[name][:cost] += cost if instances[name]
+        if instances[name]
+          # For main instances, use ONLY token costs, not cumulative costs
+          instances[name][:cost] = cost
+        end
       end
 
       instances

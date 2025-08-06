@@ -363,6 +363,58 @@ class SessionCostCalculatorTest < Minitest::Test
     assert_in_delta(0.0, calc.calculate_token_cost(nil, "claude-opus-4-1"))
   end
 
+  def test_no_double_counting_main_instance
+    # Test that main instance with both token costs and result events doesn't double count
+    File.open(@session_log_path, "w") do |f|
+      # Main instance with token costs
+      f.puts({
+        instance: "lead",
+        instance_id: "main",
+        event: {
+          type: "assistant",
+          message: {
+            model: "claude-opus-4-1-20250805",
+            usage: {
+              "input_tokens" => 1000,
+              "output_tokens" => 500,
+            },
+          },
+        },
+      }.to_json)
+
+      # Main instance with result event (should be ignored)
+      f.puts({
+        instance: "lead",
+        instance_id: "main",
+        event: { type: "result", total_cost_usd: 0.50 },
+      }.to_json)
+
+      # Another token cost for main
+      f.puts({
+        instance: "lead",
+        instance_id: "main",
+        event: {
+          type: "assistant",
+          message: {
+            model: "claude-opus-4-1-20250805",
+            usage: {
+              "input_tokens" => 2000,
+              "output_tokens" => 1000,
+            },
+          },
+        },
+      }.to_json)
+    end
+
+    result = ClaudeSwarm::SessionCostCalculator.calculate_total_cost(@session_log_path)
+
+    # Should only count token costs, not the result event
+    # First: 1000/1M * $15 + 500/1M * $75 = $0.015 + $0.0375 = $0.0525
+    # Second: 2000/1M * $15 + 1000/1M * $75 = $0.03 + $0.075 = $0.105
+    # Total: $0.0525 + $0.105 = $0.1575 (NOT $0.50 from result event)
+    assert_in_delta(0.1575, result[:total_cost], 0.0001)
+  end
+
   def test_multiple_instances_with_resets
     # Create session log with multiple instances and resets
     File.open(@session_log_path, "w") do |f|
