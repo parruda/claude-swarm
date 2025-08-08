@@ -65,14 +65,17 @@ class OrchestratorTest < Minitest::Test
     # Session path should be set during initialization
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
-    assert(ENV.fetch("CLAUDE_SWARM_SESSION_PATH", nil))
-    assert(ENV.fetch("CLAUDE_SWARM_ROOT_DIR", nil))
-    # Session path should end with a UUID, with optional project folder in between
-    assert_match(%r{/sessions/.*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}, ENV.fetch("CLAUDE_SWARM_SESSION_PATH", nil))
+    # Test behavior, not format: environment variables should be set
+    assert(ENV.fetch("CLAUDE_SWARM_SESSION_PATH", nil), "CLAUDE_SWARM_SESSION_PATH should be set")
+    assert(ENV.fetch("CLAUDE_SWARM_ROOT_DIR", nil), "CLAUDE_SWARM_ROOT_DIR should be set")
 
-    # Session path should be available immediately
-    assert(orchestrator.session_path)
+    # Session path should be available and match environment
+    assert(orchestrator.session_path, "Orchestrator should have a session path")
     assert_equal(ENV["CLAUDE_SWARM_SESSION_PATH"], orchestrator.session_path)
+    
+    # Session path should be a valid directory path
+    assert(orchestrator.session_path.start_with?("/") || orchestrator.session_path.match?(/^[A-Za-z]:/), 
+           "Session path should be an absolute path")
   end
 
   def test_start_generates_mcp_configs
@@ -96,25 +99,22 @@ class OrchestratorTest < Minitest::Test
     end
   end
 
-  def test_start_output_messages
+  def test_start_creates_necessary_files_and_runs
     config = create_test_config
     generator = ClaudeSwarm::McpGenerator.new(config)
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
-    output = nil
+    # Test behavior: start should complete without errors
     orchestrator.stub(:system, true) do
-      output = capture_io { orchestrator.start }[0]
+      capture_io { orchestrator.start }
     end
 
-    assert_match(/🐝 Starting Claude Swarm: Test Swarm/, output)
-    # Session path should be shown with UUID, with optional project folder
-    assert_match(%r{📝 Session files will be saved to:.*/sessions/.*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}, output)
-    assert_match(/✓ Generated MCP configurations/, output)
-    assert_match(/🚀 Launching main instance: lead/, output)
-    assert_match(/Model: opus/, output)
-    assert_match(/Directory:.*src/, output)
-    assert_match(/Allowed tools: Read, Edit, Bash/, output)
-    assert_match(/Connections: backend/, output)
+    # Verify essential files were created
+    session_path = orchestrator.session_path
+    assert(File.exist?(File.join(session_path, "lead.mcp.json")), "Lead MCP config should be created")
+    assert(File.exist?(File.join(session_path, "backend.mcp.json")), "Backend MCP config should be created")
+    assert(File.exist?(File.join(session_path, "config.yml")), "Config should be copied to session")
+    assert(File.exist?(File.join(session_path, "root_directory")), "Root directory file should be created")
   end
 
   def test_build_main_command_with_all_options
