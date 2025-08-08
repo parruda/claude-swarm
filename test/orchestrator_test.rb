@@ -67,7 +67,8 @@ class OrchestratorTest < Minitest::Test
 
     assert(ENV.fetch("CLAUDE_SWARM_SESSION_PATH", nil))
     assert(ENV.fetch("CLAUDE_SWARM_ROOT_DIR", nil))
-    assert_match(%r{/sessions/.+/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}, ENV.fetch("CLAUDE_SWARM_SESSION_PATH", nil))
+    # Session path should end with a UUID, with optional project folder in between
+    assert_match(%r{/sessions/.*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}, ENV.fetch("CLAUDE_SWARM_SESSION_PATH", nil))
 
     # Session path should be available immediately
     assert(orchestrator.session_path)
@@ -106,7 +107,8 @@ class OrchestratorTest < Minitest::Test
     end
 
     assert_match(/🐝 Starting Claude Swarm: Test Swarm/, output)
-    assert_match(%r{📝 Session files will be saved to:.*/sessions/.+/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}, output)
+    # Session path should be shown with UUID, with optional project folder
+    assert_match(%r{📝 Session files will be saved to:.*/sessions/.*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}, output)
     assert_match(/✓ Generated MCP configurations/, output)
     assert_match(/🚀 Launching main instance: lead/, output)
     assert_match(/Model: opus/, output)
