@@ -1,3 +1,11 @@
+## [Unreleased]
+
+### Fixed
+- **--root-dir parameter path resolution**: Fixed relative config file paths to be resolved relative to the --root-dir value instead of current directory
+  - Config paths are now expanded using the root directory as the base path
+  - Allows running claude-swarm from any location with consistent path resolution
+  - Absolute paths continue to work as expected regardless of --root-dir setting
+
 ## [0.3.10]
 
 ### Added
