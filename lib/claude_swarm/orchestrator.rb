@@ -203,7 +203,7 @@ module ClaudeSwarm
 
       # Execute before commands if specified
       # If the main instance directory exists, run in it for backward compatibility
-      # If it doesn't exist, run in current directory so before commands can create it
+      # If it doesn't exist, run in the parent directory so before commands can create it
       before_commands = @config.before_commands
       if before_commands.any? && !@restore_session_path
         non_interactive_output do
@@ -211,7 +211,17 @@ module ClaudeSwarm
         end
 
         # Determine where to run before commands
-        before_commands_dir = File.exist?(main_instance[:directory]) ? main_instance[:directory] : Dir.pwd
+        if File.exist?(main_instance[:directory])
+          # Directory exists, run commands in it (backward compatibility)
+          before_commands_dir = main_instance[:directory]
+        else
+          # Directory doesn't exist, run in parent directory
+          # This allows before commands to create the directory
+          parent_dir = File.dirname(File.expand_path(main_instance[:directory]))
+          # Ensure parent directory exists (important for worktrees)
+          FileUtils.mkdir_p(parent_dir)
+          before_commands_dir = parent_dir
+        end
 
         Dir.chdir(before_commands_dir) do
           success = execute_before_commands?(before_commands)
@@ -274,7 +284,14 @@ module ClaudeSwarm
       after_commands = @config.after_commands
       if after_commands.any? && !@restore_session_path
         # Determine where to run after commands (same logic as before commands)
-        after_commands_dir = File.exist?(main_instance[:directory]) ? main_instance[:directory] : Dir.pwd
+        if File.exist?(main_instance[:directory])
+          # Directory exists, run commands in it
+          after_commands_dir = main_instance[:directory]
+        else
+          # Directory doesn't exist (shouldn't happen after main instance runs, but be safe)
+          parent_dir = File.dirname(File.expand_path(main_instance[:directory]))
+          after_commands_dir = parent_dir
+        end
 
         Dir.chdir(after_commands_dir) do
           non_interactive_output do

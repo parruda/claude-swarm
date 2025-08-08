@@ -3,9 +3,10 @@
 ### Fixed
 - **Before commands directory handling**: Fixed error when before commands need to create the main instance directory
   - Before commands now run in the main instance directory if it exists (preserving backward compatibility)
-  - If the directory doesn't exist, before commands run in the current/root directory, allowing them to create it
+  - If the directory doesn't exist, before commands run in the parent directory, allowing them to create it
+  - Works correctly with both regular directories and Git worktrees
   - After commands follow the same logic for consistency
-  - Fixes "No such file or directory" errors when using configurations where before commands create directories
+  - Fixes "No such file or directory @ dir_chdir" errors when before commands create directories
 
 ## [0.3.11]
 
