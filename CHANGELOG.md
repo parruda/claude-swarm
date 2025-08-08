@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [0.3.11]
+
 ### Added
 - **Deferred directory validation for before commands**: Directories are now validated after `before` commands run, allowing them to create required directories
   - Automatically skips initial directory validation when `before` commands are present in configuration
