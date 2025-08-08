@@ -1,5 +1,12 @@
 ## [Unreleased]
 
+### Fixed
+- **Before commands directory handling**: Fixed error when before commands need to create the main instance directory
+  - Before commands now run in the main instance directory if it exists (preserving backward compatibility)
+  - If the directory doesn't exist, before commands run in the current/root directory, allowing them to create it
+  - After commands follow the same logic for consistency
+  - Fixes "No such file or directory" errors when using configurations where before commands create directories
+
 ## [0.3.11]
 
 ### Added

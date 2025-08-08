@@ -201,15 +201,19 @@ module ClaudeSwarm
       main_pid_file = File.join(@session_path, "main_pid")
       File.write(main_pid_file, Process.pid.to_s)
 
-      # Execute the main instance - this will cascade to other instances via MCP
-      Dir.chdir(main_instance[:directory]) do
-        # Execute before commands if specified
-        before_commands = @config.before_commands
-        if before_commands.any? && !@restore_session_path
-          non_interactive_output do
-            puts "⚙️  Executing before commands..."
-          end
+      # Execute before commands if specified
+      # If the main instance directory exists, run in it for backward compatibility
+      # If it doesn't exist, run in current directory so before commands can create it
+      before_commands = @config.before_commands
+      if before_commands.any? && !@restore_session_path
+        non_interactive_output do
+          puts "⚙️  Executing before commands..."
+        end
 
+        # Determine where to run before commands
+        before_commands_dir = File.exist?(main_instance[:directory]) ? main_instance[:directory] : Dir.pwd
+
+        Dir.chdir(before_commands_dir) do
           success = execute_before_commands?(before_commands)
           unless success
             non_interactive_output { print("❌ Before commands failed. Aborting swarm launch.") }
@@ -218,26 +222,29 @@ module ClaudeSwarm
             cleanup_worktrees
             exit(1)
           end
-
-          non_interactive_output do
-            puts "✓ Before commands completed successfully"
-          end
-
-          # Validate directories after before commands have run
-          begin
-            @config.validate_directories
-            non_interactive_output do
-              puts "✓ All directories validated successfully"
-            end
-          rescue ClaudeSwarm::Error => e
-            non_interactive_output { print("❌ Directory validation failed: #{e.message}") }
-            cleanup_processes
-            cleanup_run_symlink
-            cleanup_worktrees
-            exit(1)
-          end
         end
 
+        non_interactive_output do
+          puts "✓ Before commands completed successfully"
+        end
+
+        # Validate directories after before commands have run
+        begin
+          @config.validate_directories
+          non_interactive_output do
+            puts "✓ All directories validated successfully"
+          end
+        rescue ClaudeSwarm::Error => e
+          non_interactive_output { print("❌ Directory validation failed: #{e.message}") }
+          cleanup_processes
+          cleanup_run_symlink
+          cleanup_worktrees
+          exit(1)
+        end
+      end
+
+      # Execute the main instance - this will cascade to other instances via MCP
+      Dir.chdir(main_instance[:directory]) do
         # Execute main Claude instance with unbundled environment to avoid bundler conflicts
         # This ensures the main instance runs in a clean environment without inheriting
         # Claude Swarm's BUNDLE_* environment variables
@@ -263,9 +270,13 @@ module ClaudeSwarm
       display_summary
 
       # Execute after commands if specified
+      # Use the same logic as before commands for consistency
       after_commands = @config.after_commands
       if after_commands.any? && !@restore_session_path
-        Dir.chdir(main_instance[:directory]) do
+        # Determine where to run after commands (same logic as before commands)
+        after_commands_dir = File.exist?(main_instance[:directory]) ? main_instance[:directory] : Dir.pwd
+
+        Dir.chdir(after_commands_dir) do
           non_interactive_output do
             print("⚙️  Executing after commands...")
           end
