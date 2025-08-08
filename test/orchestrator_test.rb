@@ -72,10 +72,12 @@ class OrchestratorTest < Minitest::Test
     # Session path should be available and match environment
     assert(orchestrator.session_path, "Orchestrator should have a session path")
     assert_equal(ENV["CLAUDE_SWARM_SESSION_PATH"], orchestrator.session_path)
-    
+
     # Session path should be a valid directory path
-    assert(orchestrator.session_path.start_with?("/") || orchestrator.session_path.match?(/^[A-Za-z]:/), 
-           "Session path should be an absolute path")
+    assert(
+      orchestrator.session_path.start_with?("/") || orchestrator.session_path.match?(/^[A-Za-z]:/),
+      "Session path should be an absolute path",
+    )
   end
 
   def test_start_generates_mcp_configs
@@ -111,10 +113,11 @@ class OrchestratorTest < Minitest::Test
 
     # Verify essential files were created
     session_path = orchestrator.session_path
-    assert(File.exist?(File.join(session_path, "lead.mcp.json")), "Lead MCP config should be created")
-    assert(File.exist?(File.join(session_path, "backend.mcp.json")), "Backend MCP config should be created")
-    assert(File.exist?(File.join(session_path, "config.yml")), "Config should be copied to session")
-    assert(File.exist?(File.join(session_path, "root_directory")), "Root directory file should be created")
+
+    assert_path_exists(File.join(session_path, "lead.mcp.json"), "Lead MCP config should be created")
+    assert_path_exists(File.join(session_path, "backend.mcp.json"), "Backend MCP config should be created")
+    assert_path_exists(File.join(session_path, "config.yml"), "Config should be copied to session")
+    assert_path_exists(File.join(session_path, "root_directory"), "Root directory file should be created")
   end
 
   def test_build_main_command_with_all_options
