@@ -42,15 +42,18 @@ module ClaudeSwarm
       type: :string,
       desc: "Root directory for resolving relative paths (defaults to current directory)"
     def start(config_file = nil)
+      # Set root directory early so it's available to all components
+      root_dir = options[:root_dir] || Dir.pwd
+      ENV["CLAUDE_SWARM_ROOT_DIR"] = File.expand_path(root_dir)
+
+      # Resolve config path relative to root directory
       config_path = config_file || "claude-swarm.yml"
+      config_path = File.expand_path(config_path, root_dir)
+
       unless File.exist?(config_path)
         error("Configuration file not found: #{config_path}")
         exit(1)
       end
-
-      # Set root directory early so it's available to all components
-      root_dir = options[:root_dir] || Dir.pwd
-      ENV["CLAUDE_SWARM_ROOT_DIR"] = File.expand_path(root_dir)
 
       say("Starting Claude Swarm from #{config_path}...") unless options[:prompt]
 
