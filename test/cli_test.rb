@@ -63,11 +63,11 @@ class CLITest < Minitest::Test
       #{"      "}
     YAML
 
-    out, = capture_cli_output do
+    _, err = capture_cli_output do
       assert_raises(SystemExit) { @cli.start("bad-config.yml") }
     end
 
-    assert_match(/Unsupported version/, out)
+    assert_match(/Unsupported version/, err)
   end
 
   def test_start_with_valid_config
@@ -280,12 +280,12 @@ class CLITest < Minitest::Test
       @cli.options = { root_dir: tmpdir }
 
       # Should exit with error when file doesn't exist
-      # Thor's say method writes to stdout, not stderr
-      out, = capture_io do
+      # Error messages now go to stderr
+      _, err = capture_io do
         assert_raises(SystemExit) { @cli.start("nonexistent.yml") }
       end
       # Check that error message contains the expected text
-      assert_match(/Configuration file not found/, out)
+      assert_match(/Configuration file not found/, err)
     end
   end
 
@@ -410,12 +410,12 @@ class CLITest < Minitest::Test
     ClaudeSwarm::ClaudeMcpServer.stub(:new, lambda { |_, calling_instance:, calling_instance_id: nil, debug: nil| # rubocop:disable Lint/UnusedBlockArgument
       raise StandardError, "Test error"
     }) do
-      out, = capture_cli_output do
+      _, err = capture_cli_output do
         assert_raises(SystemExit) { @cli.mcp_serve }
       end
 
-      assert_match(/Error starting MCP server: Test error/, out)
-      refute_match(/backtrace/, out) # Debug is false
+      assert_match(/Error starting MCP server: Test error/, err)
+      refute_match(/backtrace/, err) # Debug is false
     end
   end
 
@@ -431,12 +431,12 @@ class CLITest < Minitest::Test
     ClaudeSwarm::ClaudeMcpServer.stub(:new, lambda { |_, calling_instance:, calling_instance_id: nil, debug: nil| # rubocop:disable Lint/UnusedBlockArgument
       raise StandardError, "Test error"
     }) do
-      out, = capture_cli_output do
+      _, err = capture_cli_output do
         assert_raises(SystemExit) { @cli.mcp_serve }
       end
 
-      assert_match(/Error starting MCP server: Test error/, out)
-      assert_match(/cli_test\.rb/, out) # Should show backtrace
+      assert_match(/Error starting MCP server: Test error/, err)
+      assert_match(/cli_test\.rb/, err) # Should show backtrace
     end
   end
 
@@ -474,12 +474,12 @@ class CLITest < Minitest::Test
       calling_instance: "test_caller",
     }
 
-    out, = capture_cli_output do
+    _, err = capture_cli_output do
       assert_raises(SystemExit) { @cli.mcp_serve }
     end
 
-    assert_match(/reasoning_effort is only supported for o-series models/, out)
-    assert_match(/Current model: gpt-4/, out)
+    assert_match(/reasoning_effort is only supported for o-series models/, err)
+    assert_match(/Current model: gpt-4/, err)
   end
 
   def test_mcp_serve_with_reasoning_effort_invalid_provider
@@ -492,11 +492,11 @@ class CLITest < Minitest::Test
       calling_instance: "test_caller",
     }
 
-    out, = capture_cli_output do
+    _, err = capture_cli_output do
       assert_raises(SystemExit) { @cli.mcp_serve }
     end
 
-    assert_match(/reasoning_effort is only supported for OpenAI models/, out)
+    assert_match(/reasoning_effort is only supported for OpenAI models/, err)
   end
 
   def test_mcp_serve_with_reasoning_effort_invalid_value
@@ -509,11 +509,11 @@ class CLITest < Minitest::Test
       calling_instance: "test_caller",
     }
 
-    out, = capture_cli_output do
+    _, err = capture_cli_output do
       assert_raises(SystemExit) { @cli.mcp_serve }
     end
 
-    assert_match(/reasoning_effort must be 'low', 'medium', or 'high'/, out)
+    assert_match(/reasoning_effort must be 'low', 'medium', or 'high'/, err)
   end
 
   def test_mcp_serve_with_reasoning_effort_all_valid_o_series_models
@@ -554,12 +554,12 @@ class CLITest < Minitest::Test
       calling_instance: "test_caller",
     }
 
-    out, = capture_cli_output do
+    _, err = capture_cli_output do
       assert_raises(SystemExit) { @cli.mcp_serve }
     end
 
-    assert_match(/temperature parameter is not supported for o-series models \(o1\)/, out)
-    assert_match(/O-series models use deterministic reasoning and don't accept temperature settings/, out)
+    assert_match(/temperature parameter is not supported for o-series models \(o1\)/, err)
+    assert_match(/O-series models use deterministic reasoning and don't accept temperature settings/, err)
   end
 
   def test_mcp_serve_with_temperature_for_gpt_model_succeeds
@@ -599,11 +599,11 @@ class CLITest < Minitest::Test
         calling_instance: "test_caller",
       }
 
-      out, = capture_cli_output do
+      _, err = capture_cli_output do
         assert_raises(SystemExit) { @cli.mcp_serve }
       end
 
-      assert_match(/temperature parameter is not supported for o-series models/, out)
+      assert_match(/temperature parameter is not supported for o-series models/, err)
     end
   end
 
@@ -624,12 +624,12 @@ class CLITest < Minitest::Test
     ClaudeSwarm::Configuration.stub(:new, lambda { |_, _|
       raise StandardError, "Unexpected test error"
     }) do
-      out, = capture_cli_output do
+      _, err = capture_cli_output do
         assert_raises(SystemExit) { @cli.start("valid.yml") }
       end
 
-      assert_match(/Unexpected error: Unexpected test error/, out)
-      refute_match(/backtrace/, out)
+      assert_match(/Unexpected error: Unexpected test error/, err)
+      refute_match(/backtrace/, err)
     end
   end
 
@@ -650,12 +650,12 @@ class CLITest < Minitest::Test
     ClaudeSwarm::Configuration.stub(:new, lambda { |_, _|
       raise StandardError, "Unexpected test error"
     }) do
-      out, = capture_cli_output do
+      _, err = capture_cli_output do
         assert_raises(SystemExit) { @cli.start("valid.yml") }
       end
 
-      assert_match(/Unexpected error: Unexpected test error/, out)
-      assert_match(/cli_test\.rb/, out) # Should show backtrace
+      assert_match(/Unexpected error: Unexpected test error/, err)
+      assert_match(/cli_test\.rb/, err) # Should show backtrace
     end
   end
 
@@ -679,12 +679,12 @@ class CLITest < Minitest::Test
     @cli.stub(:system, lambda { |cmd|
       !cmd.include?("command -v claude")
     }) do
-      out, = capture_cli_output do
+      _, err = capture_cli_output do
         assert_raises(SystemExit) { @cli.generate }
       end
 
-      assert_match(/Claude CLI is not installed or not in PATH/, out)
-      assert_match(/To install Claude CLI, visit:/, out)
+      assert_match(/Claude CLI is not installed or not in PATH/, err)
+      assert_match(/To install Claude CLI, visit:/, err)
     end
   end
 

@@ -334,7 +334,7 @@ module ClaudeSwarm
         system!("command -v claude > /dev/null 2>&1")
       rescue Error
         error("Claude CLI is not installed or not in PATH")
-        say("To install Claude CLI, visit: https://docs.anthropic.com/en/docs/claude-code")
+        error("To install Claude CLI, visit: https://docs.anthropic.com/en/docs/claude-code")
         exit(1)
       end
 
@@ -511,7 +511,7 @@ module ClaudeSwarm
     private
 
     def error(message)
-      say(message, :red)
+      $stderr.puts(Thor::Shell::Color.new.set_color(message, :red))
     end
 
     def restore_session(session_id)
