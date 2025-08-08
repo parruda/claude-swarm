@@ -1,10 +1,22 @@
 ## [Unreleased]
 
+### Added
+- **Deferred directory validation for before commands**: Directories are now validated after `before` commands run, allowing them to create required directories
+  - Automatically skips initial directory validation when `before` commands are present in configuration
+  - Validates all directories after `before` commands complete successfully
+  - Enables dynamic directory creation workflows without pre-creating directory structures
+
 ### Fixed
 - **--root-dir parameter path resolution**: Fixed relative config file paths to be resolved relative to the --root-dir value instead of current directory
   - Config paths are now expanded using the root directory as the base path
   - Allows running claude-swarm from any location with consistent path resolution
   - Absolute paths continue to work as expected regardless of --root-dir setting
+
+### Improved
+- **Enhanced worktree cleanup on errors**: Improved error handling to ensure worktrees are always cleaned up properly
+  - Added comprehensive error handling with cleanup at all failure points
+  - Worktrees are now cleaned up when worktree setup fails, before commands fail, or directory validation fails
+  - Prevents orphaned worktrees that could clutter the system or cause issues with future runs
 
 ## [0.3.10]
 

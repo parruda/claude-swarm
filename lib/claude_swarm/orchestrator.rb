@@ -73,6 +73,20 @@ module ClaudeSwarm
       # Track start time
       @start_time = Time.now
 
+      begin
+        start_internal
+      rescue StandardError => e
+        # Ensure cleanup happens even on unexpected errors
+        cleanup_processes
+        cleanup_run_symlink
+        cleanup_worktrees
+        raise e
+      end
+    end
+
+    private
+
+    def start_internal
       if @restore_session_path
         non_interactive_output do
           puts "🔄 Restoring Claude Swarm: #{@config.swarm_name}"
@@ -115,16 +129,24 @@ module ClaudeSwarm
 
         # Setup worktrees if needed
         if @worktree_manager
-          non_interactive_output { print("🌳 Setting up Git worktrees...") }
+          begin
+            non_interactive_output { print("🌳 Setting up Git worktrees...") }
 
-          # Get all instances for worktree setup
-          # Note: instances.values already includes the main instance
-          all_instances = @config.instances.values
+            # Get all instances for worktree setup
+            # Note: instances.values already includes the main instance
+            all_instances = @config.instances.values
 
-          @worktree_manager.setup_worktrees(all_instances)
+            @worktree_manager.setup_worktrees(all_instances)
 
-          non_interactive_output do
-            puts "✓ Worktrees created with branch: #{@worktree_manager.worktree_name}"
+            non_interactive_output do
+              puts "✓ Worktrees created with branch: #{@worktree_manager.worktree_name}"
+            end
+          rescue StandardError => e
+            non_interactive_output { print("❌ Failed to setup worktrees: #{e.message}") }
+            cleanup_processes
+            cleanup_run_symlink
+            cleanup_worktrees
+            raise
           end
         end
 
@@ -200,6 +222,20 @@ module ClaudeSwarm
           non_interactive_output do
             puts "✓ Before commands completed successfully"
           end
+
+          # Validate directories after before commands have run
+          begin
+            @config.validate_directories
+            non_interactive_output do
+              puts "✓ All directories validated successfully"
+            end
+          rescue ClaudeSwarm::Error => e
+            non_interactive_output { print("❌ Directory validation failed: #{e.message}") }
+            cleanup_processes
+            cleanup_run_symlink
+            cleanup_worktrees
+            exit(1)
+          end
         end
 
         # Execute main Claude instance with unbundled environment to avoid bundler conflicts
@@ -248,8 +284,6 @@ module ClaudeSwarm
       cleanup_run_symlink
       cleanup_worktrees
     end
-
-    private
 
     def non_interactive_output
       return if @non_interactive_prompt

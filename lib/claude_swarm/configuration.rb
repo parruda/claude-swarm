@@ -43,7 +43,20 @@ module ClaudeSwarm
       @swarm["after"] || []
     end
 
+    def validate_directories
+      @instances.each do |name, instance|
+        # Validate all directories in the directories array
+        instance[:directories].each do |directory|
+          raise Error, "Directory '#{directory}' for instance '#{name}' does not exist" unless File.directory?(directory)
+        end
+      end
+    end
+
     private
+
+    def has_before_commands?
+      @swarm && @swarm["before"] && !@swarm["before"].empty?
+    end
 
     def load_and_validate
       @config = YAML.load_file(@config_path)
@@ -51,7 +64,9 @@ module ClaudeSwarm
       validate_version
       validate_swarm
       parse_swarm
-      validate_directories
+      # Skip directory validation if before commands are present
+      # They might create the directories
+      validate_directories unless has_before_commands?
     rescue Errno::ENOENT
       raise Error, "Configuration file not found: #{@config_path}"
     rescue Psych::SyntaxError => e
@@ -271,15 +286,6 @@ module ClaudeSwarm
       end
       path.pop
       visited.add(instance_name)
-    end
-
-    def validate_directories
-      @instances.each do |name, instance|
-        # Validate all directories in the directories array
-        instance[:directories].each do |directory|
-          raise Error, "Directory '#{directory}' for instance '#{name}' does not exist" unless File.directory?(directory)
-        end
-      end
     end
 
     def validate_tool_field(instance_name, config, field_name)
