@@ -1,6 +1,11 @@
 ## [Unreleased]
 
 ### Fixed
+- **Empty response validation**: Added validation to prevent empty or nil responses from being passed to MCP callers
+  - ClaudeCodeExecutor now validates that Claude SDK returns non-empty result content
+  - TaskTool validates response structure and content before returning to MCP caller
+  - Clear error messages indicate when agent completes execution but provides no response
+  - Prevents silent failures when Claude SDK returns empty results
 - **Before commands directory handling**: Fixed error when before commands need to create the main instance directory
   - Smart directory detection: if the main instance directory exists, commands run inside it (for `npm install`, etc.)
   - If the directory doesn't exist, commands run in the parent directory (allowing `mkdir` commands to create it)

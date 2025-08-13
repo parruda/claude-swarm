@@ -460,4 +460,177 @@ class ClaudeCodeExecutorTest < Minitest::Test
     assert_match(/Additional directories not fully supported/, log_content)
     assert_match(%r{/path/to/dir1}, log_content)
   end
+
+  def test_execute_with_nil_result
+    # Create messages with nil result
+    messages = []
+
+    # System init message
+    system_msg = ClaudeSDK::Messages::System.new(
+      subtype: "init",
+      data: { session_id: "test-session-123", tools: ["Tool1", "Tool2"] },
+    )
+    system_msg.define_singleton_method(:subtype) { "init" }
+    system_msg.define_singleton_method(:session_id) { "test-session-123" }
+    system_msg.define_singleton_method(:tools) { ["Tool1", "Tool2"] }
+    messages << system_msg
+
+    # Assistant message
+    assistant_msg = ClaudeSDK::Messages::Assistant.new(
+      content: [ClaudeSDK::ContentBlock::Text.new(text: "Processing...")],
+    )
+    messages << assistant_msg
+
+    # Result message with nil result
+    result_msg = ClaudeSDK::Messages::Result.new(
+      subtype: "success",
+      duration_ms: 500,
+      duration_api_ms: 400,
+      is_error: false,
+      num_turns: 1,
+      session_id: "test-session-123",
+      total_cost_usd: 0.01,
+    )
+    result_msg.define_singleton_method(:result) { nil }
+    result_msg.define_singleton_method(:usage) { nil }
+    messages << result_msg
+
+    mock_sdk_query(messages) do
+      error = assert_raises(ClaudeSwarm::ClaudeCodeExecutor::ExecutionError) do
+        @executor.execute("test prompt")
+      end
+
+      assert_equal("Claude Code execution failed: Claude SDK returned an empty result. The agent completed execution but provided no response content.", error.message)
+    end
+  end
+
+  def test_execute_with_empty_string_result
+    # Create messages with empty string result
+    messages = []
+
+    # System init message
+    system_msg = ClaudeSDK::Messages::System.new(
+      subtype: "init",
+      data: { session_id: "test-session-123", tools: ["Tool1", "Tool2"] },
+    )
+    system_msg.define_singleton_method(:subtype) { "init" }
+    system_msg.define_singleton_method(:session_id) { "test-session-123" }
+    system_msg.define_singleton_method(:tools) { ["Tool1", "Tool2"] }
+    messages << system_msg
+
+    # Assistant message
+    assistant_msg = ClaudeSDK::Messages::Assistant.new(
+      content: [ClaudeSDK::ContentBlock::Text.new(text: "Processing...")],
+    )
+    messages << assistant_msg
+
+    # Result message with empty string result
+    result_msg = ClaudeSDK::Messages::Result.new(
+      subtype: "success",
+      duration_ms: 500,
+      duration_api_ms: 400,
+      is_error: false,
+      num_turns: 1,
+      session_id: "test-session-123",
+      total_cost_usd: 0.01,
+    )
+    result_msg.define_singleton_method(:result) { "" }
+    result_msg.define_singleton_method(:usage) { nil }
+    messages << result_msg
+
+    mock_sdk_query(messages) do
+      error = assert_raises(ClaudeSwarm::ClaudeCodeExecutor::ExecutionError) do
+        @executor.execute("test prompt")
+      end
+
+      assert_equal("Claude Code execution failed: Claude SDK returned an empty result. The agent completed execution but provided no response content.", error.message)
+    end
+  end
+
+  def test_execute_with_whitespace_only_result
+    # Create messages with whitespace-only result
+    messages = []
+
+    # System init message
+    system_msg = ClaudeSDK::Messages::System.new(
+      subtype: "init",
+      data: { session_id: "test-session-123", tools: ["Tool1", "Tool2"] },
+    )
+    system_msg.define_singleton_method(:subtype) { "init" }
+    system_msg.define_singleton_method(:session_id) { "test-session-123" }
+    system_msg.define_singleton_method(:tools) { ["Tool1", "Tool2"] }
+    messages << system_msg
+
+    # Assistant message
+    assistant_msg = ClaudeSDK::Messages::Assistant.new(
+      content: [ClaudeSDK::ContentBlock::Text.new(text: "Processing...")],
+    )
+    messages << assistant_msg
+
+    # Result message with whitespace-only result
+    result_msg = ClaudeSDK::Messages::Result.new(
+      subtype: "success",
+      duration_ms: 500,
+      duration_api_ms: 400,
+      is_error: false,
+      num_turns: 1,
+      session_id: "test-session-123",
+      total_cost_usd: 0.01,
+    )
+    result_msg.define_singleton_method(:result) { "   \n\t  " }
+    result_msg.define_singleton_method(:usage) { nil }
+    messages << result_msg
+
+    mock_sdk_query(messages) do
+      error = assert_raises(ClaudeSwarm::ClaudeCodeExecutor::ExecutionError) do
+        @executor.execute("test prompt")
+      end
+
+      assert_equal("Claude Code execution failed: Claude SDK returned an empty result. The agent completed execution but provided no response content.", error.message)
+    end
+  end
+
+  def test_execute_with_valid_result_containing_whitespace
+    # Test that valid results with whitespace are not rejected
+    messages = []
+
+    # System init message
+    system_msg = ClaudeSDK::Messages::System.new(
+      subtype: "init",
+      data: { session_id: "test-session-123", tools: ["Tool1", "Tool2"] },
+    )
+    system_msg.define_singleton_method(:subtype) { "init" }
+    system_msg.define_singleton_method(:session_id) { "test-session-123" }
+    system_msg.define_singleton_method(:tools) { ["Tool1", "Tool2"] }
+    messages << system_msg
+
+    # Assistant message
+    assistant_msg = ClaudeSDK::Messages::Assistant.new(
+      content: [ClaudeSDK::ContentBlock::Text.new(text: "Processing...")],
+    )
+    messages << assistant_msg
+
+    # Result message with valid result containing leading/trailing whitespace
+    result_msg = ClaudeSDK::Messages::Result.new(
+      subtype: "success",
+      duration_ms: 500,
+      duration_api_ms: 400,
+      is_error: false,
+      num_turns: 1,
+      session_id: "test-session-123",
+      total_cost_usd: 0.01,
+    )
+    result_msg.define_singleton_method(:result) { "  Valid result with whitespace  " }
+    result_msg.define_singleton_method(:usage) { nil }
+    messages << result_msg
+
+    mock_sdk_query(messages) do
+      response = @executor.execute("test prompt")
+
+      # Should not raise an error and should return the result with whitespace preserved
+      assert_equal("  Valid result with whitespace  ", response["result"])
+      assert_equal("test-session-123", response["session_id"])
+      assert_in_delta(0.01, response["total_cost"])
+    end
+  end
 end

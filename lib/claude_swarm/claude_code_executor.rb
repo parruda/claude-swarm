@@ -40,6 +40,11 @@ module ClaudeSwarm
             # Assistant messages only contain content blocks
             # No need to track for result extraction - result comes from Result message
           when ClaudeSDK::Messages::Result
+            # Validate that we have actual result content
+            if message.result.nil? || (message.result.is_a?(String) && message.result.strip.empty?)
+              raise ExecutionError, "Claude SDK returned an empty result. The agent completed execution but provided no response content."
+            end
+
             # Build result response in expected format
             result_response = {
               "type" => "result",

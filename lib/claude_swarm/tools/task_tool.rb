@@ -43,8 +43,20 @@ module ClaudeSwarm
 
         response = executor.execute(final_prompt, options)
 
+        # Validate the response has a result
+        unless response.is_a?(Hash) && response.key?("result")
+          raise "Invalid response from executor: missing 'result' field. Response structure: #{response.keys.join(", ")}"
+        end
+
+        result = response["result"]
+
+        # Validate the result is not empty
+        if result.nil? || (result.is_a?(String) && result.strip.empty?)
+          raise "Agent #{instance_config[:name]} returned an empty response. The task was executed but no content was provided."
+        end
+
         # Return just the result text as expected by MCP
-        response["result"]
+        result
       end
     end
   end
