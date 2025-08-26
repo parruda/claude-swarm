@@ -12,6 +12,7 @@ module ClaudeSwarm
     ENV_VAR_PATTERN = /\$\{([^}]+)\}/
     ENV_VAR_WITH_DEFAULT_PATTERN = /\$\{([^:}]+)(:=([^}]*))?\}/
     O_SERIES_MODEL_PATTERN = /^o\d+(\s+(Preview|preview))?(-pro|-mini|-deep-research|-mini-deep-research)?$/
+    ERB_SYNTAX_PATTERN = /<%[=#-]?\s.*?\s%>/
 
     attr_reader :config, :config_path, :swarm, :swarm_name, :main_instance, :instances
 
@@ -59,7 +60,7 @@ module ClaudeSwarm
     end
 
     def load_and_validate
-      @config = YAML.load_file(@config_path)
+      @config = load_yaml_with_erb(@config_path)
       interpolate_env_vars!(@config)
       validate_version
       validate_swarm
@@ -71,6 +72,25 @@ module ClaudeSwarm
       raise Error, "Configuration file not found: #{@config_path}"
     rescue Psych::SyntaxError => e
       raise Error, "Invalid YAML syntax: #{e.message}"
+    end
+
+    def load_yaml_with_erb(file_path)
+      # Read the file content
+      content = File.read(file_path)
+
+      # Process ERB template if ERB syntax is detected
+      if contains_erb_syntax?(content)
+        erb = ERB.new(content, trim_mode: "-")
+        content = erb.result(binding)
+      end
+
+      # Parse the YAML content
+      YAML.safe_load(content, permitted_classes: [Symbol], aliases: true)
+    end
+
+    def contains_erb_syntax?(content)
+      # Check for ERB tags: <% %>, <%= %>, <%# %>
+      content.match?(ERB_SYNTAX_PATTERN)
     end
 
     def interpolate_env_vars!(obj)

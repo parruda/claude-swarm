@@ -228,9 +228,13 @@ swarm:
     # Instance definitions...
 ```
 
-#### Environment Variable Interpolation
+#### Environment Variable Interpolation and ERB Templates
 
-Claude Swarm supports environment variable interpolation in all configuration values using the `${ENV_VAR_NAME}` syntax:
+Claude Swarm supports both environment variable interpolation and ERB templates in configuration files:
+
+##### Simple Environment Variable Interpolation
+
+Use the `${ENV_VAR_NAME}` syntax for basic variable substitution:
 
 ```yaml
 version: 1
@@ -252,12 +256,67 @@ swarm:
             GITHUB_TOKEN: "${GITHUB_TOKEN}"
 ```
 
+##### ERB Template Support
+
+For more complex configurations, you can use ERB templates in your YAML files. Claude Swarm automatically detects ERB syntax (like `<% %>` or `<%= %>`) in any configuration file and processes it as a template:
+
+```erb
+<%# claude-swarm.yml - ERB template for dynamic configuration %>
+<% 
+  # Define helper variables
+  team_size = ENV['TEAM_SIZE']&.to_i || 3
+  base_model = ENV['CLAUDE_MODEL'] || 'sonnet'
+  environments = %w[development staging production]
+%>
+
+version: 1
+swarm:
+  name: "<%= ENV['APP_NAME'] %> <%= ENV['ENVIRONMENT']&.capitalize %> Team"
+  main: lead
+  instances:
+    lead:
+      description: "Lead developer coordinating <%= team_size %> team members"
+      directory: .
+      model: opus
+      connections: [<%= (1..team_size).map { |i| "developer_#{i}" }.join(', ') %>]
+      
+    <% (1..team_size).each do |i| %>
+    developer_<%= i %>:
+      description: "Developer #<%= i %> specializing in <%= %w[frontend backend data][i % 3] %>"
+      directory: ./module_<%= i %>
+      model: <%= base_model %>
+      allowed_tools: [Read, Edit, Write, Bash]
+    <% end %>
+
+    <% if ENV['INCLUDE_TESTER'] == 'true' %>
+    tester:
+      description: "QA engineer writing and running tests"
+      directory: ./tests
+      model: sonnet
+      allowed_tools: [Read, Bash]
+    <% end %>
+```
+
+ERB Template Features:
+- Full Ruby code execution within `<% %>` tags
+- Dynamic instance generation based on environment variables
+- Conditional inclusion of instances
+- Loops and iteration for repetitive configurations
+- Helper methods and complex logic support
+- Comments with `<%# %>` tags
+
+To use ERB templates:
+1. Add ERB syntax (`<% %>`, `<%= %>`) to any configuration file
+2. Run `claude-swarm` normally - it will automatically detect and process the ERB template
+3. The template is evaluated once at startup, generating the final YAML configuration
+
 Features:
 - Variables are interpolated recursively in strings, arrays, and nested structures
 - Multiple variables can be used in the same string
 - Partial string interpolation is supported (e.g., `"prefix-${VAR}-suffix"`)
 - If a referenced environment variable is not set, Claude Swarm will exit with a clear error message
 - Non-matching patterns like `$VAR` or `{VAR}` are preserved as-is
+- ERB templates provide full programmatic control over configuration generation
 
 ##### Default Values
 
