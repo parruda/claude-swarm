@@ -228,6 +228,53 @@ swarm:
     # Instance definitions...
 ```
 
+#### YAML Aliases
+
+Claude Swarm supports [YAML aliases](https://yaml.org/spec/1.2.2/#71-alias-nodes) to reduce duplication in your configuration. This is particularly useful for sharing common values like prompts, tool lists, or MCP configurations across multiple instances:
+
+```yaml
+version: 1
+swarm:
+  name: "Development Team"
+  main: lead
+  instances:
+    lead:
+      description: "Lead developer"
+      prompt: &shared_prompt "You are an expert developer following best practices"
+      allowed_tools: &standard_tools
+        - Read
+        - Edit
+        - Bash
+        - WebSearch
+      mcps: &common_mcps
+        - name: github
+          type: stdio
+          command: gh
+          args: ["mcp"]
+          
+    frontend:
+      description: "Frontend developer"
+      prompt: *shared_prompt  # Reuses the same prompt
+      allowed_tools: *standard_tools  # Reuses the same tool list
+      mcps: *common_mcps  # Reuses the same MCP servers
+      directory: ./frontend
+      
+    backend:
+      description: "Backend developer"
+      prompt: *shared_prompt  # Reuses the same prompt
+      allowed_tools: *standard_tools  # Reuses the same tool list
+      mcps: *common_mcps  # Reuses the same MCP servers
+      directory: ./backend
+```
+
+In this example:
+- `&shared_prompt` defines an anchor for the prompt string
+- `&standard_tools` defines an anchor for the tool array
+- `&common_mcps` defines an anchor for the MCP configuration
+- `*shared_prompt`, `*standard_tools`, and `*common_mcps` reference those anchors
+
+This helps maintain consistency across instances and makes configuration updates easier.
+
 #### Environment Variable Interpolation
 
 Claude Swarm supports environment variable interpolation in all configuration values using the `${ENV_VAR_NAME}` syntax:

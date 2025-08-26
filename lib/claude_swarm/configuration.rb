@@ -59,7 +59,7 @@ module ClaudeSwarm
     end
 
     def load_and_validate
-      @config = YAML.load_file(@config_path)
+      @config = YAML.load_file(@config_path, aliases: true)
       interpolate_env_vars!(@config)
       validate_version
       validate_swarm
