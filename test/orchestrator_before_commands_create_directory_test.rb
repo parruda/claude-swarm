@@ -33,8 +33,13 @@ class OrchestratorBeforeCommandsCreateDirectoryTest < Minitest::Test
         main: lead
         before:
           - echo "Creating directories..."
-          - mkdir -p ./team_assessments/{evidence,reports,sessions,data}
-          - mkdir -p ./team_assessments/evidence/{vault,google,data}
+          - mkdir -p ./team_assessments/evidence
+          - mkdir -p ./team_assessments/reports
+          - mkdir -p ./team_assessments/sessions
+          - mkdir -p ./team_assessments/data
+          - mkdir -p ./team_assessments/evidence/vault
+          - mkdir -p ./team_assessments/evidence/google
+          - mkdir -p ./team_assessments/evidence/data
         instances:
           lead:
             description: "Lead developer"
