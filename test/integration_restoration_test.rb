@@ -23,6 +23,7 @@ class IntegrationRestorationTest < Minitest::Test
             description: "Assistant worker"#{"  "}
             directory: #{@test_dir}
             model: sonnet
+            prompt: "You are an assistant"
     YAML
   end
 

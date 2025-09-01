@@ -24,6 +24,7 @@ class ConfigurationVibeTest < Minitest::Test
             vibe: true
           worker:
             description: "Worker without vibe"
+            prompt: "You are a worker"
     YAML
 
     File.write(@config_path, config_content)
@@ -44,6 +45,7 @@ class ConfigurationVibeTest < Minitest::Test
             description: "Main instance"
           worker:
             description: "Worker"
+            prompt: "You are a worker"
     YAML
 
     File.write(@config_path, config_content)
@@ -66,8 +68,10 @@ class ConfigurationVibeTest < Minitest::Test
           worker1:
             description: "Worker with vibe"
             vibe: true
+            prompt: "You are worker 1"
           worker2:
             description: "Worker without vibe setting"
+            prompt: "You are worker 2"
     YAML
 
     File.write(@config_path, config_content)

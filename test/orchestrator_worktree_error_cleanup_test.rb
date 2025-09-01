@@ -32,6 +32,7 @@ class OrchestratorWorktreeErrorCleanupTest < Minitest::Test
             description: "Frontend developer"
             directory: ./frontend
             model: sonnet
+            prompt: "You are a frontend developer"
     YAML
 
     # Change to repo directory
@@ -106,6 +107,7 @@ class OrchestratorWorktreeErrorCleanupTest < Minitest::Test
             description: "Frontend developer"
             directory: ./frontend
             model: sonnet
+            prompt: "You are a frontend developer"
     YAML
 
     config = ClaudeSwarm::Configuration.new(@config_file, base_dir: @repo_dir)

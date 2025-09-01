@@ -32,6 +32,7 @@ class ConfigurationBeforeCommandsTest < Minitest::Test
             description: "Frontend developer"
             directory: ./frontend
             model: sonnet
+            prompt: "You are a frontend developer"
     YAML
 
     # Should not raise even though ./frontend doesn't exist yet
@@ -77,6 +78,7 @@ class ConfigurationBeforeCommandsTest < Minitest::Test
             description: "Frontend developer"
             directory: ./frontend
             model: sonnet
+            prompt: "You are a frontend developer"
     YAML
 
     # Should raise because ./frontend doesn't exist and no before commands
@@ -106,6 +108,7 @@ class ConfigurationBeforeCommandsTest < Minitest::Test
             description: "Frontend developer"
             directory: ./frontend
             model: sonnet
+            prompt: "You are a frontend developer"
     YAML
 
     # Should raise because before commands is empty

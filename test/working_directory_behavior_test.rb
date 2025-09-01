@@ -33,10 +33,12 @@ class WorkingDirectoryBehaviorTest < Minitest::Test
             description: "Backend dev"
             directory: ./backend
             model: sonnet
+            prompt: "You are a backend developer"
           frontend:
             description: "Frontend dev"
             directory: ./frontend
             model: sonnet
+            prompt: "You are a frontend developer"
     YAML
   end
 
@@ -98,6 +100,7 @@ class WorkingDirectoryBehaviorTest < Minitest::Test
             description: "Backend with absolute path"
             directory: #{@backend_dir}
             model: sonnet
+            prompt: "You are a backend developer"
     YAML
 
     # Launch from anywhere - absolute paths should work

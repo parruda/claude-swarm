@@ -200,6 +200,9 @@ module ClaudeSwarm
       # Parse directory field - support both string and array
       directories = parse_directories(config["directory"])
 
+      # Load prompt from file if not provided inline
+      prompt = load_prompt(name, config["prompt"])
+
       instance_config = {
         name: name,
         directory: directories.first, # Keep single directory for backward compatibility
@@ -210,7 +213,7 @@ module ClaudeSwarm
         allowed_tools: Array(allowed_tools),
         disallowed_tools: Array(config["disallowed_tools"]),
         mcps: parse_mcps(config["mcps"] || []),
-        prompt: config["prompt"],
+        prompt: prompt,
         description: config["description"],
         vibe: config["vibe"],
         worktree: parse_worktree_value(config["worktree"]),
@@ -316,6 +319,38 @@ module ClaudeSwarm
       return value.to_s if value.is_a?(String) && !value.empty?
 
       raise Error, "Invalid worktree value: #{value.inspect}. Must be true, false, or a non-empty string"
+    end
+
+    def load_prompt(instance_name, prompt_value)
+      # If prompt is already provided in config, use it
+      return prompt_value if prompt_value
+
+      # Try to load from file
+      config_file_base = @config_path.basename(".yml").sub(".yaml", "")
+      prompt_file_path = @config_dir.join(
+        ".claude-swarm",
+        config_file_base,
+        instance_name,
+        "prompt.md",
+      )
+
+      # For non-main instances, prompt is required
+      if instance_name != @main_instance && !prompt_file_path.exist?
+        raise Error, "Instance '#{instance_name}' requires a prompt. Either provide it in the configuration file or create a prompt.md file at #{prompt_file_path}"
+      end
+
+      # Return nil if file doesn't exist (only for main instance)
+      return unless prompt_file_path.exist?
+
+      # Check if it's actually a file, not a directory
+      raise Error, "Error reading prompt file: #{prompt_file_path} is a directory" if prompt_file_path.directory?
+
+      # Read and return the prompt from file
+      begin
+        prompt_file_path.read.strip
+      rescue => e
+        raise Error, "Error reading prompt file: #{e.message}"
+      end
     end
 
     def validate_openai_env_vars

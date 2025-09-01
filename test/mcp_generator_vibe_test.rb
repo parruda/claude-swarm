@@ -90,6 +90,7 @@ class McpGeneratorVibeTest < Minitest::Test
             description: "Worker with vibe"
             vibe: true
             tools: [Bash, Write]
+            prompt: "You are a worker"
     YAML
 
     @config = ClaudeSwarm::Configuration.new(@config_path)
@@ -123,6 +124,7 @@ class McpGeneratorVibeTest < Minitest::Test
           worker:
             description: "Worker with vibe"
             vibe: true
+            prompt: "You are a worker"
     YAML
 
     @config = ClaudeSwarm::Configuration.new(@config_path)
