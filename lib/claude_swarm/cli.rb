@@ -562,12 +562,10 @@ module ClaudeSwarm
         # Load session metadata if it exists to check for worktree info
         session_metadata_file = File.join(session_path, "session_metadata.json")
         worktree_name = nil
-        if File.exist?(session_metadata_file)
-          metadata = JSON.parse(File.read(session_metadata_file))
-          if metadata["worktree"] && metadata["worktree"]["enabled"]
-            worktree_name = metadata["worktree"]["name"]
-            say("Restoring with worktree: #{worktree_name}", :green) unless options[:prompt]
-          end
+        metadata = JsonHandler.parse_file(session_metadata_file)
+        if metadata && metadata["worktree"] && metadata["worktree"]["enabled"]
+          worktree_name = metadata["worktree"]["name"]
+          say("Restoring with worktree: #{worktree_name}", :green) unless options[:prompt]
         end
 
         # Create orchestrator with restoration mode

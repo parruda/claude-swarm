@@ -147,9 +147,10 @@ module ClaudeSwarm
       def get_start_time(session_dir)
         # Try to get from session metadata first
         metadata_file = File.join(session_dir, "session_metadata.json")
-        if File.exist?(metadata_file)
-          metadata = JSON.parse(File.read(metadata_file))
-          return Time.parse(metadata["start_time"]) if metadata["start_time"]
+        metadata = JsonHandler.parse_file(metadata_file)
+
+        if metadata && metadata["start_time"]
+          return Time.parse(metadata["start_time"])
         end
 
         # Fallback to directory creation time
@@ -179,7 +180,7 @@ module ClaudeSwarm
         session_metadata_file = File.join(session_dir, "session_metadata.json")
         return directories unless File.exist?(session_metadata_file)
 
-        metadata = JSON.parse(File.read(session_metadata_file))
+        metadata = JsonHandler.parse_file!(session_metadata_file)
         worktree_info = metadata["worktree"]
         return directories unless worktree_info && worktree_info["enabled"]
 

@@ -83,7 +83,7 @@ module ClaudeSwarm
         parameters[:tools] = @mcp_client.to_openai_tools if @available_tools&.any? && @mcp_client
 
         # Log the request parameters
-        @executor.logger.info { "Chat API Request (depth=#{depth}): #{JSON.pretty_generate(parameters)}" }
+        @executor.logger.info { "Chat API Request (depth=#{depth}): #{JsonHandler.pretty_generate!(parameters)}" }
 
         # Append to session JSON
         append_to_session_json({
@@ -98,7 +98,7 @@ module ClaudeSwarm
           response = @openai_client.chat(parameters: parameters)
         rescue StandardError => e
           @executor.logger.error { "Chat API error: #{e.class} - #{e.message}" }
-          @executor.logger.error { "Request parameters: #{JSON.pretty_generate(parameters)}" }
+          @executor.logger.error { "Request parameters: #{JsonHandler.pretty_generate!(parameters)}" }
 
           # Try to extract and log the response body for better debugging
           if e.respond_to?(:response)
@@ -127,7 +127,7 @@ module ClaudeSwarm
         end
 
         # Log the response
-        @executor.logger.info { "Chat API Response (depth=#{depth}): #{JSON.pretty_generate(response)}" }
+        @executor.logger.info { "Chat API Response (depth=#{depth}): #{JsonHandler.pretty_generate!(response)}" }
 
         # Append to session JSON
         append_to_session_json({
@@ -169,7 +169,7 @@ module ClaudeSwarm
 
       def execute_and_append_tool_results(tool_calls, messages)
         # Log tool calls
-        @executor.logger.info { "Executing tool calls: #{JSON.pretty_generate(tool_calls)}" }
+        @executor.logger.info { "Executing tool calls: #{JsonHandler.pretty_generate!(tool_calls)}" }
 
         # Append to session JSON
         append_to_session_json({
@@ -186,10 +186,10 @@ module ClaudeSwarm
 
             begin
               # Parse arguments
-              tool_args = tool_args_str.is_a?(String) ? JSON.parse(tool_args_str) : tool_args_str
+              tool_args = tool_args_str.is_a?(String) ? JsonHandler.parse!(tool_args_str) : tool_args_str
 
               # Log tool execution
-              @executor.logger.info { "Executing tool: #{tool_name} with args: #{JSON.pretty_generate(tool_args)}" }
+              @executor.logger.info { "Executing tool: #{tool_name} with args: #{JsonHandler.pretty_generate!(tool_args)}" }
 
               # Execute tool via MCP
               result = @mcp_client.call_tool(tool_name, tool_args)

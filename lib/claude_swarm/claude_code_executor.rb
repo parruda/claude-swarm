@@ -96,7 +96,7 @@ module ClaudeSwarm
         updated_at: Time.now.iso8601,
       }
 
-      File.write(state_file, JSON.pretty_generate(state_data))
+      JsonHandler.write_file!(state_file, state_data)
       logger.info { "Wrote instance state for #{@instance_name} (#{@instance_id}) with session ID: #{@session_id}" }
     rescue StandardError => e
       logger.error { "Failed to write instance state for #{@instance_name} (#{@instance_id}): #{e.message}" }
@@ -119,13 +119,13 @@ module ClaudeSwarm
     end
 
     def log_system_message(event)
-      logger.debug { "SYSTEM: #{JSON.pretty_generate(event)}" }
+      logger.debug { "SYSTEM: #{JsonHandler.pretty_generate!(event)}" }
     end
 
     def log_assistant_message(msg)
       # Assistant messages don't have stop_reason in SDK - they only have content
       content = msg["content"]
-      logger.debug { "ASSISTANT: #{JSON.pretty_generate(content)}" } if content
+      logger.debug { "ASSISTANT: #{JsonHandler.pretty_generate!(content)}" } if content
 
       # Log tool calls
       tool_calls = content&.select { |c| c["type"] == "tool_use" } || []
@@ -146,7 +146,7 @@ module ClaudeSwarm
     end
 
     def log_user_message(content)
-      logger.debug { "USER: #{JSON.pretty_generate(content)}" }
+      logger.debug { "USER: #{JsonHandler.pretty_generate!(content)}" }
     end
 
     def build_sdk_options(prompt, options)
@@ -198,7 +198,7 @@ module ClaudeSwarm
 
     def parse_mcp_config(config_path)
       # Parse MCP JSON config file and convert to SDK format
-      config = JSON.parse(File.read(config_path))
+      config = JsonHandler.parse_file!(config_path)
       mcp_servers = {}
 
       config["mcpServers"]&.each do |name, server_config|

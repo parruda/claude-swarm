@@ -339,7 +339,7 @@ module ClaudeSwarm
 
       # Save session metadata
       metadata_file = File.join(session_path, "session_metadata.json")
-      File.write(metadata_file, JSON.pretty_generate(build_session_metadata))
+      JsonHandler.write_file!(metadata_file, build_session_metadata)
     end
 
     def build_session_metadata
@@ -395,11 +395,11 @@ module ClaudeSwarm
       metadata_file = File.join(@session_path, "session_metadata.json")
       return unless File.exist?(metadata_file)
 
-      metadata = JSON.parse(File.read(metadata_file))
+      metadata = JsonHandler.parse_file!(metadata_file)
       metadata["end_time"] = end_time.utc.iso8601
       metadata["duration_seconds"] = (end_time - @start_time).to_i
 
-      File.write(metadata_file, JSON.pretty_generate(metadata))
+      JsonHandler.write_file!(metadata_file, metadata)
     rescue StandardError => e
       non_interactive_output { print("⚠️  Error updating session metadata: #{e.message}") }
     end
@@ -512,7 +512,7 @@ module ClaudeSwarm
 
         # Find the state file for the main instance
         state_files.each do |state_file|
-          state_data = JSON.parse(File.read(state_file))
+          state_data = JsonHandler.parse_file!(state_file)
           next unless state_data["instance_name"] == main_instance_name
 
           claude_session_id = state_data["claude_session_id"]
@@ -597,7 +597,7 @@ module ClaudeSwarm
       metadata_file = File.join(session_path, "session_metadata.json")
       return unless File.exist?(metadata_file)
 
-      metadata = JSON.parse(File.read(metadata_file))
+      metadata = JsonHandler.parse_file!(metadata_file)
       worktree_data = metadata["worktree"]
       return unless worktree_data && worktree_data["enabled"]
 
@@ -629,13 +629,11 @@ module ClaudeSwarm
 
         # Read and process the merged output
         stdout_and_stderr.each_line do |line|
-          # Try to parse and prettify JSON lines
-
-          json_data = JSON.parse(line.chomp)
-          pretty_json = JSON.pretty_generate(json_data)
-          logger.info { pretty_json }
-        rescue JSON::ParserError
-          logger.info { line.chomp }
+          logger.info do
+            chomped_line = line.chomp
+            json_data = JsonHandler.parse(chomped_line)
+            json_data == chomped_line ? chomped_line : JsonHandler.pretty_generate!(json_data)
+          end
         end
 
         wait_thr.value
@@ -664,11 +662,11 @@ module ClaudeSwarm
             line = file.gets
             if line
               begin
-                # Parse JSONL entry
-                transcript_entry = JSON.parse(line)
+                # Parse JSONL entry, silently skip unparseable lines
+                transcript_entry = JsonHandler.parse(line)
 
-                # Skip summary entries - these are just conversation titles
-                next if transcript_entry["type"] == "summary"
+                # Skip if parsing failed or if it's a summary entry
+                next if transcript_entry == line || transcript_entry["type"] == "summary"
 
                 # Convert to session.log.json format
                 session_entry = convert_transcript_to_session_format(transcript_entry)
@@ -682,8 +680,6 @@ module ClaudeSwarm
                     log_file.puts(session_entry.to_json)
                   end
                 end
-              rescue JSON::ParserError
-                # Silently skip unparseable lines
               rescue StandardError
                 # Silently handle other errors to keep thread running
               end

@@ -86,7 +86,9 @@ module ClaudeSwarm
       main_instance_cost = 0.0
 
       File.foreach(session_log_path) do |line|
-        data = JSON.parse(line)
+        data = JsonHandler.parse(line)
+        next if data == line # Skip unparseable lines
+
         instance_name = data["instance"]
         instance_id = data["instance_id"]
 
@@ -108,8 +110,6 @@ module ClaudeSwarm
             instance_costs[instance_name] += cost
           end
         end
-      rescue JSON::ParserError
-        next
       end
 
       # Calculate total: sum of all instance costs + main instance token costs
@@ -137,7 +137,9 @@ module ClaudeSwarm
       return instances unless File.exist?(session_log_path)
 
       File.foreach(session_log_path) do |line|
-        data = JSON.parse(line)
+        data = JsonHandler.parse(line)
+        next if data == line # Skip unparseable lines
+
         instance_name = data["instance"]
         instance_id = data["instance_id"]
         calling_instance = data["calling_instance"]
@@ -191,8 +193,6 @@ module ClaudeSwarm
             instances[instance_name][:has_cost_data] = true
           end
         end
-      rescue JSON::ParserError
-        next
       end
 
       # Set main instance costs (replace, don't add)

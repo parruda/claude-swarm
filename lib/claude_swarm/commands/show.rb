@@ -77,9 +77,8 @@ module ClaudeSwarm
 
       def get_runtime_info(session_path)
         metadata_file = File.join(session_path, "session_metadata.json")
-        return unless File.exist?(metadata_file)
-
-        metadata = JSON.parse(File.read(metadata_file))
+        metadata = JsonHandler.parse_file(metadata_file)
+        return unless metadata
 
         if metadata["duration_seconds"]
           # Session has completed

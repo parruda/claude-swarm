@@ -97,7 +97,7 @@ module ClaudeSwarm
         end
 
         # Log the request parameters
-        @executor.logger.info { "Responses API Request (depth=#{depth}): #{JSON.pretty_generate(parameters)}" }
+        @executor.logger.info { "Responses API Request (depth=#{depth}): #{JsonHandler.pretty_generate!(parameters)}" }
 
         # Append to session JSON
         append_to_session_json({
@@ -112,7 +112,7 @@ module ClaudeSwarm
           response = @openai_client.responses.create(parameters: parameters)
         rescue StandardError => e
           @executor.logger.error { "Responses API error: #{e.class} - #{e.message}" }
-          @executor.logger.error { "Request parameters: #{JSON.pretty_generate(parameters)}" }
+          @executor.logger.error { "Request parameters: #{JsonHandler.pretty_generate!(parameters)}" }
 
           # Try to extract and log the response body for better debugging
           if e.respond_to?(:response)
@@ -140,7 +140,7 @@ module ClaudeSwarm
         end
 
         # Log the full response
-        @executor.logger.info { "Responses API Full Response (depth=#{depth}): #{JSON.pretty_generate(response)}" }
+        @executor.logger.info { "Responses API Full Response (depth=#{depth}): #{JsonHandler.pretty_generate!(response)}" }
 
         # Append to session JSON
         append_to_session_json({
@@ -230,10 +230,10 @@ module ClaudeSwarm
 
           begin
             # Parse arguments
-            tool_args = JSON.parse(tool_args_str)
+            tool_args = JsonHandler.parse!(tool_args_str)
 
             # Log tool execution
-            @executor.logger.info { "Responses API - Executing tool: #{tool_name} with args: #{JSON.pretty_generate(tool_args)}" }
+            @executor.logger.info { "Responses API - Executing tool: #{tool_name} with args: #{JsonHandler.pretty_generate!(tool_args)}" }
 
             # Execute tool via MCP
             result = @mcp_client.call_tool(tool_name, tool_args)
@@ -283,7 +283,7 @@ module ClaudeSwarm
         end
 
         @executor.logger.info { "Responses API - Built conversation with #{conversation.size} function outputs" }
-        @executor.logger.debug { "Final conversation structure: #{JSON.pretty_generate(conversation)}" }
+        @executor.logger.debug { "Final conversation structure: #{JsonHandler.pretty_generate!(conversation)}" }
         conversation
       end
 
@@ -299,10 +299,10 @@ module ClaudeSwarm
 
           begin
             # Parse arguments
-            tool_args = JSON.parse(tool_args_str)
+            tool_args = JsonHandler.parse!(tool_args_str)
 
             # Log tool execution
-            @executor.logger.info { "Responses API - Executing tool: #{tool_name} with args: #{JSON.pretty_generate(tool_args)}" }
+            @executor.logger.info { "Responses API - Executing tool: #{tool_name} with args: #{JsonHandler.pretty_generate!(tool_args)}" }
 
             # Execute tool via MCP
             result = @mcp_client.call_tool(tool_name, tool_args)
