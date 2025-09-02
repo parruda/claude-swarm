@@ -3,6 +3,7 @@
 require "simplecov"
 SimpleCov.external_at_exit = true
 SimpleCov.start do
+  enable_coverage :branch
   add_filter "/test/"
   add_filter "/vendor/"
   add_filter "/version.rb"
