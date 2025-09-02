@@ -54,7 +54,7 @@ module ClaudeSwarm
       return if settings.empty?
 
       # Write settings file
-      File.write(settings_path(name), JSON.pretty_generate(settings))
+      JsonHandler.write_file!(settings_path(name), settings)
     end
 
     def build_session_start_hook

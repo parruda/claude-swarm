@@ -73,7 +73,7 @@ module ClaudeSwarm
         "mcpServers" => mcp_servers,
       }
 
-      File.write(mcp_config_path(name), JSON.pretty_generate(config))
+      JsonHandler.write_file!(mcp_config_path(name), config)
     end
 
     def build_mcp_server_config(mcp)
@@ -220,7 +220,7 @@ module ClaudeSwarm
       return unless Dir.exist?(state_dir)
 
       Dir.glob(File.join(state_dir, "*.json")).each do |state_file|
-        data = JSON.parse(File.read(state_file))
+        data = JsonHandler.parse_file!(state_file)
         instance_name = data["instance_name"]
         instance_id = data["instance_id"]
 

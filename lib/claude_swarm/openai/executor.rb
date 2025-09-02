@@ -122,7 +122,7 @@ module ClaudeSwarm
         return unless @mcp_config && File.exist?(@mcp_config)
 
         # Read MCP config to find MCP servers
-        mcp_data = JSON.parse(File.read(@mcp_config))
+        mcp_data = JsonHandler.parse_file!(@mcp_config)
 
         # Build MCP configurations from servers
         mcp_configs = build_mcp_configs(mcp_data["mcpServers"])
