@@ -3,10 +3,9 @@
 module ClaudeSwarm
   module Commands
     class Ps
-      RUN_DIR = File.expand_path("~/.claude-swarm/run")
-
       def execute
-        unless Dir.exist?(RUN_DIR)
+        run_dir = ClaudeSwarm.joined_run_dir
+        unless Dir.exist?(run_dir)
           puts "No active sessions"
           return
         end
@@ -14,7 +13,7 @@ module ClaudeSwarm
         sessions = []
 
         # Read all symlinks in run directory
-        Dir.glob("#{RUN_DIR}/*").each do |symlink|
+        Dir.glob("#{run_dir}/*").each do |symlink|
           next unless File.symlink?(symlink)
 
           begin

@@ -63,14 +63,14 @@ module ClaudeSwarm
 
       def find_session_path(session_id)
         # First check the run directory
-        run_symlink = File.join(File.expand_path("~/.claude-swarm/run"), session_id)
+        run_symlink = ClaudeSwarm.joined_run_dir(session_id)
         if File.symlink?(run_symlink)
           target = File.readlink(run_symlink)
           return target if Dir.exist?(target)
         end
 
         # Fall back to searching all sessions
-        Dir.glob(File.expand_path("~/.claude-swarm/sessions/*/*")).find do |path|
+        Dir.glob(ClaudeSwarm.joined_sessions_dir("*", "*")).find do |path|
           File.basename(path) == session_id
         end
       end

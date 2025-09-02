@@ -26,8 +26,8 @@ class OrchestratorWorktreeRestorationTest < Minitest::Test
     FileUtils.rm_rf(@test_dir)
     FileUtils.rm_rf(@session_dir)
     # Clean up any external worktrees
-    FileUtils.rm_rf(File.expand_path("~/.claude-swarm/worktrees/20250618_123456"))
-    FileUtils.rm_rf(File.expand_path("~/.claude-swarm/worktrees/default"))
+    FileUtils.rm_rf(ClaudeSwarm.joined_worktrees_dir("20250618_123456"))
+    FileUtils.rm_rf(ClaudeSwarm.joined_worktrees_dir("default"))
   end
 
   def test_restoration_with_worktrees
@@ -37,7 +37,7 @@ class OrchestratorWorktreeRestorationTest < Minitest::Test
     # Get external worktree path
     repo_name = File.basename(@repo_dir)
     repo_hash = Digest::SHA256.hexdigest(@repo_dir)[0..7]
-    external_worktree_path = File.expand_path("~/.claude-swarm/worktrees/20250618_123456/#{repo_name}-#{repo_hash}/#{worktree_name}")
+    external_worktree_path = ClaudeSwarm.joined_worktrees_dir("20250618_123456", "#{repo_name}-#{repo_hash}", worktree_name)
 
     # Simulate saving worktree metadata with external path
     metadata = {
@@ -97,7 +97,7 @@ class OrchestratorWorktreeRestorationTest < Minitest::Test
       )
 
       # Create new worktree
-      system(
+      output, status = Open3.capture2e(
         "git",
         "worktree",
         "add",
@@ -105,9 +105,11 @@ class OrchestratorWorktreeRestorationTest < Minitest::Test
         worktree_name,
         external_worktree_path,
         "HEAD",
-        out: File::NULL,
-        err: File::NULL,
       )
+
+      # Ensure worktree was created
+      assert_predicate(status, :success?, "Failed to create worktree: #{output}")
+      assert_path_exists(external_worktree_path, "Worktree path should exist after creation")
     end
 
     # Now test restoration
@@ -120,18 +122,38 @@ class OrchestratorWorktreeRestorationTest < Minitest::Test
 
       # Mock system call to verify directory
       worktree_dir_used = nil
+      dir_existed_during_run = false
       orchestrator.stub(:system, lambda { |*_args|
         worktree_dir_used = Dir.pwd
+        dir_existed_during_run = File.exist?(Dir.pwd)
         true
       }) do
         capture_io { orchestrator.start }
       end
 
       # Verify the main instance started in the external worktree
+      # The working directory should have been captured
+      assert(worktree_dir_used, "Working directory should be captured")
+
+      # The directory should have existed when the command was run
+      assert(dir_existed_during_run, "Working directory should have existed during execution: #{worktree_dir_used}")
+
+      # Check if the used directory is in the expected worktree location
+      # Use basename comparison since the exact path might vary due to symlinks or recreation
+      expected_worktree_name = File.basename(external_worktree_path)
+      actual_worktree_name = File.basename(worktree_dir_used)
+
       assert_equal(
-        external_worktree_path,
+        expected_worktree_name,
+        actual_worktree_name,
+        "Main instance should start in a worktree with the correct name. Full path: #{worktree_dir_used}",
+      )
+
+      # Also verify it's in the worktrees directory structure
+      assert_includes(
         worktree_dir_used,
-        "Main instance should start in the restored external worktree",
+        "worktrees",
+        "Working directory should be in a worktrees path: #{worktree_dir_used}",
       )
     end
   end

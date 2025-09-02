@@ -6,8 +6,8 @@ module ClaudeSwarm
   module Commands
     class ShowTest < Minitest::Test
       def setup
-        @run_dir = File.expand_path("~/.claude-swarm/run")
-        @test_session_dir = File.expand_path("~/.claude-swarm/sessions/test-project/test-session-123")
+        @run_dir = ClaudeSwarm.joined_run_dir
+        @test_session_dir = ClaudeSwarm.joined_sessions_dir("test-project", "test-session-123")
 
         # Clean up any existing test data
         FileUtils.rm_rf(@run_dir)

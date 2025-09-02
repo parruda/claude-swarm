@@ -6,7 +6,6 @@ module ClaudeSwarm
 
     attr_reader :config, :session_path, :session_log_path
 
-    RUN_DIR = File.expand_path("~/.claude-swarm/run")
     ["INT", "TERM", "QUIT"].each do |signal|
       Signal.trap(signal) do
         puts "\n🛑 Received #{signal} signal."
@@ -437,11 +436,12 @@ module ClaudeSwarm
     def create_run_symlink
       return unless @session_path
 
-      FileUtils.mkdir_p(RUN_DIR)
+      run_dir = ClaudeSwarm.joined_run_dir
+      FileUtils.mkdir_p(run_dir)
 
       # Session ID is the last part of the session path
       session_id = File.basename(@session_path)
-      symlink_path = File.join(RUN_DIR, session_id)
+      symlink_path = ClaudeSwarm.joined_run_dir(session_id)
 
       # Remove stale symlink if exists
       File.unlink(symlink_path) if File.symlink?(symlink_path)
@@ -457,7 +457,7 @@ module ClaudeSwarm
       return unless @session_path
 
       session_id = File.basename(@session_path)
-      symlink_path = File.join(RUN_DIR, session_id)
+      symlink_path = ClaudeSwarm.joined_run_dir(session_id)
       File.unlink(symlink_path) if File.symlink?(symlink_path)
     rescue StandardError
       # Ignore errors during cleanup

@@ -41,7 +41,27 @@ module ClaudeSwarm
 
   class << self
     def root_dir
-      ENV.fetch("CLAUDE_SWARM_ROOT_DIR", Dir.pwd)
+      ENV.fetch("CLAUDE_SWARM_ROOT_DIR") { Dir.pwd }
+    end
+
+    def home_dir
+      ENV.fetch("CLAUDE_SWARM_HOME") { File.expand_path("~/.claude-swarm") }
+    end
+
+    def joined_home_dir(*strings)
+      File.join(home_dir, *strings)
+    end
+
+    def joined_run_dir(*strings)
+      joined_home_dir("run", *strings)
+    end
+
+    def joined_sessions_dir(*strings)
+      joined_home_dir("sessions", *strings)
+    end
+
+    def joined_worktrees_dir(*strings)
+      joined_home_dir("worktrees", *strings)
     end
   end
 end

@@ -406,12 +406,12 @@ module ClaudeSwarm
       desc: "Number of lines to show initially"
     def watch(session_id)
       # Find session path
-      run_symlink = File.join(File.expand_path("~/.claude-swarm/run"), session_id)
+      run_symlink = ClaudeSwarm.joined_run_dir(session_id)
       session_path = if File.symlink?(run_symlink)
         File.readlink(run_symlink)
       else
         # Search in sessions directory
-        Dir.glob(File.expand_path("~/.claude-swarm/sessions/*/*")).find do |path|
+        Dir.glob(ClaudeSwarm.joined_sessions_dir("*", "*")).find do |path|
           File.basename(path) == session_id
         end
       end
@@ -437,7 +437,7 @@ module ClaudeSwarm
       default: 10,
       desc: "Maximum number of sessions to display"
     def list_sessions
-      sessions_dir = File.expand_path("~/.claude-swarm/sessions")
+      sessions_dir = ClaudeSwarm.joined_sessions_dir
       unless Dir.exist?(sessions_dir)
         say("No sessions found", :yellow)
         return
@@ -590,7 +590,7 @@ module ClaudeSwarm
     end
 
     def find_session_path(session_id)
-      sessions_dir = File.expand_path("~/.claude-swarm/sessions")
+      sessions_dir = ClaudeSwarm.joined_sessions_dir
 
       # Search for the session ID in all projects
       Dir.glob("#{sessions_dir}/*/#{session_id}").each do |path|
@@ -602,7 +602,7 @@ module ClaudeSwarm
     end
 
     def clean_stale_symlinks(days)
-      run_dir = File.expand_path("~/.claude-swarm/run")
+      run_dir = ClaudeSwarm.joined_run_dir
       return 0 unless Dir.exist?(run_dir)
 
       cleaned = 0
@@ -631,10 +631,10 @@ module ClaudeSwarm
     end
 
     def clean_orphaned_worktrees(days)
-      worktrees_dir = File.expand_path("~/.claude-swarm/worktrees")
+      worktrees_dir = ClaudeSwarm.joined_worktrees_dir
       return 0 unless Dir.exist?(worktrees_dir)
 
-      sessions_dir = File.expand_path("~/.claude-swarm/sessions")
+      sessions_dir = ClaudeSwarm.joined_sessions_dir
       cleaned = 0
 
       Dir.glob("#{worktrees_dir}/*").each do |session_worktree_dir|
