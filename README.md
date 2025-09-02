@@ -299,11 +299,49 @@ Each instance can have:
 - **allowed_tools**: Array of tools this instance can use (backward compatible with `tools`)
 - **disallowed_tools**: Array of tools to explicitly deny (takes precedence over allowed_tools)
 - **mcps**: Array of additional MCP servers to connect
-- **prompt**: Custom system prompt to append to the instance
+- **prompt**: Custom system prompt to append to the instance (can be inline or in a separate file - see below)
 - **vibe**: Enable vibe mode (--dangerously-skip-permissions) for this instance (default: false)
 - **worktree**: Configure Git worktree usage for this instance (true/false/string)
 - **provider**: AI provider to use - "claude" (default) or "openai"
 - **hooks**: Configure Claude Code hooks for this instance (see Hooks Configuration section below)
+
+#### Instance Prompts
+
+You can specify custom prompts for each instance in two ways:
+
+1. **Inline in the configuration file**:
+```yaml
+instances:
+  lead:
+    description: "Lead developer"
+    prompt: "You are the lead developer coordinating the team"
+```
+
+2. **In a separate `prompt.md` file** (recommended for longer prompts):
+```yaml
+instances:
+  lead:
+    description: "Lead developer"
+    # No prompt field - will look for prompt.md file
+```
+
+When using separate files, create the prompt at:
+```
+.claude-swarm/<config-name>/<instance-name>/prompt.md
+```
+
+For example, if your configuration is `team.yml` and you have an instance named `frontend`:
+```
+.claude-swarm/team/frontend/prompt.md
+```
+
+**Prompt Resolution**:
+- If a `prompt` field is specified in the configuration, it takes precedence
+- If no `prompt` field is provided, Claude Swarm looks for the `prompt.md` file
+- For non-main instances, either a prompt field or prompt.md file is required
+- The main instance can operate without a prompt (uses Claude's default)
+
+This approach keeps your configuration files clean and makes it easier to manage complex, multi-line prompts with proper formatting.
 
 #### OpenAI Provider Configuration
 

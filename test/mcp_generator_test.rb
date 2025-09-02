@@ -64,6 +64,7 @@ class McpGeneratorTest < Minitest::Test
             prompt: "Backend developer"
           frontend:
             description: "Frontend instance"
+            prompt: "You are a frontend developer"
     YAML
 
     # Create required directories
@@ -193,8 +194,10 @@ class McpGeneratorTest < Minitest::Test
           backend:
             description: "Backend instance"
             connections: [database]
+            prompt: "You are a backend developer"
           database:
             description: "Database instance"
+            prompt: "You are a database expert"
     YAML
 
     # Create required directories
@@ -231,6 +234,7 @@ class McpGeneratorTest < Minitest::Test
             connections: [worker]
           worker:
             description: "Worker instance"
+            prompt: "You are a worker"
     YAML
 
     Dir.mkdir(File.join(@tmpdir, "worker"))
@@ -323,6 +327,7 @@ class McpGeneratorTest < Minitest::Test
             connections: [backend]
           backend:
             description: "Backend instance"
+            prompt: "You are a backend developer"
     YAML
 
     Dir.mkdir(File.join(@tmpdir, "backend"))
@@ -380,8 +385,10 @@ class McpGeneratorTest < Minitest::Test
           frontend:
             description: "Frontend instance"
             connections: [shared]
+            prompt: "You are a frontend developer"
           shared:
             description: "Shared service"
+            prompt: "You are a shared service"
     YAML
 
     Dir.mkdir(File.join(@tmpdir, "frontend"))
@@ -427,6 +434,7 @@ class McpGeneratorTest < Minitest::Test
             directory: .
             provider: openai
             model: gpt-4o
+            prompt: "You are an OpenAI assistant"
     YAML
 
     # Set environment variable for test

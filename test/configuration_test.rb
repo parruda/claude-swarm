@@ -27,6 +27,7 @@ class ConfigurationTest < Minitest::Test
         instances:
           lead:
             description: "Lead instance"
+            prompt: "Basic lead prompt"
     YAML
 
     config = ClaudeSwarm::Configuration.new(@config_path)
@@ -71,6 +72,7 @@ class ConfigurationTest < Minitest::Test
           frontend:
             description: "Frontend developer instance"
             directory: ./frontend
+            prompt: "You handle frontend tasks"
     YAML
 
     # Create required directories
@@ -410,6 +412,7 @@ class ConfigurationTest < Minitest::Test
         instances:
           lead:
             description: "Test instance"
+            prompt: "Default test prompt"
     YAML
 
     config = ClaudeSwarm::Configuration.new(@config_path)
@@ -421,7 +424,7 @@ class ConfigurationTest < Minitest::Test
     assert_empty(lead[:connections])
     assert_empty(lead[:allowed_tools])
     assert_empty(lead[:mcps])
-    assert_nil(lead[:prompt])
+    assert_equal("Default test prompt", lead[:prompt])
   end
 
   def test_missing_description
@@ -584,9 +587,11 @@ class ConfigurationTest < Minitest::Test
         instances:
           lead:
             description: "Lead instance"
+            prompt: "Test prompt for lead"
             connections: [worker]
           worker:
             description: "Worker instance"
+            prompt: "Test prompt for worker"
             connections: [lead]
     YAML
 
@@ -605,12 +610,15 @@ class ConfigurationTest < Minitest::Test
         instances:
           lead:
             description: "Lead instance"
+            prompt: "Test prompt for lead"
             connections: [worker1]
           worker1:
             description: "Worker 1 instance"
+            prompt: "Test prompt for worker1"
             connections: [worker2]
           worker2:
             description: "Worker 2 instance"
+            prompt: "Test prompt for worker2"
             connections: [lead]
     YAML
 
@@ -629,15 +637,19 @@ class ConfigurationTest < Minitest::Test
         instances:
           lead:
             description: "Lead instance"
+            prompt: "Test prompt for lead"
             connections: [worker1]
           worker1:
             description: "Worker 1 instance"
+            prompt: "Test prompt for worker1"
             connections: [worker2]
           worker2:
             description: "Worker 2 instance"
+            prompt: "Test prompt for worker2"
             connections: [worker3]
           worker3:
             description: "Worker 3 instance"
+            prompt: "Test prompt for worker3"
             connections: [worker1]
     YAML
 
@@ -656,17 +668,22 @@ class ConfigurationTest < Minitest::Test
         instances:
           lead:
             description: "Lead instance"
+            prompt: "Test prompt for lead"
             connections: [frontend, backend]
           frontend:
             description: "Frontend instance"
+            prompt: "Test prompt for frontend"
             connections: [ui_specialist]
           backend:
             description: "Backend instance"
+            prompt: "Test prompt for backend"
             connections: [database]
           ui_specialist:
             description: "UI specialist instance"
+            prompt: "Test prompt for ui_specialist"
           database:
             description: "Database instance"
+            prompt: "Test prompt for database"
     YAML
 
     # Create required directories
@@ -691,23 +708,31 @@ class ConfigurationTest < Minitest::Test
         instances:
           architect:
             description: "System architect"
+            prompt: "Test prompt for architect"
             connections: [frontend_lead, backend_lead, devops]
           frontend_lead:
             description: "Frontend team lead"
+            prompt: "Test prompt for frontend_lead"
             connections: [react_dev, css_expert]
           backend_lead:
             description: "Backend team lead"
+            prompt: "Test prompt for backend_lead"
             connections: [api_dev, db_expert]
           react_dev:
             description: "React developer"
+            prompt: "Test prompt for react_dev"
           css_expert:
             description: "CSS specialist"
+            prompt: "Test prompt for css_expert"
           api_dev:
             description: "API developer"
+            prompt: "Test prompt for api_dev"
           db_expert:
             description: "Database expert"
+            prompt: "Test prompt for db_expert"
           devops:
             description: "DevOps engineer"
+            prompt: "Test prompt for devops"
     YAML
 
     # Should not raise any errors
@@ -957,6 +982,7 @@ class ConfigurationTest < Minitest::Test
             description: "OpenAI-powered assistant"
             provider: openai
             model: gpt-4o
+            prompt: "You are an AI assistant"
     YAML
 
     # Set environment variable for test
@@ -993,6 +1019,7 @@ class ConfigurationTest < Minitest::Test
             openai_token_env: CUSTOM_OPENAI_KEY
             base_url: https://custom.openai.com/v1
             vibe: false
+            prompt: "You are an AI assistant"
     YAML
 
     # Set custom environment variable for test
@@ -1128,6 +1155,7 @@ class ConfigurationTest < Minitest::Test
             provider: openai
             model: gpt-4o
             temperature: 0.5
+            prompt: "You are an OpenAI helper"
     YAML
 
     # Set environment variable for test
@@ -1163,6 +1191,7 @@ class ConfigurationTest < Minitest::Test
             description: "OpenAI-powered assistant"
             provider: openai
             model: gpt-4o
+            prompt: "You are an AI assistant"
     YAML
 
     # Ensure the environment variable is not set
@@ -1183,9 +1212,11 @@ class ConfigurationTest < Minitest::Test
         instances:
           lead:
             description: "Claude lead"
+            prompt: "Test prompt for lead"
             connections: [ai_assistant]
           ai_assistant:
             description: "OpenAI-powered assistant"
+            prompt: "Test prompt for ai_assistant"
             provider: openai
             model: gpt-4o
     YAML
@@ -1300,6 +1331,7 @@ class ConfigurationTest < Minitest::Test
             description: "Assistant with OpenAI provider"
             provider: openai
             model: gpt-4o
+            prompt: "You are an assistant"
     YAML
 
     # Set the required environment variable
@@ -1323,9 +1355,11 @@ class ConfigurationTest < Minitest::Test
         instances:
           lead:
             description: "Claude lead"
+            prompt: "Test prompt for lead"
             connections: [ai_assistant]
           ai_assistant:
             description: "OpenAI-powered assistant"
+            prompt: "Test prompt for ai_assistant"
             provider: openai
             model: gpt-4o
     YAML
@@ -1355,6 +1389,7 @@ class ConfigurationTest < Minitest::Test
             provider: openai
             model: gpt-4o
             openai_token_env: CUSTOM_OPENAI_KEY
+            prompt: "You are an AI assistant"
     YAML
 
     # Ensure the custom environment variable is not set
@@ -1380,6 +1415,7 @@ class ConfigurationTest < Minitest::Test
             description: "OpenAI-powered assistant"
             provider: openai
             model: gpt-4o
+            prompt: "You are an AI assistant"
     YAML
 
     # Set a valid environment variable
@@ -1408,6 +1444,7 @@ class ConfigurationTest < Minitest::Test
             description: "OpenAI helper"
             provider: openai
             model: gpt-4o
+            prompt: "You are an OpenAI helper"
     YAML
 
     # Ensure OpenAI key is not set
@@ -1842,9 +1879,11 @@ class ConfigurationTest < Minitest::Test
         instances:
           lead:
             description: "Claude lead"
+            prompt: "Test prompt for lead"
             connections: [assistant]
           assistant:
             description: "OpenAI assistant"
+            prompt: "Test prompt for assistant"
             provider: openai
             model: gpt-4o
             openai_token_env: "${TEST_ENV_OPENAI_KEY}"
@@ -2169,6 +2208,7 @@ class ConfigurationTest < Minitest::Test
         instances:
           lead:
             description: "Lead developer"
+            prompt: "Test prompt for lead"
             hooks:
               PreToolUse:
                 - matcher: "*"
@@ -2177,6 +2217,7 @@ class ConfigurationTest < Minitest::Test
                       command: "echo 'Lead executing tool'"
           frontend:
             description: "Frontend developer"
+            prompt: "Test prompt for frontend"
             hooks:
               PreToolUse:
                 - matcher: "Write"
@@ -2185,6 +2226,7 @@ class ConfigurationTest < Minitest::Test
                       command: "npm run lint"
           backend:
             description: "Backend developer"
+            prompt: "Test prompt for backend"
             # No hooks
     YAML
 
@@ -2233,5 +2275,490 @@ class ConfigurationTest < Minitest::Test
 
     assert_equal("python3 validate.py", hook["command"])
     assert_equal("30", hook["timeout"]) # YAML parses numbers in strings as strings
+  end
+
+  # Prompt loading from file tests
+
+  # Helper methods for prompt file tests
+  def create_prompt_file(instance_name, content, config_name: nil)
+    config_name ||= File.basename(@config_path, ".*")
+    prompt_dir = File.join(@tmpdir, ".claude-swarm", config_name, instance_name)
+    create_directories(prompt_dir)
+    prompt_file = File.join(prompt_dir, "prompt.md")
+    File.write(prompt_file, content)
+    prompt_file
+  end
+
+  def assert_prompt_equals(config, instance_name, expected_content)
+    actual = config.instances[instance_name][:prompt]
+
+    assert_equal(expected_content, actual, "Prompt mismatch for instance '#{instance_name}'")
+    assert_instance_of(String, actual) if actual && !actual.empty?
+  end
+
+  def test_load_prompt_returns_content_from_file_when_config_prompt_nil
+    create_prompt_file("lead", "You are an expert Ruby developer with years of experience.")
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+            # No prompt specified in config
+    YAML
+
+    _, _err = capture_io do
+      config = ClaudeSwarm::Configuration.new(@config_path)
+
+      assert_prompt_equals(config, "lead", "You are an expert Ruby developer with years of experience.")
+    end
+  end
+
+  def test_load_prompt_returns_config_value_when_both_config_and_file_exist
+    create_prompt_file("lead", "This prompt should be ignored.")
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+            prompt: "This prompt from config takes precedence."
+    YAML
+
+    _, _err = capture_io do
+      config = ClaudeSwarm::Configuration.new(@config_path)
+
+      assert_prompt_equals(config, "lead", "This prompt from config takes precedence.")
+    end
+  end
+
+  def test_main_instance_allows_missing_prompt
+    # No prompt file created for main instance
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+            # No prompt in config, no file either - OK for main instance
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    assert_nil(config.main_instance_config[:prompt])
+  end
+
+  def test_non_main_instance_requires_prompt
+    # No prompt file created for non-main instance
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+            # Main instance can omit prompt
+          helper:
+            description: "Helper instance"
+            # No prompt in config, no file either - ERROR for non-main instance
+    YAML
+
+    error = assert_raises(ClaudeSwarm::Error) do
+      ClaudeSwarm::Configuration.new(@config_path)
+    end
+    assert_match(/Instance 'helper' requires a prompt/, error.message)
+    assert_match(/Either provide it in the configuration file or create a prompt.md file/, error.message)
+  end
+
+  def test_load_prompt_strips_whitespace_from_file_content
+    create_prompt_file("lead", "\n\n  You are an AI assistant.  \n\n")
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+    YAML
+
+    _, _err = capture_io do
+      config = ClaudeSwarm::Configuration.new(@config_path)
+
+      assert_prompt_equals(config, "lead", "You are an AI assistant.")
+    end
+  end
+
+  def test_load_prompt_loads_different_files_for_different_instances
+    create_prompt_file("lead", "Lead developer prompt")
+    create_prompt_file("frontend", "Frontend developer prompt")
+    create_prompt_file("backend", "Backend developer prompt")
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+          frontend:
+            description: "Frontend developer"
+          backend:
+            description: "Backend developer"
+    YAML
+
+    _, _err = capture_io do
+      config = ClaudeSwarm::Configuration.new(@config_path)
+
+      assert_prompt_equals(config, "lead", "Lead developer prompt")
+      assert_prompt_equals(config, "frontend", "Frontend developer prompt")
+      assert_prompt_equals(config, "backend", "Backend developer prompt")
+    end
+  end
+
+  def test_load_prompt_handles_yaml_extension_config_files
+    yaml_config_path = File.join(@tmpdir, "custom-config.yaml")
+    create_prompt_file("lead", "Prompt from YAML config file", config_name: "custom-config")
+
+    File.write(yaml_config_path, <<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+    YAML
+
+    _, _err = capture_io do
+      config = ClaudeSwarm::Configuration.new(yaml_config_path)
+
+      assert_prompt_equals(config, "lead", "Prompt from YAML config file")
+    end
+  end
+
+  def test_load_prompt_handles_custom_config_filenames
+    custom_config_path = File.join(@tmpdir, "my-swarm-config.yml")
+    create_prompt_file("worker", "Worker instance prompt", config_name: "my-swarm-config")
+
+    File.write(custom_config_path, <<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: worker
+        instances:
+          worker:
+            description: "Worker instance"
+    YAML
+
+    _, _err = capture_io do
+      config = ClaudeSwarm::Configuration.new(custom_config_path)
+
+      assert_prompt_equals(config, "worker", "Worker instance prompt")
+    end
+  end
+
+  def test_load_prompt_returns_empty_string_for_empty_file
+    create_prompt_file("lead", "")
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+    YAML
+
+    _, _err = capture_io do
+      config = ClaudeSwarm::Configuration.new(@config_path)
+      result = config.main_instance_config[:prompt]
+
+      assert_equal("", result)
+      assert_instance_of(String, result)
+      refute_nil(result)
+    end
+  end
+
+  def test_load_prompt_preserves_markdown_formatting
+    markdown_content = <<~MD
+      # System Prompt
+
+      You are an expert software engineer with the following skills:
+      - Ruby programming
+      - Test-driven development
+      - Code review
+
+      ## Guidelines
+
+      1. Write clean, maintainable code
+      2. Follow best practices
+      3. Add comprehensive tests
+    MD
+
+    create_prompt_file("lead", markdown_content)
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+    YAML
+
+    _, _err = capture_io do
+      config = ClaudeSwarm::Configuration.new(@config_path)
+
+      assert_prompt_equals(config, "lead", markdown_content.strip)
+    end
+  end
+
+  def test_load_prompt_interpolates_env_vars_in_config_prompt
+    ENV["TEST_ENV_PROMPT"] = "Prompt from environment variable"
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+            prompt: "${TEST_ENV_PROMPT}"
+    YAML
+
+    _, _err = capture_io do
+      config = ClaudeSwarm::Configuration.new(@config_path)
+
+      assert_prompt_equals(config, "lead", "Prompt from environment variable")
+    end
+  end
+
+  def test_load_prompt_handles_mixed_config_and_file_prompts
+    create_prompt_file("frontend", "Frontend from file")
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+            prompt: "Lead from config"
+          frontend:
+            description: "Frontend developer"
+            # Will use file
+          backend:
+            description: "Backend developer"
+            prompt: "Backend from config"
+    YAML
+
+    _, _err = capture_io do
+      config = ClaudeSwarm::Configuration.new(@config_path)
+
+      assert_prompt_equals(config, "lead", "Lead from config")
+      assert_prompt_equals(config, "frontend", "Frontend from file")
+      assert_prompt_equals(config, "backend", "Backend from config")
+    end
+  end
+
+  def test_load_prompt_preserves_special_characters
+    special_content = "You're an AI with $pecial ch@racters & symbols: <>"
+    create_prompt_file("lead", special_content)
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+    YAML
+
+    _, _err = capture_io do
+      config = ClaudeSwarm::Configuration.new(@config_path)
+
+      assert_prompt_equals(config, "lead", special_content)
+    end
+  end
+
+  def test_load_prompt_handles_unicode_content
+    unicode_content = "You are an AI assistant. 你好世界 🚀 ñ é ü ß"
+    create_prompt_file("lead", unicode_content)
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+    YAML
+
+    _, _err = capture_io do
+      config = ClaudeSwarm::Configuration.new(@config_path)
+
+      assert_prompt_equals(config, "lead", unicode_content)
+    end
+  end
+
+  def test_load_prompt_uses_config_dir_for_relative_paths
+    subdir = File.join(@tmpdir, "configs")
+    create_directories(subdir)
+    subdir_config_path = File.join(subdir, "team-config.yml")
+
+    # Prompt file should be relative to config file location
+    prompt_dir = File.join(subdir, ".claude-swarm", "team-config", "lead")
+    create_directories(prompt_dir)
+    prompt_file = File.join(prompt_dir, "prompt.md")
+    File.write(prompt_file, "Prompt in subdirectory")
+
+    File.write(subdir_config_path, <<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+    YAML
+
+    _, _err = capture_io do
+      config = ClaudeSwarm::Configuration.new(subdir_config_path)
+
+      assert_prompt_equals(config, "lead", "Prompt in subdirectory")
+    end
+  end
+
+  # Edge cases for prompt loading
+
+  def test_load_prompt_handles_very_large_file
+    # Test with a 5MB prompt file
+    large_content = "Large prompt\n" * 400_000
+    create_prompt_file("lead", large_content)
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+    YAML
+
+    _, _err = capture_io do
+      config = ClaudeSwarm::Configuration.new(@config_path)
+
+      assert_prompt_equals(config, "lead", large_content.strip)
+    end
+  end
+
+  def test_load_prompt_when_prompt_md_is_directory_not_file
+    # Create prompt.md as a directory instead of file
+    prompt_dir = File.join(@tmpdir, ".claude-swarm", "claude-swarm", "lead", "prompt.md")
+    create_directories(prompt_dir)
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+    YAML
+
+    _, _err = capture_io do
+      error = assert_raises(ClaudeSwarm::Error) do
+        ClaudeSwarm::Configuration.new(@config_path)
+      end
+      assert_match(/Error reading prompt file/, error.message)
+    end
+  end
+
+  def test_load_prompt_with_nonexistent_directory_in_path
+    # Test that prompt loading works even with unusual instance names
+    # as long as the config is valid
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+            directory: ./nonexistent
+    YAML
+
+    _, _err = capture_io do
+      error = assert_raises(ClaudeSwarm::Error) do
+        ClaudeSwarm::Configuration.new(@config_path)
+      end
+      # Should fail because directory doesn't exist
+      assert_match(/Directory.*nonexistent.*does not exist/, error.message)
+    end
+  end
+
+  def test_load_prompt_handles_whitespace_only_file
+    create_prompt_file("lead", "   \n\t\n   ")
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+    YAML
+
+    _, _err = capture_io do
+      config = ClaudeSwarm::Configuration.new(@config_path)
+      result = config.main_instance_config[:prompt]
+
+      assert_equal("", result)
+      assert_instance_of(String, result)
+    end
+  end
+
+  def test_load_prompt_with_binary_file_raises_error
+    # Create a file with binary content that will cause UTF-8 error
+    binary_content = [0xFF, 0xD8, 0xFF, 0xE0].pack("C*") + "Some text"
+    create_prompt_file("lead", binary_content)
+
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+    YAML
+
+    _, _err = capture_io do
+      error = assert_raises(ClaudeSwarm::Error) do
+        ClaudeSwarm::Configuration.new(@config_path)
+      end
+      assert_match(/Error reading prompt file.*invalid byte sequence/, error.message)
+    end
   end
 end

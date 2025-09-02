@@ -31,6 +31,7 @@ class WorkingDirectoryRestorationTest < Minitest::Test
             description: "Worker in subdirectory"
             directory: ./subdir
             model: sonnet
+            prompt: "You are a worker instance"
     YAML
 
     # Copy config to session directory (simulating what happens during initial run)

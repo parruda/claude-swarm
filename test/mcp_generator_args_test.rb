@@ -110,6 +110,7 @@ class McpGeneratorArgsTest < Minitest::Test
             api_version: responses
             openai_token_env: CUSTOM_OPENAI_KEY
             base_url: https://custom.openai.com/v1
+            prompt: "You are an AI helper"
     YAML
 
     Dir.mktmpdir do |tmpdir|

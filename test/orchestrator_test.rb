@@ -49,6 +49,7 @@ class OrchestratorTest < Minitest::Test
           backend:
             description: "Backend service instance"
             directory: ./backend
+            prompt: "You are a backend developer"
     YAML
 
     # Create required directories

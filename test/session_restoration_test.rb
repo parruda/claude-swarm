@@ -23,6 +23,7 @@ class SessionRestorationTest < Minitest::Test
             description: "Worker instance"#{"  "}
             directory: .
             model: sonnet
+            prompt: "You are a worker"
     YAML
   end
 

@@ -68,6 +68,7 @@ class ConfigurationOpenaiResponsesApiTest < Minitest::Test
         "model" => "gpt-4",
         "api_version" => "responses",
         "openai_token_env" => "TEST_OPENAI_KEY",
+        "prompt" => "You are a backend developer",
       },
     }
 
@@ -113,6 +114,7 @@ class ConfigurationOpenaiResponsesApiTest < Minitest::Test
         "model" => "gpt-4",
         "api_version" => "responses",
         "openai_token_env" => "TEST_OPENAI_KEY",
+        "prompt" => "You are a frontend developer",
       },
       "backend" => {
         "description" => "Backend with responses API",
@@ -120,6 +122,7 @@ class ConfigurationOpenaiResponsesApiTest < Minitest::Test
         "model" => "gpt-3.5-turbo",
         "api_version" => "responses",
         "openai_token_env" => "TEST_OPENAI_KEY",
+        "prompt" => "You are a backend developer",
       },
       "database" => {
         "description" => "Database with chat API",
@@ -127,6 +130,7 @@ class ConfigurationOpenaiResponsesApiTest < Minitest::Test
         "model" => "gpt-4",
         "api_version" => "chat_completion",
         "openai_token_env" => "TEST_OPENAI_KEY",
+        "prompt" => "You are a database expert",
       },
     }
 
@@ -158,6 +162,7 @@ class ConfigurationOpenaiResponsesApiTest < Minitest::Test
         "model" => "gpt-4",
         "api_version" => "chat_completion",
         "openai_token_env" => "TEST_OPENAI_KEY",
+        "prompt" => "You are a backend developer",
       },
     }
 
@@ -187,6 +192,7 @@ class ConfigurationOpenaiResponsesApiTest < Minitest::Test
         "provider" => "openai",
         "model" => "gpt-4",
         "openai_token_env" => "TEST_OPENAI_KEY",
+        "prompt" => "You are a backend developer",
       },
     }
 
@@ -215,6 +221,7 @@ class ConfigurationOpenaiResponsesApiTest < Minitest::Test
         "description" => "Claude backend",
         "provider" => "claude",
         "model" => "opus",
+        "prompt" => "You are a Claude backend developer",
       },
       "openai_backend" => {
         "description" => "OpenAI backend with responses API",
@@ -222,6 +229,7 @@ class ConfigurationOpenaiResponsesApiTest < Minitest::Test
         "model" => "gpt-4",
         "api_version" => "responses",
         "openai_token_env" => "TEST_OPENAI_KEY",
+        "prompt" => "You are an OpenAI backend developer",
       },
     }
 
@@ -253,6 +261,7 @@ class ConfigurationOpenaiResponsesApiTest < Minitest::Test
         "model" => "gpt-4",
         "api_version" => "responses",
         "openai_token_env" => "TEST_OPENAI_KEY",
+        "prompt" => "You are a backend developer",
       },
     }
 
@@ -297,6 +306,7 @@ class ConfigurationOpenaiResponsesApiTest < Minitest::Test
         "description" => "Backend instance",
         "provider" => "claude",
         "model" => "opus",
+        "prompt" => "You are a backend developer",
       },
     }
 
