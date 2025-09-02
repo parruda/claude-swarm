@@ -20,7 +20,7 @@ class OrchestratorWorktreeCleanupTest < Minitest::Test
   def teardown
     FileUtils.rm_rf(@test_dir)
     # Clean up any external worktrees created during tests
-    FileUtils.rm_rf(File.expand_path("~/.claude-swarm/worktrees/default"))
+    FileUtils.rm_rf(ClaudeSwarm.joined_worktrees_dir("default"))
   end
 
   def test_orchestrator_skips_cleanup_with_uncommitted_changes

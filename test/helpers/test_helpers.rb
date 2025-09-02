@@ -271,7 +271,7 @@ module TestHelpers
     def calculate_worktree_path(repo_dir, worktree_name, session_id = "default")
       repo_name = File.basename(repo_dir)
       repo_hash = Digest::SHA256.hexdigest(repo_dir)[0..7]
-      File.expand_path("~/.claude-swarm/worktrees/#{session_id}/#{repo_name}-#{repo_hash}/#{worktree_name}")
+      ClaudeSwarm.joined_worktrees_dir(session_id, "#{repo_name}-#{repo_hash}", worktree_name)
     end
   end
 

@@ -52,7 +52,7 @@ class WorktreeManagerTest < Minitest::Test
     # Check worktree was created in external directory
     repo_name = File.basename(@repo_dir)
     repo_hash = Digest::SHA256.hexdigest(@repo_dir)[0..7]
-    worktree_path = File.expand_path("~/.claude-swarm/worktrees/default/#{repo_name}-#{repo_hash}/test-worktree")
+    worktree_path = ClaudeSwarm.joined_worktrees_dir("default", "#{repo_name}-#{repo_hash}", "test-worktree")
 
     assert_path_exists(worktree_path, "Worktree should be created in external directory")
 
@@ -81,11 +81,11 @@ class WorktreeManagerTest < Minitest::Test
     # Check both worktrees were created in external directories
     repo_name1 = File.basename(@repo_dir)
     repo_hash1 = Digest::SHA256.hexdigest(@repo_dir)[0..7]
-    worktree_path1 = File.expand_path("~/.claude-swarm/worktrees/default/#{repo_name1}-#{repo_hash1}/multi-repo")
+    worktree_path1 = ClaudeSwarm.joined_worktrees_dir("default", "#{repo_name1}-#{repo_hash1}", "multi-repo")
 
     repo_name2 = File.basename(@other_repo_dir)
     repo_hash2 = Digest::SHA256.hexdigest(@other_repo_dir)[0..7]
-    worktree_path2 = File.expand_path("~/.claude-swarm/worktrees/default/#{repo_name2}-#{repo_hash2}/multi-repo")
+    worktree_path2 = ClaudeSwarm.joined_worktrees_dir("default", "#{repo_name2}-#{repo_hash2}", "multi-repo")
 
     assert_path_exists(worktree_path1, "First worktree should be created")
     assert_path_exists(worktree_path2, "Second worktree should be created")
@@ -110,11 +110,11 @@ class WorktreeManagerTest < Minitest::Test
     # Check all directories were mapped
     repo_name1 = File.basename(@repo_dir)
     repo_hash1 = Digest::SHA256.hexdigest(@repo_dir)[0..7]
-    worktree_path1 = File.expand_path("~/.claude-swarm/worktrees/default/#{repo_name1}-#{repo_hash1}/array-test")
+    worktree_path1 = ClaudeSwarm.joined_worktrees_dir("default", "#{repo_name1}-#{repo_hash1}", "array-test")
 
     repo_name2 = File.basename(@other_repo_dir)
     repo_hash2 = Digest::SHA256.hexdigest(@other_repo_dir)[0..7]
-    worktree_path2 = File.expand_path("~/.claude-swarm/worktrees/default/#{repo_name2}-#{repo_hash2}/array-test")
+    worktree_path2 = ClaudeSwarm.joined_worktrees_dir("default", "#{repo_name2}-#{repo_hash2}", "array-test")
 
     expected_dirs = [
       worktree_path1,
@@ -147,11 +147,11 @@ class WorktreeManagerTest < Minitest::Test
     # Verify worktrees exist
     repo_name1 = File.basename(@repo_dir)
     repo_hash1 = Digest::SHA256.hexdigest(@repo_dir)[0..7]
-    worktree_path1 = File.expand_path("~/.claude-swarm/worktrees/default/#{repo_name1}-#{repo_hash1}/cleanup-test")
+    worktree_path1 = ClaudeSwarm.joined_worktrees_dir("default", "#{repo_name1}-#{repo_hash1}", "cleanup-test")
 
     repo_name2 = File.basename(@other_repo_dir)
     repo_hash2 = Digest::SHA256.hexdigest(@other_repo_dir)[0..7]
-    worktree_path2 = File.expand_path("~/.claude-swarm/worktrees/default/#{repo_name2}-#{repo_hash2}/cleanup-test")
+    worktree_path2 = ClaudeSwarm.joined_worktrees_dir("default", "#{repo_name2}-#{repo_hash2}", "cleanup-test")
 
     assert_path_exists(worktree_path1)
     assert_path_exists(worktree_path2)
@@ -181,7 +181,7 @@ class WorktreeManagerTest < Minitest::Test
 
     repo_name = File.basename(@repo_dir)
     repo_hash = Digest::SHA256.hexdigest(@repo_dir)[0..7]
-    expected_path = File.expand_path("~/.claude-swarm/worktrees/default/#{repo_name}-#{repo_hash}/metadata-test")
+    expected_path = ClaudeSwarm.joined_worktrees_dir("default", "#{repo_name}-#{repo_hash}", "metadata-test")
 
     assert_equal(expected_path, metadata[:created_paths]["#{@repo_dir}:metadata-test"])
   end
@@ -191,7 +191,7 @@ class WorktreeManagerTest < Minitest::Test
     worktree_name = "existing-worktree"
     repo_name = File.basename(@repo_dir)
     repo_hash = Digest::SHA256.hexdigest(@repo_dir)[0..7]
-    worktree_base = File.expand_path("~/.claude-swarm/worktrees/default/#{repo_name}-#{repo_hash}")
+    worktree_base = ClaudeSwarm.joined_worktrees_dir("default", "#{repo_name}-#{repo_hash}")
     FileUtils.mkdir_p(worktree_base)
     worktree_path = File.join(worktree_base, worktree_name)
 
@@ -238,7 +238,7 @@ class WorktreeManagerTest < Minitest::Test
 
     repo_name = File.basename(@repo_dir)
     repo_hash = Digest::SHA256.hexdigest(@repo_dir)[0..7]
-    worktree_path = File.expand_path("~/.claude-swarm/worktrees/default/#{repo_name}-#{repo_hash}/#{branch_name}")
+    worktree_path = ClaudeSwarm.joined_worktrees_dir("default", "#{repo_name}-#{repo_hash}", branch_name)
 
     assert_path_exists(worktree_path, "Worktree should be created")
 
@@ -303,7 +303,7 @@ class WorktreeManagerTest < Minitest::Test
     # Main instance should be in worktree
     repo_name = File.basename(@repo_dir)
     repo_hash = Digest::SHA256.hexdigest(@repo_dir)[0..7]
-    expected_path = File.expand_path("~/.claude-swarm/worktrees/default/#{repo_name}-#{repo_hash}/shared-worktree")
+    expected_path = ClaudeSwarm.joined_worktrees_dir("default", "#{repo_name}-#{repo_hash}", "shared-worktree")
 
     assert_equal(expected_path, instances[0][:directory])
 
@@ -324,14 +324,14 @@ class WorktreeManagerTest < Minitest::Test
     # Main instance should use shared worktree
     repo_name1 = File.basename(@repo_dir)
     repo_hash1 = Digest::SHA256.hexdigest(@repo_dir)[0..7]
-    expected_path1 = File.expand_path("~/.claude-swarm/worktrees/default/#{repo_name1}-#{repo_hash1}/shared-worktree")
+    expected_path1 = ClaudeSwarm.joined_worktrees_dir("default", "#{repo_name1}-#{repo_hash1}", "shared-worktree")
 
     assert_equal(expected_path1, instances[0][:directory])
 
     # Other instance should use custom worktree
     repo_name2 = File.basename(@other_repo_dir)
     repo_hash2 = Digest::SHA256.hexdigest(@other_repo_dir)[0..7]
-    expected_path2 = File.expand_path("~/.claude-swarm/worktrees/default/#{repo_name2}-#{repo_hash2}/custom-branch")
+    expected_path2 = ClaudeSwarm.joined_worktrees_dir("default", "#{repo_name2}-#{repo_hash2}", "custom-branch")
 
     assert_equal(expected_path2, instances[1][:directory])
   end
@@ -352,7 +352,7 @@ class WorktreeManagerTest < Minitest::Test
     # Other instance should use custom worktree
     repo_name = File.basename(@other_repo_dir)
     repo_hash = Digest::SHA256.hexdigest(@other_repo_dir)[0..7]
-    expected_path = File.expand_path("~/.claude-swarm/worktrees/default/#{repo_name}-#{repo_hash}/feature-x")
+    expected_path = ClaudeSwarm.joined_worktrees_dir("default", "#{repo_name}-#{repo_hash}", "feature-x")
 
     assert_equal(expected_path, instances[1][:directory])
   end
@@ -382,7 +382,7 @@ class WorktreeManagerTest < Minitest::Test
     # Make changes in the worktree
     repo_name = File.basename(@repo_dir)
     repo_hash = Digest::SHA256.hexdigest(@repo_dir)[0..7]
-    worktree_path = File.expand_path("~/.claude-swarm/worktrees/default/#{repo_name}-#{repo_hash}/test-changes")
+    worktree_path = ClaudeSwarm.joined_worktrees_dir("default", "#{repo_name}-#{repo_hash}", "test-changes")
 
     assert_path_exists(worktree_path)
 
@@ -447,7 +447,7 @@ class WorktreeManagerTest < Minitest::Test
 
     repo_name = File.basename(@repo_dir)
     repo_hash = Digest::SHA256.hexdigest(@repo_dir)[0..7]
-    worktree_path = File.expand_path("~/.claude-swarm/worktrees/default/#{repo_name}-#{repo_hash}/test-clean")
+    worktree_path = ClaudeSwarm.joined_worktrees_dir("default", "#{repo_name}-#{repo_hash}", "test-clean")
 
     assert_path_exists(worktree_path)
 
@@ -467,7 +467,7 @@ class WorktreeManagerTest < Minitest::Test
     manager.setup_worktrees(instances)
 
     # Check that session directory exists
-    session_worktree_dir = File.expand_path("~/.claude-swarm/worktrees/test_session_123")
+    session_worktree_dir = ClaudeSwarm.joined_worktrees_dir("test_session_123")
 
     assert_path_exists(session_worktree_dir)
 

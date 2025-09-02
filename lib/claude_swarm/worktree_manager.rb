@@ -158,7 +158,7 @@ module ClaudeSwarm
       # Remove session-specific worktree directory if it exists and is empty
       return unless @session_id
 
-      session_worktree_dir = File.join(File.expand_path("~/.claude-swarm/worktrees"), @session_id)
+      session_worktree_dir = ClaudeSwarm.joined_worktrees_dir(@session_id)
       return unless File.exist?(session_worktree_dir)
 
       # Try to remove the directory tree
@@ -214,7 +214,7 @@ module ClaudeSwarm
       unique_repo_name = "#{repo_name}-#{path_hash}"
 
       # Build external path: ~/.claude-swarm/worktrees/[session_id]/[repo_name-hash]/[worktree_name]
-      base_dir = File.expand_path("~/.claude-swarm/worktrees")
+      base_dir = ClaudeSwarm.joined_worktrees_dir
 
       # Validate base directory is accessible
       begin
