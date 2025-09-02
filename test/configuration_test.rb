@@ -2234,4 +2234,45 @@ class ConfigurationTest < Minitest::Test
     assert_equal("python3 validate.py", hook["command"])
     assert_equal("30", hook["timeout"]) # YAML parses numbers in strings as strings
   end
+
+  # YAML Aliases Test
+
+  def test_yaml_aliases_support
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test Swarm"
+        main: lead
+        instances:
+          lead:
+            description: "Lead developer"
+            prompt: &shared_prompt "You are an expert developer following best practices"
+            allowed_tools: &standard_tools
+              - Read
+              - Edit
+              - Bash
+          frontend:
+            description: "Frontend developer"
+            prompt: *shared_prompt
+            allowed_tools: *standard_tools
+          backend:
+            description: "Backend developer"
+            prompt: *shared_prompt
+            allowed_tools: *standard_tools
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+
+    # Verify aliases work for strings
+    assert_equal("You are an expert developer following best practices", config.instances["lead"][:prompt])
+    assert_equal("You are an expert developer following best practices", config.instances["frontend"][:prompt])
+    assert_equal("You are an expert developer following best practices", config.instances["backend"][:prompt])
+
+    # Verify aliases work for arrays
+    expected_tools = ["Read", "Edit", "Bash"]
+
+    assert_equal(expected_tools, config.instances["lead"][:allowed_tools])
+    assert_equal(expected_tools, config.instances["frontend"][:allowed_tools])
+    assert_equal(expected_tools, config.instances["backend"][:allowed_tools])
+  end
 end
