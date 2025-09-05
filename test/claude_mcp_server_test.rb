@@ -5,8 +5,6 @@ require "test_helper"
 class ClaudeMcpServerTest < Minitest::Test
   def setup
     @tmpdir = Dir.mktmpdir
-    @original_dir = Dir.pwd
-    Dir.chdir(@tmpdir)
 
     @instance_config = {
       name: "test_instance",
@@ -35,7 +33,6 @@ class ClaudeMcpServerTest < Minitest::Test
   end
 
   def teardown
-    Dir.chdir(@original_dir)
     FileUtils.rm_rf(@tmpdir)
     ENV["CLAUDE_SWARM_SESSION_PATH"] = @original_env if @original_env
 
