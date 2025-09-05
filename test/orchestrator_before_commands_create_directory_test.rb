@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+# rubocop:disable Lint/UnusedBlockArgument
 require "test_helper"
 require "tmpdir"
 require "fileutils"
@@ -10,7 +11,6 @@ class OrchestratorBeforeCommandsCreateDirectoryTest < Minitest::Test
   def setup
     @tmpdir = Dir.mktmpdir("claude_swarm_test")
     @config_path = File.join(@tmpdir, "claude-swarm.yml")
-    Dir.chdir(@tmpdir)
 
     # Set environment variables for test
     ENV["CLAUDE_SWARM_SESSION_PATH"] = File.join(@tmpdir, ".claude-swarm", "sessions", "test")
@@ -18,7 +18,6 @@ class OrchestratorBeforeCommandsCreateDirectoryTest < Minitest::Test
   end
 
   def teardown
-    Dir.chdir("/")
     FileUtils.rm_rf(@tmpdir)
     ENV.delete("CLAUDE_SWARM_SESSION_PATH")
     ENV.delete("CLAUDE_SWARM_ROOT_DIR")
@@ -55,7 +54,7 @@ class OrchestratorBeforeCommandsCreateDirectoryTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     # Mock system! to prevent actual Claude execution
-    orchestrator.stub(:system!, true) do
+    orchestrator.stub(:system!, lambda { |*_args, chdir: nil| true }) do
       capture_io { orchestrator.start }
     end
 
@@ -96,7 +95,7 @@ class OrchestratorBeforeCommandsCreateDirectoryTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     # Mock system! to prevent actual Claude execution
-    orchestrator.stub(:system!, true) do
+    orchestrator.stub(:system!, lambda { |*_args, chdir: nil| true }) do
       capture_io { orchestrator.start }
     end
 
@@ -119,3 +118,4 @@ class OrchestratorBeforeCommandsCreateDirectoryTest < Minitest::Test
     File.write(@config_path, content)
   end
 end
+# rubocop:enable Lint/UnusedBlockArgument

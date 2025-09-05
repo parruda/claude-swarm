@@ -3,10 +3,9 @@
 module ClaudeSwarm
   module Commands
     class Ps
-      RUN_DIR = File.expand_path("~/.claude-swarm/run")
-
       def execute
-        unless Dir.exist?(RUN_DIR)
+        run_dir = ClaudeSwarm.joined_run_dir
+        unless Dir.exist?(run_dir)
           puts "No active sessions"
           return
         end
@@ -14,7 +13,7 @@ module ClaudeSwarm
         sessions = []
 
         # Read all symlinks in run directory
-        Dir.glob("#{RUN_DIR}/*").each do |symlink|
+        Dir.glob("#{run_dir}/*").each do |symlink|
           next unless File.symlink?(symlink)
 
           begin
@@ -96,9 +95,8 @@ module ClaudeSwarm
         main_instance = config.dig("swarm", "main")
 
         # Get base directory from session metadata or root_directory file
-        base_dir = ClaudeSwarm.root_dir
         root_dir_file = File.join(session_dir, "root_directory")
-        base_dir = File.read(root_dir_file).strip if File.exist?(root_dir_file)
+        base_dir = File.exist?(root_dir_file) ? File.read(root_dir_file).strip : Dir.pwd
 
         # Get all directories - handle both string and array formats
         dir_config = config.dig("swarm", "instances", main_instance, "directory")

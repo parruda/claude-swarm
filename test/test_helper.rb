@@ -20,10 +20,12 @@ require_relative "helpers/test_helpers"
 
 # Set up a temporary home directory for all tests
 require "tmpdir"
-TEST_SWARM_HOME = Dir.mktmpdir("claude-swarm-test")
-ENV["CLAUDE_SWARM_HOME"] = TEST_SWARM_HOME
+test_swarm_home = Dir.mktmpdir("claude-swarm-test")
+original_home_dir = ENV["CLAUDE_SWARM_HOME"]
+ENV["CLAUDE_SWARM_HOME"] = test_swarm_home
 
 # Clean up the test home directory after all tests
 Minitest.after_run do
-  FileUtils.rm_rf(TEST_SWARM_HOME)
+  FileUtils.rm_rf(test_swarm_home)
+  ENV["CLAUDE_SWARM_HOME"] = original_home_dir
 end

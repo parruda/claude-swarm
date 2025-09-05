@@ -8,7 +8,7 @@ module ClaudeSwarm
       @config = mock_configuration
       @generator = mock_generator
       @session_path = File.join(Dir.tmpdir, "claude-swarm-test-#{Time.now.to_i}")
-      @run_dir = File.expand_path("~/.claude-swarm/run")
+      @run_dir = ClaudeSwarm.joined_run_dir
 
       FileUtils.mkdir_p(@session_path)
       FileUtils.rm_rf(@run_dir)
@@ -181,12 +181,13 @@ module ClaudeSwarm
     end
 
     class MockConfiguration
-      attr_reader :swarm_name, :main_instance, :config_path
+      attr_reader :swarm_name, :main_instance, :config_path, :base_dir
 
       def initialize
         @swarm_name = "Test Swarm"
         @main_instance = "leader"
         @config_path = "claude-swarm.yml"
+        @base_dir = Dir.pwd
       end
 
       def main_instance_config

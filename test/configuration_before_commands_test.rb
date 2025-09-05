@@ -36,28 +36,26 @@ class ConfigurationBeforeCommandsTest < Minitest::Test
 
     # Should not raise even though ./frontend doesn't exist yet
     # because before commands are present
-    Dir.chdir(@temp_dir) do
-      config = ClaudeSwarm::Configuration.new(config_path, base_dir: @temp_dir)
+    config = ClaudeSwarm::Configuration.new(config_path, base_dir: @temp_dir)
 
-      # Verify the configuration loaded successfully
-      assert_equal("Test Swarm", config.swarm_name)
-      assert_equal("lead", config.main_instance)
-      assert_equal(["mkdir -p ./frontend"], config.before_commands)
+    # Verify the configuration loaded successfully
+    assert_equal("Test Swarm", config.swarm_name)
+    assert_equal("lead", config.main_instance)
+    assert_equal(["mkdir -p ./frontend"], config.before_commands)
 
-      # Directory doesn't exist yet
-      refute(File.directory?(File.join(@temp_dir, "frontend")))
+    # Directory doesn't exist yet
+    refute(File.directory?(File.join(@temp_dir, "frontend")))
 
-      # But validate_directories would fail if called explicitly
-      assert_raises(ClaudeSwarm::Error) do
-        config.validate_directories
-      end
-
-      # Create the directory (simulating what before_commands would do)
-      FileUtils.mkdir_p(File.join(@temp_dir, "frontend"))
-
-      # Now validate_directories should pass without raising
-      config.validate_directories # Should not raise
+    # But validate_directories would fail if called explicitly
+    assert_raises(ClaudeSwarm::Error) do
+      config.validate_directories
     end
+
+    # Create the directory (simulating what before_commands would do)
+    FileUtils.mkdir_p(File.join(@temp_dir, "frontend"))
+
+    # Now validate_directories should pass without raising
+    config.validate_directories # Should not raise
   end
 
   def test_validates_directories_when_no_before_commands
@@ -80,12 +78,10 @@ class ConfigurationBeforeCommandsTest < Minitest::Test
     YAML
 
     # Should raise because ./frontend doesn't exist and no before commands
-    Dir.chdir(@temp_dir) do
-      error = assert_raises(ClaudeSwarm::Error) do
-        ClaudeSwarm::Configuration.new(config_path, base_dir: @temp_dir)
-      end
-      assert_match(/Directory.*frontend.*does not exist/, error.message)
+    error = assert_raises(ClaudeSwarm::Error) do
+      ClaudeSwarm::Configuration.new(config_path, base_dir: @temp_dir)
     end
+    assert_match(/Directory.*frontend.*does not exist/, error.message)
   end
 
   def test_validates_directories_with_empty_before_commands
@@ -109,11 +105,9 @@ class ConfigurationBeforeCommandsTest < Minitest::Test
     YAML
 
     # Should raise because before commands is empty
-    Dir.chdir(@temp_dir) do
-      error = assert_raises(ClaudeSwarm::Error) do
-        ClaudeSwarm::Configuration.new(config_path, base_dir: @temp_dir)
-      end
-      assert_match(/Directory.*frontend.*does not exist/, error.message)
+    error = assert_raises(ClaudeSwarm::Error) do
+      ClaudeSwarm::Configuration.new(config_path, base_dir: @temp_dir)
     end
+    assert_match(/Directory.*frontend.*does not exist/, error.message)
   end
 end

@@ -19,11 +19,9 @@ class SessionPathTest < Minitest::Test
   def test_project_folder_name_with_current_directory
     # Should work with current directory
     Dir.mktmpdir do |tmpdir|
-      Dir.chdir(tmpdir) do
-        result = ClaudeSwarm::SessionPath.project_folder_name
-        # Extract just the last part of the path for comparison
-        assert(result.end_with?(File.basename(tmpdir)))
-      end
+      result = ClaudeSwarm::SessionPath.project_folder_name(tmpdir)
+      # Extract just the last part of the path for comparison
+      assert_includes(result, File.basename(tmpdir))
     end
   end
 
@@ -34,7 +32,7 @@ class SessionPathTest < Minitest::Test
       session_id: session_id,
     )
 
-    expected = File.join(ClaudeSwarm::SessionPath.swarm_home, "sessions/Users+paulo+test/550e8400-e29b-41d4-a716-446655440000")
+    expected = ClaudeSwarm.joined_sessions_dir("Users+paulo+test", "550e8400-e29b-41d4-a716-446655440000")
 
     assert_equal(expected, result)
   end
@@ -74,7 +72,7 @@ class SessionPathTest < Minitest::Test
     session_path = ClaudeSwarm::SessionPath.generate
     ClaudeSwarm::SessionPath.ensure_directory(session_path)
 
-    gitignore_path = File.join(ClaudeSwarm::SessionPath.swarm_home, ".gitignore")
+    gitignore_path = ClaudeSwarm.joined_home_dir(".gitignore")
 
     assert_path_exists(gitignore_path)
     assert_equal("*\n", File.read(gitignore_path))

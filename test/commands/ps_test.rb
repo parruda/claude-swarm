@@ -5,8 +5,8 @@ module ClaudeSwarm
   module Commands
     class PsTest < Minitest::Test
       def setup
-        @run_dir = File.expand_path("~/.claude-swarm/run")
-        @test_session_dir = File.expand_path("~/.claude-swarm/sessions/test-project/test-session-123")
+        @run_dir = ClaudeSwarm.joined_run_dir
+        @test_session_dir = ClaudeSwarm.joined_sessions_dir("test-project", "test-session-123")
 
         # Clean up any existing test data
         FileUtils.rm_rf(@run_dir)
@@ -208,8 +208,8 @@ module ClaudeSwarm
 
       def test_multiple_sessions_sorted_by_time
         # Create two sessions with different timestamps
-        session1_dir = File.expand_path("~/.claude-swarm/sessions/test-project/session-1")
-        session2_dir = File.expand_path("~/.claude-swarm/sessions/test-project/session-2")
+        session1_dir = ClaudeSwarm.joined_sessions_dir("test-project", "session-1")
+        session2_dir = ClaudeSwarm.joined_sessions_dir("test-project", "session-2")
 
         [session1_dir, session2_dir].each_with_index do |dir, i|
           FileUtils.mkdir_p(dir)

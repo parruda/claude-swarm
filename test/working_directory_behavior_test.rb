@@ -4,7 +4,6 @@ require "test_helper"
 
 class WorkingDirectoryBehaviorTest < Minitest::Test
   def setup
-    @original_dir = Dir.pwd
     @test_root = Dir.mktmpdir
 
     # Create a project structure
@@ -41,21 +40,19 @@ class WorkingDirectoryBehaviorTest < Minitest::Test
   end
 
   def teardown
-    Dir.chdir(@original_dir)
     FileUtils.rm_rf(@test_root)
   end
 
   def test_directories_resolved_from_launch_directory_not_config_directory
-    # Launch from project root, config is in subdirectory
-    Dir.chdir(@project_dir) do
-      config = ClaudeSwarm::Configuration.new(@config_path, base_dir: Dir.pwd)
+    # Test that when base_dir is provided, it's used instead of config file location
+    # Config is in @config_dir but we want paths resolved from @project_dir
+    config = ClaudeSwarm::Configuration.new(@config_path, base_dir: @project_dir)
 
-      # Verify all directories are resolved relative to launch directory (@project_dir)
-      # not relative to config file directory (@config_dir)
-      assert_equal(File.realpath(@project_dir), File.realpath(config.instances["lead"][:directory]))
-      assert_equal(File.realpath(@backend_dir), File.realpath(config.instances["backend"][:directory]))
-      assert_equal(File.realpath(@frontend_dir), File.realpath(config.instances["frontend"][:directory]))
-    end
+    # Verify all directories are resolved relative to base_dir (@project_dir)
+    # not relative to config file directory (@config_dir)
+    assert_equal(File.realpath(@project_dir), File.realpath(config.instances["lead"][:directory]))
+    assert_equal(File.realpath(@backend_dir), File.realpath(config.instances["backend"][:directory]))
+    assert_equal(File.realpath(@frontend_dir), File.realpath(config.instances["frontend"][:directory]))
   end
 
   def test_directories_resolved_from_different_launch_location
@@ -65,21 +62,19 @@ class WorkingDirectoryBehaviorTest < Minitest::Test
     FileUtils.mkdir_p(File.join(other_launch_dir, "backend"))
     FileUtils.mkdir_p(File.join(other_launch_dir, "frontend"))
 
-    # Launch from a different directory
-    Dir.chdir(other_launch_dir) do
-      config = ClaudeSwarm::Configuration.new(@config_path, base_dir: Dir.pwd)
+    # Test that base_dir parameter controls where paths are resolved from
+    config = ClaudeSwarm::Configuration.new(@config_path, base_dir: other_launch_dir)
 
-      # Verify directories are resolved relative to current directory, not config location
-      assert_equal(File.realpath(other_launch_dir), File.realpath(config.instances["lead"][:directory]))
-      assert_equal(
-        File.realpath(File.join(other_launch_dir, "backend")),
-        File.realpath(config.instances["backend"][:directory]),
-      )
-      assert_equal(
-        File.realpath(File.join(other_launch_dir, "frontend")),
-        File.realpath(config.instances["frontend"][:directory]),
-      )
-    end
+    # Verify directories are resolved relative to base_dir, not config location
+    assert_equal(File.realpath(other_launch_dir), File.realpath(config.instances["lead"][:directory]))
+    assert_equal(
+      File.realpath(File.join(other_launch_dir, "backend")),
+      File.realpath(config.instances["backend"][:directory]),
+    )
+    assert_equal(
+      File.realpath(File.join(other_launch_dir, "frontend")),
+      File.realpath(config.instances["frontend"][:directory]),
+    )
   end
 
   def test_absolute_paths_work_regardless_of_launch_directory
@@ -100,12 +95,11 @@ class WorkingDirectoryBehaviorTest < Minitest::Test
             model: sonnet
     YAML
 
-    # Launch from anywhere - absolute paths should work
-    Dir.chdir(@test_root) do
-      config = ClaudeSwarm::Configuration.new(@config_path, base_dir: Dir.pwd)
+    # Test that absolute paths work regardless of base_dir
+    # Using @test_root as base_dir (different from where the absolute paths point)
+    config = ClaudeSwarm::Configuration.new(@config_path, base_dir: @test_root)
 
-      assert_equal(File.realpath(@project_dir), File.realpath(config.instances["lead"][:directory]))
-      assert_equal(File.realpath(@backend_dir), File.realpath(config.instances["backend"][:directory]))
-    end
+    assert_equal(File.realpath(@project_dir), File.realpath(config.instances["lead"][:directory]))
+    assert_equal(File.realpath(@backend_dir), File.realpath(config.instances["backend"][:directory]))
   end
 end

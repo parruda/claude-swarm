@@ -42,9 +42,8 @@ module ClaudeSwarm
       type: :string,
       desc: "Root directory for resolving relative paths (defaults to current directory)"
     def start(config_file = nil)
-      # Set root directory early so it's available to all components
-      root_dir = options[:root_dir] || Dir.pwd
-      ENV["CLAUDE_SWARM_ROOT_DIR"] = File.expand_path(root_dir)
+      # Determine root directory for this session
+      root_dir = File.expand_path(options[:root_dir] || Dir.pwd)
 
       # Resolve config path relative to root directory
       config_path = config_file || "claude-swarm.yml"
@@ -70,7 +69,7 @@ module ClaudeSwarm
       end
 
       begin
-        config = Configuration.new(config_path, base_dir: ClaudeSwarm.root_dir, options: options)
+        config = Configuration.new(config_path, base_dir: root_dir, options: options)
         generator = McpGenerator.new(config, vibe: options[:vibe])
         orchestrator = Orchestrator.new(
           config,
@@ -406,12 +405,12 @@ module ClaudeSwarm
       desc: "Number of lines to show initially"
     def watch(session_id)
       # Find session path
-      run_symlink = File.join(File.expand_path("~/.claude-swarm/run"), session_id)
+      run_symlink = ClaudeSwarm.joined_run_dir(session_id)
       session_path = if File.symlink?(run_symlink)
         File.readlink(run_symlink)
       else
         # Search in sessions directory
-        Dir.glob(File.expand_path("~/.claude-swarm/sessions/*/*")).find do |path|
+        Dir.glob(ClaudeSwarm.joined_sessions_dir("*", "*")).find do |path|
           File.basename(path) == session_id
         end
       end
@@ -437,7 +436,7 @@ module ClaudeSwarm
       default: 10,
       desc: "Maximum number of sessions to display"
     def list_sessions
-      sessions_dir = File.expand_path("~/.claude-swarm/sessions")
+      sessions_dir = ClaudeSwarm.joined_sessions_dir
       unless Dir.exist?(sessions_dir)
         say("No sessions found", :yellow)
         return
@@ -540,24 +539,23 @@ module ClaudeSwarm
           exit(1)
         end
 
-        # Change to the original root directory if it exists
+        # Load the original root directory from session
         root_dir_file = File.join(session_path, "root_directory")
-        if File.exist?(root_dir_file)
+        root_dir = if File.exist?(root_dir_file)
           original_dir = File.read(root_dir_file).strip
           if Dir.exist?(original_dir)
-            Dir.chdir(original_dir)
-            ENV["CLAUDE_SWARM_ROOT_DIR"] = original_dir
-            say("Changed to original directory: #{original_dir}", :green) unless options[:prompt]
+            say("Using original directory: #{original_dir}", :green) unless options[:prompt]
+            original_dir
           else
             error("Original directory no longer exists: #{original_dir}")
             exit(1)
           end
         else
           # If no root_directory file, use current directory
-          ENV["CLAUDE_SWARM_ROOT_DIR"] = Dir.pwd
+          Dir.pwd
         end
 
-        config = Configuration.new(config_file, base_dir: ClaudeSwarm.root_dir)
+        config = Configuration.new(config_file, base_dir: root_dir)
 
         # Load session metadata if it exists to check for worktree info
         session_metadata_file = File.join(session_path, "session_metadata.json")
@@ -590,7 +588,7 @@ module ClaudeSwarm
     end
 
     def find_session_path(session_id)
-      sessions_dir = File.expand_path("~/.claude-swarm/sessions")
+      sessions_dir = ClaudeSwarm.joined_sessions_dir
 
       # Search for the session ID in all projects
       Dir.glob("#{sessions_dir}/*/#{session_id}").each do |path|
@@ -602,7 +600,7 @@ module ClaudeSwarm
     end
 
     def clean_stale_symlinks(days)
-      run_dir = File.expand_path("~/.claude-swarm/run")
+      run_dir = ClaudeSwarm.joined_run_dir
       return 0 unless Dir.exist?(run_dir)
 
       cleaned = 0
@@ -631,10 +629,10 @@ module ClaudeSwarm
     end
 
     def clean_orphaned_worktrees(days)
-      worktrees_dir = File.expand_path("~/.claude-swarm/worktrees")
+      worktrees_dir = ClaudeSwarm.joined_worktrees_dir
       return 0 unless Dir.exist?(worktrees_dir)
 
-      sessions_dir = File.expand_path("~/.claude-swarm/sessions")
+      sessions_dir = ClaudeSwarm.joined_sessions_dir
       cleaned = 0
 
       Dir.glob("#{worktrees_dir}/*").each do |session_worktree_dir|

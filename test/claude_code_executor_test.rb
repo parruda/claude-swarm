@@ -5,8 +5,6 @@ require "test_helper"
 class ClaudeCodeExecutorTest < Minitest::Test
   def setup
     @tmpdir = Dir.mktmpdir
-    @original_dir = Dir.pwd
-    Dir.chdir(@tmpdir)
 
     # Set up session path for tests
     @session_path = File.join(@tmpdir, "test_session")
@@ -20,7 +18,6 @@ class ClaudeCodeExecutorTest < Minitest::Test
   end
 
   def teardown
-    Dir.chdir(@original_dir)
     FileUtils.rm_rf(@tmpdir)
     ENV.delete("CLAUDE_SWARM_SESSION_PATH")
   end
@@ -103,7 +100,7 @@ class ClaudeCodeExecutorTest < Minitest::Test
 
   def test_initialization_with_environment_session_path
     # Set environment variable
-    session_path = File.join(ClaudeSwarm::SessionPath.swarm_home, "sessions/test+project/20240102_123456")
+    session_path = ClaudeSwarm.joined_sessions_dir("test+project/20240102_123456")
     ENV["CLAUDE_SWARM_SESSION_PATH"] = session_path
 
     executor = ClaudeSwarm::ClaudeCodeExecutor.new(

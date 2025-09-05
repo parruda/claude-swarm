@@ -5,8 +5,6 @@ require "test_helper"
 class ClaudeMcpServerTest < Minitest::Test
   def setup
     @tmpdir = Dir.mktmpdir
-    @original_dir = Dir.pwd
-    Dir.chdir(@tmpdir)
 
     @instance_config = {
       name: "test_instance",
@@ -35,7 +33,6 @@ class ClaudeMcpServerTest < Minitest::Test
   end
 
   def teardown
-    Dir.chdir(@original_dir)
     FileUtils.rm_rf(@tmpdir)
     ENV["CLAUDE_SWARM_SESSION_PATH"] = @original_env if @original_env
 
@@ -63,7 +60,7 @@ class ClaudeMcpServerTest < Minitest::Test
   end
 
   def test_logging_with_environment_session_path
-    session_path = File.join(ClaudeSwarm::SessionPath.swarm_home, "sessions/test+project/20240101_120000")
+    session_path = ClaudeSwarm.joined_sessions_dir("test+project/20240101_120000")
     ENV["CLAUDE_SWARM_SESSION_PATH"] = session_path
 
     ClaudeSwarm::ClaudeMcpServer.new(@instance_config, calling_instance: "test_caller", debug: false)

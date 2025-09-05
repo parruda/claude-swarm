@@ -6,8 +6,8 @@ module ClaudeSwarm
   class CLICommandsTest < Minitest::Test
     def setup
       @cli = CLI.new
-      @run_dir = File.expand_path("~/.claude-swarm/run")
-      @test_session_dir = File.expand_path("~/.claude-swarm/sessions/test-project/test-session-123")
+      @run_dir = ClaudeSwarm.joined_run_dir
+      @test_session_dir = ClaudeSwarm.joined_sessions_dir("test-project", "test-session-123")
 
       # Clean up any existing test data
       FileUtils.rm_rf(@run_dir)
@@ -75,7 +75,7 @@ module ClaudeSwarm
 
     def test_clean_command_with_days_option
       # Create an old symlink
-      old_session_dir = File.expand_path("~/.claude-swarm/sessions/test-project/old-session")
+      old_session_dir = ClaudeSwarm.joined_sessions_dir("test-project", "old-session")
       FileUtils.mkdir_p(old_session_dir)
       symlink_path = File.join(@run_dir, "old-session")
       File.symlink(old_session_dir, symlink_path)
