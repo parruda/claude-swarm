@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+# rubocop:disable Lint/UnusedBlockArgument
 require "test_helper"
 
 class OrchestratorTest < Minitest::Test
@@ -67,7 +68,6 @@ class OrchestratorTest < Minitest::Test
 
     # Test behavior, not format: environment variables should be set
     assert(ENV.fetch("CLAUDE_SWARM_SESSION_PATH", nil), "CLAUDE_SWARM_SESSION_PATH should be set")
-    assert(ENV.fetch("CLAUDE_SWARM_ROOT_DIR", nil), "CLAUDE_SWARM_ROOT_DIR should be set")
 
     # Session path should be available and match environment
     assert(orchestrator.session_path, "Orchestrator should have a session path")
@@ -85,20 +85,18 @@ class OrchestratorTest < Minitest::Test
     generator = ClaudeSwarm::McpGenerator.new(config)
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
-    Dir.chdir(@tmpdir) do
-      orchestrator.stub(:system, true) do
-        capture_io do
-          orchestrator.start
-        end
+    orchestrator.stub(:system, true) do
+      capture_io do
+        orchestrator.start
       end
-
-      # MCP files are now in ~/.claude-swarm, not in the current directory
-      session_path = ENV.fetch("CLAUDE_SWARM_SESSION_PATH", nil)
-
-      assert(session_path)
-      assert_path_exists(File.join(session_path, "lead.mcp.json"), "Expected lead.mcp.json to exist")
-      assert_path_exists(File.join(session_path, "backend.mcp.json"), "Expected backend.mcp.json to exist")
     end
+
+    # MCP files are now in ~/.claude-swarm, not in the current directory
+    session_path = ENV.fetch("CLAUDE_SWARM_SESSION_PATH", nil)
+
+    assert(session_path)
+    assert_path_exists(File.join(session_path, "lead.mcp.json"), "Expected lead.mcp.json to exist")
+    assert_path_exists(File.join(session_path, "backend.mcp.json"), "Expected backend.mcp.json to exist")
   end
 
   def test_start_creates_necessary_files_and_runs
@@ -130,9 +128,7 @@ class OrchestratorTest < Minitest::Test
       expected_command = args
       true
     }) do
-      Dir.chdir(@tmpdir) do
-        capture_io { orchestrator.start }
-      end
+      capture_io { orchestrator.start }
     end
 
     # Verify command array components
@@ -178,9 +174,7 @@ class OrchestratorTest < Minitest::Test
       expected_command = args
       true
     }) do
-      Dir.chdir(@tmpdir) do
-        capture_io { orchestrator.start }
-      end
+      capture_io { orchestrator.start }
     end
 
     # When no tools are specified and vibe is false, neither flag should be present
@@ -209,9 +203,7 @@ class OrchestratorTest < Minitest::Test
       expected_command = args
       true
     }) do
-      Dir.chdir(@tmpdir) do
-        capture_io { orchestrator.start }
-      end
+      capture_io { orchestrator.start }
     end
 
     refute_includes(expected_command, "--append-system-prompt")
@@ -242,9 +234,7 @@ class OrchestratorTest < Minitest::Test
       expected_command = args
       true
     }) do
-      Dir.chdir(@tmpdir) do
-        capture_io { orchestrator.start }
-      end
+      capture_io { orchestrator.start }
     end
 
     # Verify arguments are passed correctly without manual escaping
@@ -299,9 +289,7 @@ class OrchestratorTest < Minitest::Test
       expected_command = args
       true
     }) do
-      Dir.chdir(@tmpdir) do
-        capture_io { orchestrator.start }
-      end
+      capture_io { orchestrator.start }
     end
 
     # Should include --settings flag
@@ -328,9 +316,7 @@ class OrchestratorTest < Minitest::Test
       expected_command = args
       true
     }) do
-      Dir.chdir(@tmpdir) do
-        capture_io { orchestrator.start }
-      end
+      capture_io { orchestrator.start }
     end
 
     # Should always include --settings flag for main instance (due to SessionStart hook)
@@ -386,13 +372,9 @@ class OrchestratorTest < Minitest::Test
       expected_command = args
       true
     }) do
-      Dir.chdir(@tmpdir) do
-        capture_io { orchestrator.start }
-      end
+      capture_io { orchestrator.start }
     end
 
-    # Since we use Dir.chdir now, the path isn't part of the command
-    # Just verify the command was captured
     assert(expected_command, "Expected command should not be nil")
     assert_equal("claude", expected_command[0])
   end
@@ -407,9 +389,7 @@ class OrchestratorTest < Minitest::Test
       expected_command = args
       true
     }) do
-      Dir.chdir(@tmpdir) do
-        capture_io { orchestrator.start }
-      end
+      capture_io { orchestrator.start }
     end
 
     # Find MCP config path from command array
@@ -429,13 +409,11 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator, prompt: "Execute test task")
 
     expected_command = nil
-    orchestrator.stub(:stream_to_session_log, lambda { |*args|
+    orchestrator.stub(:stream_to_session_log, lambda { |*args, chdir: nil|
       expected_command = args
       true
     }) do
-      Dir.chdir(@tmpdir) do
-        capture_io { orchestrator.start }
-      end
+      capture_io { orchestrator.start }
     end
 
     # Verify prompt is included in command
@@ -451,13 +429,11 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator, prompt: "Fix the 'bug' in module X")
 
     expected_command = nil
-    orchestrator.stub(:stream_to_session_log, lambda { |*args|
+    orchestrator.stub(:stream_to_session_log, lambda { |*args, chdir: nil|
       expected_command = args
       true
     }) do
-      Dir.chdir(@tmpdir) do
-        capture_io { orchestrator.start }
-      end
+      capture_io { orchestrator.start }
     end
 
     # Verify prompt with quotes is passed correctly
@@ -473,7 +449,7 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator, prompt: "Test prompt")
 
     output = nil
-    orchestrator.stub(:stream_to_session_log, true) do
+    orchestrator.stub(:stream_to_session_log, lambda { |*_args, chdir: nil| true }) do
       output = capture_io { orchestrator.start }[0]
     end
 
@@ -512,7 +488,7 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator, prompt: "Debug test")
 
     output = nil
-    orchestrator.stub(:stream_to_session_log, true) do
+    orchestrator.stub(:stream_to_session_log, lambda { |*_args, chdir: nil| true }) do
       output = capture_io { orchestrator.start }[0]
     end
 
@@ -526,13 +502,11 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator, vibe: true, prompt: "Vibe test")
 
     expected_command = nil
-    orchestrator.stub(:stream_to_session_log, lambda { |*args|
+    orchestrator.stub(:stream_to_session_log, lambda { |*args, chdir: nil|
       expected_command = args
       true
     }) do
-      Dir.chdir(@tmpdir) do
-        capture_io { orchestrator.start }
-      end
+      capture_io { orchestrator.start }
     end
 
     # Should include both vibe flag and prompt
@@ -553,9 +527,7 @@ class OrchestratorTest < Minitest::Test
       expected_command = args
       true
     }) do
-      Dir.chdir(@tmpdir) do
-        capture_io { orchestrator.start }
-      end
+      capture_io { orchestrator.start }
     end
 
     # Should add instance prompt via --append-system-prompt
@@ -586,9 +558,7 @@ class OrchestratorTest < Minitest::Test
       expected_command = args
       true
     }) do
-      Dir.chdir(@tmpdir) do
-        capture_io { orchestrator.start }
-      end
+      capture_io { orchestrator.start }
     end
 
     # Should not add --append-system-prompt when instance has no custom prompt
@@ -692,7 +662,7 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     # Mock system! to prevent actual execution
-    orchestrator.stub(:system!, true) do
+    orchestrator.stub(:system!, lambda { |*_args, chdir: nil| true }) do
       capture_io { orchestrator.start }
     end
 
@@ -734,10 +704,8 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     # Mock system! to prevent actual execution
-    orchestrator.stub(:system!, true) do
-      Dir.chdir(@tmpdir) do
-        capture_io { orchestrator.start }
-      end
+    orchestrator.stub(:system!, lambda { |*_args, chdir: nil| true }) do
+      capture_io { orchestrator.start }
     end
 
     # Verify the before command was executed in the main instance directory
@@ -771,7 +739,7 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     system_called = false
-    orchestrator.stub(:system!, lambda { |*_args|
+    orchestrator.stub(:system!, lambda { |*_args, chdir: nil|
       system_called = true
       true
     }) do
@@ -782,10 +750,8 @@ class OrchestratorTest < Minitest::Test
               assert_equal(1, code, "Should exit with code 1 when before commands fail")
               raise SystemExit, "exit(#{code})"
             }) do
-              Dir.chdir(@tmpdir) do
-                assert_raises(SystemExit) do
-                  capture_io { orchestrator.start }
-                end
+              assert_raises(SystemExit) do
+                capture_io { orchestrator.start }
               end
             end
           end
@@ -844,12 +810,12 @@ class OrchestratorTest < Minitest::Test
       after_executed = false
 
       # Mock execute_after_commands to verify it's called
-      orchestrator.stub(:execute_after_commands?, lambda { |commands|
+      orchestrator.stub(:execute_after_commands?, lambda { |commands, chdir:|
         after_executed = true
 
         assert_equal(["echo 'Running after command' > after_output.txt"], commands)
-        # Actually execute the command for verification
-        commands.each { |cmd| system(cmd) }
+        # Actually execute the command for verification using the provided chdir
+        commands.each { |cmd| system(cmd, chdir: chdir) }
         true
       }) do
         orchestrator.stub(:system, lambda { |*_args|
@@ -859,9 +825,7 @@ class OrchestratorTest < Minitest::Test
           orchestrator.stub(:cleanup_processes, nil) do
             orchestrator.stub(:cleanup_run_symlink, nil) do
               orchestrator.stub(:cleanup_worktrees, nil) do
-                Dir.chdir(@tmpdir) do
-                  capture_io { orchestrator.start }
-                end
+                capture_io { orchestrator.start }
               end
             end
           end
@@ -904,7 +868,8 @@ class OrchestratorTest < Minitest::Test
 
       after_executed = false
 
-      orchestrator.stub(:execute_after_commands?, lambda { |_commands|
+      orchestrator.stub(:execute_after_commands?, lambda { |_commands, chdir:|
+        _ = chdir # Mark as used for RuboCop
         after_executed = true
         true
       }) do
@@ -950,9 +915,7 @@ class OrchestratorTest < Minitest::Test
         orchestrator.stub(:cleanup_processes, nil) do
           orchestrator.stub(:cleanup_run_symlink, nil) do
             orchestrator.stub(:cleanup_worktrees, nil) do
-              Dir.chdir(@tmpdir) do
-                capture_io { orchestrator.start }
-              end
+              capture_io { orchestrator.start }
             end
           end
         end
@@ -1008,12 +971,10 @@ class OrchestratorTest < Minitest::Test
             orchestrator.stub(:cleanup_worktrees, lambda {
               cleanup_worktrees_called = true
             }) do
-              Dir.chdir(@tmpdir) do
-                output = capture_io { orchestrator.start }[0]
+              output = capture_io { orchestrator.start }[0]
 
-                # Verify warning message
-                assert_match(/⚠️  Some after commands failed/, output)
-              end
+              # Verify warning message
+              assert_match(/⚠️  Some after commands failed/, output)
             end
           end
         end
@@ -1045,7 +1006,8 @@ class OrchestratorTest < Minitest::Test
 
       after_executed = false
 
-      orchestrator.stub(:execute_after_commands?, lambda { |_commands|
+      orchestrator.stub(:execute_after_commands?, lambda { |_commands, chdir:|
+        _ = chdir # Mark as used for RuboCop
         after_executed = true
         true
       }) do
@@ -1095,12 +1057,10 @@ class OrchestratorTest < Minitest::Test
         orchestrator.stub(:cleanup_processes, nil) do
           orchestrator.stub(:cleanup_run_symlink, nil) do
             orchestrator.stub(:cleanup_worktrees, nil) do
-              Dir.chdir(@tmpdir) do
-                # Simulate signal
-                capture_io do
-                  Signal.trap("INT") { orchestrator.send(:setup_signal_handlers) }
-                  Process.kill("INT", Process.pid)
-                end
+              # Simulate signal
+              capture_io do
+                Signal.trap("INT") { orchestrator.send(:setup_signal_handlers) }
+                Process.kill("INT", Process.pid)
               end
             end
           end
@@ -1137,7 +1097,7 @@ class OrchestratorTest < Minitest::Test
     )
 
     # Mock system to prevent actual execution
-    orchestrator.stub(:system!, true) do
+    orchestrator.stub(:system!, lambda { |*_args, chdir: nil| true }) do
       capture_io { orchestrator.start }
     end
 
@@ -1155,7 +1115,7 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     # Mock system to prevent actual execution
-    orchestrator.stub(:system!, true) do
+    orchestrator.stub(:system!, lambda { |*_args, chdir: nil| true }) do
       capture_io { orchestrator.start }
     end
 
@@ -1189,7 +1149,7 @@ class OrchestratorTest < Minitest::Test
       )
 
       # Mock system to prevent actual execution
-      orchestrator.stub(:system!, true) do
+      orchestrator.stub(:system!, lambda { |*_args, chdir: nil| true }) do
         capture_io { orchestrator.start }
       end
 
@@ -1204,9 +1164,6 @@ class OrchestratorTest < Minitest::Test
   end
 
   def test_session_id_saved_in_metadata
-    # Set root directory for test
-    ENV["CLAUDE_SWARM_ROOT_DIR"] = Dir.pwd
-
     config = create_test_config
     generator = ClaudeSwarm::McpGenerator.new(config)
     custom_session_id = "metadata-test-456"
@@ -1218,7 +1175,7 @@ class OrchestratorTest < Minitest::Test
     )
 
     # Mock system to prevent actual execution
-    orchestrator.stub(:system!, true) do
+    orchestrator.stub(:system!, lambda { |*_args, chdir: nil| true }) do
       capture_io { orchestrator.start }
     end
 
@@ -1230,7 +1187,9 @@ class OrchestratorTest < Minitest::Test
 
     metadata = JSON.parse(File.read(metadata_file))
 
-    assert_equal(Dir.pwd, metadata["root_directory"])
+    # Should use config's base_dir, which is @tmpdir (where config file is)
+    assert_equal(File.dirname(@config_path), metadata["root_directory"])
     assert_equal("Test Swarm", metadata["swarm_name"])
   end
 end
+# rubocop:enable Lint/UnusedBlockArgument

@@ -364,6 +364,8 @@ class OrchestratorTranscriptTest < Minitest::Test
     8.times { config.expect(:main_instance, "lead") }
     # Expect instances to be called multiple times for orchestrator initialization
     7.times { config.expect(:instances, {}) }
+    # Expect base_dir to be called for session path generation
+    7.times { config.expect(:base_dir, Dir.pwd) }
     config
   end
 
