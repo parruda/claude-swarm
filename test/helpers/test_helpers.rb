@@ -7,7 +7,7 @@ module TestHelpers
         original_dir = Dir.pwd
         begin
           Dir.chdir(tmpdir)
-          yield tmpdir
+          yield(tmpdir)
         ensure
           Dir.chdir(original_dir)
         end

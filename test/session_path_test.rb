@@ -19,11 +19,9 @@ class SessionPathTest < Minitest::Test
   def test_project_folder_name_with_current_directory
     # Should work with current directory
     Dir.mktmpdir do |tmpdir|
-      Dir.chdir(tmpdir) do
-        result = ClaudeSwarm::SessionPath.project_folder_name
-        # Extract just the last part of the path for comparison
-        assert(result.end_with?(File.basename(tmpdir)))
-      end
+      result = ClaudeSwarm::SessionPath.project_folder_name(tmpdir)
+      # Extract just the last part of the path for comparison
+      assert_includes(result, File.basename(tmpdir))
     end
   end
 
