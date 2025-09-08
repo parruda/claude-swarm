@@ -2,10 +2,21 @@
 
 module ClaudeSwarm
   module SystemUtils
-    def system!(*args)
-      success = system(*args)
+    def system!(*args, chdir: nil)
+      # Build options hash for system/spawn
+      options = {}
+      options[:chdir] = chdir if chdir
+
+      # Call system with options if chdir is provided, otherwise use original behavior
+      success = if chdir
+        system(*args, **options)
+      else
+        system(*args)
+      end
+
+      exit_status = $CHILD_STATUS&.exitstatus || 1
+
       unless success
-        exit_status = $CHILD_STATUS&.exitstatus || 1
         command_str = args.size == 1 ? args.first : args.join(" ")
         if exit_status == 143 # timeout command exit status = 128 + 15 (SIGTERM)
           warn("⏱️ Command timeout: #{command_str}")
