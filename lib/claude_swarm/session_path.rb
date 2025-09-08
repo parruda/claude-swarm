@@ -2,13 +2,7 @@
 
 module ClaudeSwarm
   module SessionPath
-    SESSIONS_DIR = "sessions"
-
     class << self
-      def swarm_home
-        ENV["CLAUDE_SWARM_HOME"] || File.expand_path("~/.claude-swarm")
-      end
-
       # Convert a directory path to a safe folder name using + as separator
       def project_folder_name(working_dir = Dir.pwd)
         # Don't expand path if it's already expanded (avoids double expansion on Windows)
@@ -27,7 +21,7 @@ module ClaudeSwarm
       # Generate a full session path for a given directory and session ID
       def generate(working_dir: Dir.pwd, session_id: SecureRandom.uuid)
         project_name = project_folder_name(working_dir)
-        File.join(swarm_home, SESSIONS_DIR, project_name, session_id)
+        ClaudeSwarm.joined_sessions_dir(project_name, session_id)
       end
 
       # Ensure the session directory exists
@@ -35,7 +29,7 @@ module ClaudeSwarm
         FileUtils.mkdir_p(session_path)
 
         # Add .gitignore to swarm home if it doesn't exist
-        gitignore_path = File.join(swarm_home, ".gitignore")
+        gitignore_path = ClaudeSwarm.joined_home_dir(".gitignore")
         File.write(gitignore_path, "*\n") unless File.exist?(gitignore_path)
       end
 

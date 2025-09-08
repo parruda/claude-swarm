@@ -76,9 +76,9 @@ module ClaudeSwarm
         File.write(File.join(@session_path, "session.log.json"), json_log)
 
         # Create run symlink in the expected location
-        run_dir = File.expand_path("~/.claude-swarm/run")
+        run_dir = ClaudeSwarm.joined_run_dir
         FileUtils.mkdir_p(run_dir)
-        symlink_path = File.join(run_dir, @session_id)
+        symlink_path = ClaudeSwarm.joined_run_dir(@session_id)
         File.unlink(symlink_path) if File.symlink?(symlink_path)
         File.symlink(@session_path, symlink_path)
 
@@ -130,9 +130,9 @@ module ClaudeSwarm
         File.write(File.join(@session_path, "session.log.json"), json_log)
 
         # Create run symlink in the expected location
-        run_dir = File.expand_path("~/.claude-swarm/run")
+        run_dir = ClaudeSwarm.joined_run_dir
         FileUtils.mkdir_p(run_dir)
-        symlink_path = File.join(run_dir, @session_id)
+        symlink_path = ClaudeSwarm.joined_run_dir(@session_id)
         File.unlink(symlink_path) if File.symlink?(symlink_path)
         File.symlink(@session_path, symlink_path)
 

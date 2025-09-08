@@ -8,7 +8,7 @@ module ClaudeSwarm
       @config = mock_configuration
       @generator = mock_generator
       @session_path = File.join(Dir.tmpdir, "claude-swarm-test-#{Time.now.to_i}")
-      @run_dir = File.expand_path("~/.claude-swarm/run")
+      @run_dir = ClaudeSwarm.joined_run_dir
 
       FileUtils.mkdir_p(@session_path)
       FileUtils.rm_rf(@run_dir)
