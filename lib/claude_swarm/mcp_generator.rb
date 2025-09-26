@@ -86,9 +86,9 @@ module ClaudeSwarm
         }.tap do |config|
           config["env"] = mcp["env"] if mcp["env"]
         end
-      when "sse"
+      when "sse", "http"
         {
-          "type" => "sse",
+          "type" => mcp["type"],
           "url" => mcp["url"],
         }.tap do |config|
           config["headers"] = mcp["headers"] if mcp["headers"]

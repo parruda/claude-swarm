@@ -180,7 +180,7 @@ module TestHelpers
       when "stdio"
         assert(server_config.key?("command"))
         assert(server_config.key?("args"))
-      when "sse"
+      when "sse", "http"
 
         assert(server_config.key?("url"))
       end
