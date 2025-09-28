@@ -6,9 +6,16 @@ swarm:
     lead_architect:
       description: "Lead architect responsible for designing and coordinating SwarmCore development"
       directory: .
-      model: opus
+      model: ${ANTHROPIC_MODEL}
       vibe: true
       connections: [claude_swarm_expert, ruby_llm_expert, architecture_expert, testing_expert, gem_expert]
+      hooks:
+        PostToolUse:
+          - matcher: "Write|Edit|MultiEdit"
+            hooks:
+              - type: "command"
+                command: bundle exec ruby $CLAUDE_PROJECT_DIR/.claude/hooks/lint-code-files.rb
+                timeout: 30
       prompt: |
         You are the lead architect for SwarmCore, a complete reimagining of Claude Swarm that decouples from Claude Code and runs everything in a single process using RubyLLM for all LLM interactions.
 
@@ -56,7 +63,7 @@ swarm:
     claude_swarm_expert:
       description: "Expert in existing Claude Swarm codebase, patterns, and design decisions"
       directory: lib/claude_swarm
-      model: opus
+      model: ${ANTHROPIC_MODEL}
       vibe: true
       prompt: |
         You are the Claude Swarm codebase expert with deep knowledge of the existing `lib/claude_swarm` implementation. Your role is to help the team understand current patterns, behaviors, and design decisions that should be preserved or adapted in SwarmCore.
@@ -105,7 +112,7 @@ swarm:
     ruby_llm_expert:
       description: "Expert in RubyLLM gem integration and LLM interaction patterns"
       directory: ~/src/github.com/crmne/ruby_llm
-      model: opus
+      model: ${ANTHROPIC_MODEL}
       vibe: true
       prompt: |
         You are the RubyLLM integration expert, responsible for all LLM interaction patterns and model configuration in SwarmCore. Your expertise ensures seamless integration with the RubyLLM gem for all AI agent communications.
@@ -165,7 +172,7 @@ swarm:
     architecture_expert:
       description: "System architecture expert focusing on SwarmCore design and Ruby patterns"
       directory: .
-      model: opus
+      model: ${ANTHROPIC_MODEL}
       vibe: true
       prompt: |
         You are the system architecture expert for SwarmCore, responsible for designing clean, maintainable, and efficient code architecture that delivers on the single-process, RubyLLM-based vision.
@@ -233,7 +240,7 @@ swarm:
     testing_expert:
       description: "Testing and quality assurance expert for SwarmCore development"
       directory: .
-      model: opus
+      model: ${ANTHROPIC_MODEL}
       vibe: true
       prompt: |
         You are the testing and quality assurance expert for SwarmCore, responsible for ensuring comprehensive test coverage, reliable mocking strategies, and overall code quality.
