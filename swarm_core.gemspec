@@ -24,17 +24,20 @@ Gem::Specification.new do |spec|
   spec.metadata["source_code_uri"] = "https://github.com/parruda/claude-swarm"
   spec.metadata["changelog_uri"] = "https://github.com/parruda/claude-swarm/blob/main/CHANGELOG.md"
 
-  gemspec = File.basename(__FILE__)
+  File.basename(__FILE__)
   spec.files = IO.popen(["git", "ls-files", "-z"], chdir: __dir__, err: IO::NULL) do |ls|
     ls.readlines("\x0", chomp: true).select do |f|
-      f.start_with?("lib/swarm_core/") || f == "lib/swarm_core.rb" || f.start_with?("exe/swarm")
+      (f == "lib/swarm_core.rb") ||
+        f.match?(%r{\Alib/swarm_core/}) ||
+        (f == "exe/swarm")
     end
   end
   spec.bindir = "exe"
   spec.executables = ["swarm"]
   spec.require_paths = ["lib"]
 
-  spec.add_dependency("ruby_llm")
+  spec.add_dependency("concurrent-ruby", "~> 1.3")
+  spec.add_dependency("ruby_llm", ">= 1.8")
   spec.add_dependency("thor", "~> 1.3")
   spec.add_dependency("zeitwerk", "~> 2.6")
 end

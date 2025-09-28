@@ -14,7 +14,7 @@ swarm:
           - matcher: "Write|Edit|MultiEdit"
             hooks:
               - type: "command"
-                command: bundle exec ruby $CLAUDE_PROJECT_DIR/.claude/hooks/lint-code-files.rb
+                command: cd $CLAUDE_PROJECT_DIR && bundle install && bundle exec ruby $CLAUDE_PROJECT_DIR/.claude/hooks/lint-code-files.rb
                 timeout: 30
       prompt: |
         You are the lead architect for SwarmCore, a complete reimagining of Claude Swarm that decouples from Claude Code and runs everything in a single process using RubyLLM for all LLM interactions.
