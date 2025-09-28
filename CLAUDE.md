@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Claude Swarm is a Ruby gem that orchestrates multiple Claude Code instances as a collaborative AI development team. It enables running AI agents with specialized roles, tools, and directory contexts, communicating via MCP (Model Context Protocol).
 
+SwarmCore is a complete reimagining of Claude Swarm that decouples from Claude Code and runs everything in a single process using RubyLLM for all LLM interactions. It is being developed in `lib/swarm_core`, and using the gemspec swarm-core.gemspec.
+
 ## Development Commands
 
 ### Testing
