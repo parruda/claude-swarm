@@ -16,17 +16,9 @@ module SwarmCore
       @chat_cache.compute_if_absent(cache_key) do
         chat = @client.chat(model: agent_config.model)
 
-        if agent_config.prompt
-          chat = chat.with_instructions(agent_config.prompt)
-        end
-
-        if agent_config.temperature
-          chat = chat.with_temperature(agent_config.temperature)
-        end
-
-        if agent_config.max_tokens
-          chat = chat.with_max_tokens(agent_config.max_tokens)
-        end
+        chat = chat.with_instructions(agent_config.prompt) if agent_config.prompt
+        chat = chat.with_temperature(agent_config.temperature) if agent_config.temperature
+        chat = chat.with_max_tokens(agent_config.max_tokens) if agent_config.max_tokens
 
         chat
       end
@@ -35,9 +27,7 @@ module SwarmCore
     def ask(chat, prompt, retries: 0)
       response = chat.ask(prompt)
 
-      unless response
-        raise LLMError, "No response from LLM"
-      end
+      raise LLMError, "No response from LLM" unless response
 
       response
     rescue StandardError => e

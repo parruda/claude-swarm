@@ -4,17 +4,14 @@ module SwarmCore
   class AgentRegistry
     def initialize
       @agents = Concurrent::Hash.new
-      @mutex = Mutex.new
     end
 
     def register(agent)
-      @mutex.synchronize do
-        if @agents.key?(agent.name)
-          raise ConfigurationError, "Agent '#{agent.name}' is already registered"
-        end
-
-        @agents[agent.name] = agent
+      if @agents.key?(agent.name)
+        raise ConfigurationError, "Agent '#{agent.name}' is already registered"
       end
+
+      @agents[agent.name] = agent
     end
 
     def get(name)
@@ -41,9 +38,7 @@ module SwarmCore
     end
 
     def clear
-      @mutex.synchronize do
-        @agents.clear
-      end
+      @agents.clear
     end
   end
 end

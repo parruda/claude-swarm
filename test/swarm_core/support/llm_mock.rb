@@ -60,11 +60,24 @@ module SwarmCore
 
         response_data = @parent_mock.next_response
 
-        if response_data[:content]
-          @messages << { role: "assistant", content: response_data[:content] }
-        end
+        @messages << { role: "assistant", content: response_data[:content] } if response_data[:content]
 
         ResponseMock.new(response_data)
+      end
+
+      def with_instructions(instructions)
+        @options[:instructions] = instructions
+        self
+      end
+
+      def with_temperature(temperature)
+        @options[:temperature] = temperature
+        self
+      end
+
+      def with_max_tokens(max_tokens)
+        @options[:max_tokens] = max_tokens
+        self
       end
 
       def add_message(message)

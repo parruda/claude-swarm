@@ -11,6 +11,7 @@ require "securerandom"
 require "set"
 require "yaml"
 
+require "async"
 require "concurrent"
 require "ruby_llm"
 require "thor"
