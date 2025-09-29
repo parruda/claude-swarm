@@ -8,6 +8,8 @@
 
 - [Overview](#overview)
 - [Design Philosophy](#design-philosophy)
+- [Library-First Design](#library-first-design)
+- [Unified Logging System](#unified-logging-system)
 - [Architecture Diagram](#architecture-diagram)
 - [Core Components](#core-components)
 - [Data Flow](#data-flow)
@@ -56,11 +58,13 @@ SwarmCore is a complete reimagining of Claude Swarm that decouples from Claude C
    - Clear, testable code with standard Ruby patterns
    - Comprehensive error messages
    - Easy debugging with standard Ruby tools
+   - Library-first API (CLI is just a thin wrapper)
 
 4. **Maintainability**
    - Modular design with clear separation of concerns
    - Zeitwerk autoloading for clean dependencies
    - Extensive test coverage with fast execution
+   - Event-driven logging for observability
 
 ### Breaking Changes from v1
 
@@ -73,6 +77,221 @@ SwarmCore v2 is **not backward compatible** with ClaudeSwarm v1:
 - No settings file generation
 - Different tool calling mechanism
 - Markdown-based agent definitions
+- Library-first API (v1 was CLI-only)
+
+---
+
+## Library-First Design
+
+### Core Principle
+
+**All functionality lives in the library, not the CLI.**
+
+```ruby
+# This is the library
+module SwarmCore
+  class Swarm
+    def execute(prompt) # Core functionality
+    end
+  end
+end
+
+# This uses the library
+module SwarmCore
+  class CLI < Thor
+    def start(config)
+      swarm = Swarm.load(config)  # Library API
+      swarm.execute(options[:prompt])
+    end
+  end
+end
+```
+
+### Why This Matters
+
+1. **Embeddable** - Use SwarmCore in Rails, Sinatra, background jobs, APIs
+2. **Testable** - Test library logic without CLI overhead
+3. **Flexible** - Build custom interfaces (web UI, API, webhooks)
+4. **Reusable** - Multiple consumers of same library
+
+### Library API Surface
+
+```ruby
+# Main entry point
+swarm = SwarmCore::Swarm.load("swarm.yml")
+
+# Execute task
+result = swarm.execute("Build feature")
+
+# Event hooks for logging
+swarm.on_log { |log| puts log.to_json }
+
+# Session management
+session = swarm.save_session
+swarm.restore_session(session_id)
+
+# Direct agent access
+agent = swarm.agent("backend")
+result = agent.execute("Task")
+```
+
+**See `docs/library_api.md` for complete API documentation.**
+
+---
+
+## Unified Logging System
+
+### Design Goals
+
+1. **Provider-Agnostic** - Same log format whether using Claude, OpenAI, or Gemini
+2. **Real-Time** - Logs emitted as events happen via callbacks
+3. **Structured** - JSON format for easy parsing and analysis
+4. **Complete** - Every LLM interaction, tool call, and result logged
+5. **Flexible** - Consumer decides where logs go (stdout, file, database, websocket)
+
+### RubyLLM Hook Integration
+
+RubyLLM provides **normalized responses** across all providers via `RubyLLM::Message`:
+
+```ruby
+# All providers return identical structure
+response.content        # String: normalized across Claude/OpenAI/Gemini
+response.tool_calls     # Hash<String, ToolCall>: normalized tool calls
+response.input_tokens   # Integer: prompt tokens
+response.output_tokens  # Integer: completion tokens
+response.model_id       # String: actual model used
+```
+
+**Event Hooks** (lib/ruby_llm/chat.rb:100-118):
+```ruby
+chat.on_new_message { }                # Message starting
+    .on_end_message { |msg| }         # Message complete
+    .on_tool_call { |tool_call| }     # Tool called
+    .on_tool_result { |result| }      # Tool completed
+```
+
+### Log Event Types
+
+#### 1. LLM Request
+```json
+{
+  "timestamp": "2025-09-28T10:30:00.123Z",
+  "type": "llm_request",
+  "agent": "backend",
+  "model": "claude-3-5-sonnet-20241022",
+  "provider": "anthropic",
+  "message_count": 3,
+  "tools": ["Read", "Edit", "call_agent__database"]
+}
+```
+
+#### 2. LLM Response
+```json
+{
+  "timestamp": "2025-09-28T10:30:01.456Z",
+  "type": "llm_response",
+  "agent": "backend",
+  "model": "claude-3-5-sonnet-20241022",
+  "content": "I'll query the database.",
+  "tool_calls": [
+    {"id": "call_123", "name": "call_agent__database", "arguments": {...}}
+  ],
+  "finish_reason": "tool_calls",
+  "usage": {
+    "input_tokens": 150,
+    "output_tokens": 45,
+    "total_tokens": 195
+  }
+}
+```
+
+#### 3. Tool Call
+```json
+{
+  "timestamp": "2025-09-28T10:30:01.500Z",
+  "type": "tool_call",
+  "agent": "backend",
+  "tool_call_id": "call_123",
+  "tool": "call_agent__database",
+  "arguments": {"query": "SELECT * FROM users"}
+}
+```
+
+#### 4. Tool Result
+```json
+{
+  "timestamp": "2025-09-28T10:30:02.234Z",
+  "type": "tool_result",
+  "agent": "backend",
+  "tool_call_id": "call_123",
+  "result": {"users": [{"id": 1, "name": "Alice"}]}
+}
+```
+
+### Usage Examples
+
+**Console Output:**
+```ruby
+swarm = SwarmCore::Swarm.load("swarm.yml")
+
+swarm.on_log do |log|
+  case log[:type]
+  when "llm_request"
+    puts "🤔 #{log[:agent]} thinking with #{log[:model]}..."
+  when "llm_response"
+    puts "💬 #{log[:agent]}: #{log[:content]}" if log[:content]
+    puts "🔧 Called #{log[:tool_calls].size} tools" if log[:tool_calls]
+  when "tool_call"
+    puts "   → #{log[:tool]}"
+  end
+end
+```
+
+**Database Logging:**
+```ruby
+swarm.on_log do |log|
+  SwarmLog.create!(
+    session_id: session.id,
+    event_type: log[:type],
+    agent_name: log[:agent],
+    data: log
+  )
+end
+```
+
+**WebSocket Streaming:**
+```ruby
+swarm.on_log do |log|
+  ActionCable.server.broadcast("swarm_#{session_id}", log)
+end
+```
+
+**File Logging:**
+```ruby
+log_file = File.open("swarm.log", "a")
+
+swarm.on_log do |log|
+  log_file.puts(JSON.generate(log))
+  log_file.flush
+end
+```
+
+### Implementation
+
+`SwarmCore::UnifiedLogger` wraps RubyLLM hooks:
+
+```ruby
+class UnifiedLogger
+  def attach_to_chat(chat, agent_name:, metadata: {})
+    chat.on_new_message { ... }     # Track requests
+        .on_end_message { |msg| ... } # Log responses
+        .on_tool_call { |tc| ... }    # Log tool calls
+        .on_tool_result { |r| ... }   # Log results
+  end
+end
+```
+
+**See detailed implementation in ruby_llm_expert's response above.**
 
 ---
 
@@ -616,60 +835,91 @@ end
 
 ---
 
-### 8. SwarmCore::Core
+### 8. SwarmCore::Swarm
 
-**Purpose:** Main orchestration engine that coordinates all components.
+**Purpose:** Main library API - user-facing orchestration class.
 
 **Responsibilities:**
-- Initialize all components from configuration
-- Register all agents in the registry
-- Start the main agent loop
-- Handle user input and output
-- Coordinate agent interactions
-- Manage graceful shutdown
-- Track session metadata
+- Load configuration and initialize all components
+- Provide simple `execute()` API for task execution
+- Emit structured logs via event callbacks
+- Manage session persistence
+- Expose agents for direct access
+- Handle graceful shutdown
 
 **Key Methods:**
 ```ruby
-class Core
-  attr_reader :config, :registry, :executor, :session, :llm_manager, :tool_calling
+class Swarm
+  attr_reader :config, :registry, :logger
 
-  def initialize(config_path)
-    # Load configuration
-    # Initialize components
-    # Register all agents
-  end
+  # Load swarm from configuration file
+  def self.load(config_path, llm_client: nil) -> Swarm
 
-  # Start the swarm with optional initial prompt
-  def start(initial_prompt = nil) -> void
+  # Execute task with main agent (or specified agent)
+  def execute(prompt, agent: nil, metadata: {}) -> Result
 
-  # Stop the swarm gracefully
-  def stop -> void
+  # Get specific agent
+  def agent(name) -> Agent
 
-  # Execute with main agent
-  def execute_main(input) -> Hash
+  # Get all agents
+  def agents -> Array<Agent>
 
-  # Get swarm status
-  def status -> Hash
+  # Event hooks
+  def on_log(&block) -> self
+  def on_agent_start(&block) -> self
+  def on_agent_complete(&block) -> self
+  def on_error(&block) -> self
+
+  # Session management
+  def save_session -> Session
+  def restore_session(session_id) -> self
+
+  # Cleanup
+  def shutdown -> void
 end
 ```
 
 **Initialization Flow:**
 ```ruby
-def initialize(config_path)
-  @config = Configuration.load(config_path)
-  @registry = AgentRegistry.new
-  @llm_manager = LLMManager.new
-  @tool_calling = ToolCalling.new(@registry)
-  @executor = Executor.new(max_threads: 10)
-  @session = Session.new(@config.swarm_name)
+def self.load(config_path, llm_client: nil)
+  config = Configuration.load(config_path)
+  registry = AgentRegistry.new
+  llm_manager = LLMManager.new(llm_client)
+  tool_calling = ToolCalling.new(registry)
+  executor = Executor.new
+  logger = UnifiedLogger.new
+  session = Session.new(config.swarm_name)
 
   # Create and register all agents
-  @config.agents.each do |name, agent_config|
-    agent = Agent.new(agent_config, @registry, @llm_manager, @tool_calling)
-    @registry.register(agent)
+  config.agents.each do |name, agent_config|
+    agent = Agent.new(
+      agent_config,
+      registry: registry,
+      llm_manager: llm_manager,
+      tool_calling: tool_calling,
+      logger: logger
+    )
+    registry.register(agent)
   end
+
+  new(config, registry, executor, session, logger)
 end
+```
+
+**Usage:**
+```ruby
+# Simple execution
+swarm = SwarmCore::Swarm.load("swarm.yml")
+result = swarm.execute("Build authentication")
+puts result.content
+
+# With logging
+swarm.on_log { |log| puts log.to_json }
+result = swarm.execute("Task")
+
+# Direct agent access
+backend = swarm.agent("backend")
+result = backend.execute("Implement API")
 ```
 
 ---
@@ -836,9 +1086,101 @@ end
 
 ---
 
-### 11. SwarmCore::CLI
+### 11. SwarmCore::UnifiedLogger
 
-**Purpose:** Command-line interface for interacting with SwarmCore.
+**Purpose:** Provide structured, real-time logging of all LLM interactions.
+
+**Responsibilities:**
+- Attach to RubyLLM chat instances via hooks
+- Emit structured JSON logs for all events
+- Normalize logs across all providers
+- Support custom metadata per log entry
+- Invoke log callbacks in real-time
+
+**Key Methods:**
+```ruby
+class UnifiedLogger
+  def initialize
+    @log_callbacks = []
+  end
+
+  # Attach logger to an agent's chat instance
+  def attach_to_chat(chat, agent_name:, metadata: {}) -> void
+
+  # Register log callback
+  def on_log(&block) -> void
+
+  # Emit log event
+  def emit(type:, agent:, **data) -> void
+end
+```
+
+**Implementation:**
+```ruby
+def attach_to_chat(chat, agent_name:, metadata: {})
+  request_logged = false
+
+  chat.on_new_message do
+    unless request_logged
+      emit(
+        type: "llm_request",
+        agent: agent_name,
+        model: chat.model.id,
+        provider: chat.model.provider,
+        message_count: chat.messages.size,
+        tools: chat.tools.keys,
+        metadata: metadata
+      )
+      request_logged = true
+    end
+  end
+
+  chat.on_end_message do |message|
+    next unless message
+
+    emit(
+      type: "llm_response",
+      agent: agent_name,
+      model: message.model_id,
+      content: message.content,
+      tool_calls: format_tool_calls(message.tool_calls),
+      finish_reason: message.tool_call? ? "tool_calls" : "stop",
+      usage: {
+        input_tokens: message.input_tokens,
+        output_tokens: message.output_tokens,
+        total_tokens: (message.input_tokens || 0) + (message.output_tokens || 0)
+      },
+      metadata: metadata
+    )
+  end
+
+  chat.on_tool_call do |tool_call|
+    emit(
+      type: "tool_call",
+      agent: agent_name,
+      tool_call_id: tool_call.id,
+      tool: tool_call.name,
+      arguments: tool_call.arguments,
+      metadata: metadata
+    )
+  end
+
+  chat.on_tool_result do |result|
+    emit(
+      type: "tool_result",
+      agent: agent_name,
+      result: serialize_result(result),
+      metadata: metadata
+    )
+  end
+end
+```
+
+### 12. SwarmCore::CLI
+
+**Purpose:** Thin wrapper around library API for command-line usage.
+
+**Design:** CLI has **zero business logic** - everything delegates to library.
 
 **Commands:**
 ```bash
@@ -854,35 +1196,41 @@ swarm clean                       # Clean up old sessions
 ```ruby
 class CLI < Thor
   desc "start [CONFIG]", "Start a SwarmCore swarm"
-  option :prompt, type: :string, desc: "Initial prompt"
-  option :session, type: :string, desc: "Session ID (optional)"
-  option :debug, type: :boolean, desc: "Enable debug mode"
+  option :prompt, type: :string
+  option :session, type: :string
   def start(config_path = "swarm.yml")
-    core = Core.new(config_path)
-    core.start(options[:prompt])
+    # Library does all the work
+    swarm = Swarm.load(config_path)
+
+    # CLI just handles pretty printing
+    swarm.on_log { |log| print_log(log) }
+
+    result = swarm.execute(options[:prompt])
+
+    puts "\n" + "="*80
+    puts result.content
+    puts "\nCost: $#{result.cost} | Tokens: #{result.tokens[:total]}"
+  ensure
+    swarm.shutdown
   end
 
-  desc "restore SESSION_ID", "Restore a previous session"
-  def restore(session_id)
-    session = Session.load(session_id)
-    core = Core.new(session.config_path)
-    core.restore_session(session)
-    core.start
-  end
+  private
 
-  desc "list", "List all sessions"
-  def list
-    sessions = Session.all
-    # Display formatted table
-  end
-
-  desc "show SESSION_ID", "Show session details"
-  def show(session_id)
-    session = Session.load(session_id)
-    # Display session metadata, agents, costs
+  # Pretty print logs (CLI-specific formatting)
+  def print_log(log)
+    case log[:type]
+    when "llm_request"
+      puts "🤔 #{log[:agent]} thinking... (#{log[:model]})"
+    when "llm_response"
+      puts "💬 #{log[:agent]}: #{log[:content]}" if log[:content]
+    when "tool_call"
+      puts "🔧 #{log[:agent]} → #{log[:tool]}"
+    end
   end
 end
 ```
+
+**Key Point:** All the `print_log` logic is CLI-specific. The library just emits structured logs.
 
 ---
 
