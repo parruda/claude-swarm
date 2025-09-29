@@ -128,13 +128,63 @@ module ClaudeSwarm
       @main_instance = @swarm["main"]
       @instances = {}
       @swarm["instances"].each do |name, config|
-        @instances[name] = parse_instance(name, config)
+        # Support both inline configuration and file path reference
+        instance_config = load_instance_config(name, config)
+        @instances[name] = parse_instance(name, instance_config)
       end
       validate_main_instance_provider
       validate_connections
       detect_circular_dependencies
       validate_openai_env_vars
       validate_openai_responses_api_compatibility
+    end
+
+    def load_instance_config(name, config)
+      # If config is a string, treat it as a markdown file path
+      if config.is_a?(String)
+        config_file_path = expand_config_path(config)
+
+        unless File.exist?(config_file_path)
+          raise Error, "Instance configuration file not found for '#{name}': #{config_file_path}"
+        end
+
+        # Ensure it's a markdown file
+        unless config_file_path.end_with?(".md", ".markdown")
+          raise Error, "Instance configuration file for '#{name}' must be a markdown file (.md or .markdown), got: #{config_file_path}"
+        end
+
+        begin
+          parser = FrontmatterParser.parse(config_file_path)
+          loaded_config = parser.config
+          interpolate_env_vars!(loaded_config)
+          loaded_config
+        rescue ClaudeSwarm::Error => e
+          # Re-raise errors from FrontmatterParser with instance name context
+          if e.message.include?("Invalid YAML in frontmatter")
+            raise Error, "Invalid YAML syntax in frontmatter for '#{name}': #{e.message.split(": ", 2).last}"
+          elsif e.message.include?("Frontmatter must be a YAML hash/object")
+            raise Error, "Instance configuration file for '#{name}' must contain valid YAML frontmatter, got #{e.message.split("got ").last}"
+          else
+            raise e
+          end
+        end
+      elsif config.is_a?(Hash) || config.nil?
+        # Return the config as-is if it's already a hash or nil
+        config
+      else
+        raise Error, "Instance '#{name}' configuration must be either a hash or a markdown file path string, got #{config.class.name}"
+      end
+    end
+
+    def expand_config_path(path)
+      # Expand the path relative to the config directory
+      if path.start_with?("/")
+        # Absolute path
+        Pathname.new(path).expand_path.to_s
+      else
+        # Relative path - relative to the directory containing the main config file
+        @config_dir.join(path).expand_path.to_s
+      end
     end
 
     def parse_instance(name, config)
