@@ -248,7 +248,7 @@ module ClaudeSwarm
       case mcp["type"]
       when "stdio"
         raise Error, "MCP '#{mcp["name"]}' missing 'command'" unless mcp["command"]
-      when "sse"
+      when "sse", "http"
         raise Error, "MCP '#{mcp["name"]}' missing 'url'" unless mcp["url"]
       else
         raise Error, "Unknown MCP type '#{mcp["type"]}' for '#{mcp["name"]}'"

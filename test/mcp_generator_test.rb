@@ -156,6 +156,75 @@ class McpGeneratorTest < Minitest::Test
     end
   end
 
+  def test_http_mcp_server
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test"
+        main: lead
+        instances:
+          lead:
+            description: "Test instance"
+            mcps:
+              - name: "api_server"
+                type: "http"
+                url: "http://localhost:3000/mcp"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    generator = ClaudeSwarm::McpGenerator.new(config)
+
+    Dir.chdir(@tmpdir) do
+      generator.generate_all
+
+      mcp_config = read_mcp_config("lead")
+
+      api_server = mcp_config["mcpServers"]["api_server"]
+
+      assert_equal("http", api_server["type"])
+      assert_equal("http://localhost:3000/mcp", api_server["url"])
+      assert_nil(api_server["command"])
+      assert_nil(api_server["args"])
+    end
+  end
+
+  def test_http_mcp_server_with_headers
+    write_config(<<~YAML)
+      version: 1
+      swarm:
+        name: "Test"
+        main: lead
+        instances:
+          lead:
+            description: "Test instance"
+            mcps:
+              - name: "api_server"
+                type: "http"
+                url: "http://localhost:3000/mcp"
+                headers:
+                  Authorization: "Bearer token123"
+                  X-Custom-Header: "custom-value"
+    YAML
+
+    config = ClaudeSwarm::Configuration.new(@config_path)
+    generator = ClaudeSwarm::McpGenerator.new(config)
+
+    Dir.chdir(@tmpdir) do
+      generator.generate_all
+
+      mcp_config = read_mcp_config("lead")
+
+      api_server = mcp_config["mcpServers"]["api_server"]
+
+      assert_equal("http", api_server["type"])
+      assert_equal("http://localhost:3000/mcp", api_server["url"])
+      assert_equal("Bearer token123", api_server["headers"]["Authorization"])
+      assert_equal("custom-value", api_server["headers"]["X-Custom-Header"])
+      assert_nil(api_server["command"])
+      assert_nil(api_server["args"])
+    end
+  end
+
   def test_empty_tools_and_connections
     write_config(<<~YAML)
       version: 1
