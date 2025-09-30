@@ -18,14 +18,15 @@ require "thor"
 
 require "zeitwerk"
 loader = Zeitwerk::Loader.for_gem(warn_on_extra_files: false)
-loader.push_dir("#{__dir__}/swarm_core")
+loader.push_dir("#{__dir__}/swarm_sdk")
 loader.inflector.inflect(
   "cli" => "CLI",
   "llm" => "LLM",
+  "sdk" => "SDK",
 )
 loader.setup
 
-module SwarmCore
+module SwarmSDK
   class Error < StandardError; end
   class ConfigurationError < Error; end
   class AgentNotFoundError < Error; end
@@ -35,7 +36,7 @@ module SwarmCore
 
   class << self
     def root_dir
-      ENV.fetch("SWARM_CORE_ROOT_DIR") { Dir.pwd }
+      ENV.fetch("SWARM_ROOT_DIR") { Dir.pwd }
     end
 
     def home_dir

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module SwarmCore
+module SwarmSDK
   class LLMManager
     MAX_RETRIES = 3
     RETRY_DELAYS = [1, 2, 4].freeze

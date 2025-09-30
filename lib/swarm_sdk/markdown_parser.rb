@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module SwarmCore
+module SwarmSDK
   class MarkdownParser
     FRONTMATTER_PATTERN = /\A---\s*\n(.*?)\n---\s*\n(.*)\z/m
 

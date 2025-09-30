@@ -1,4 +1,4 @@
-# SwarmCore Architecture
+# SwarmSDK Architecture
 
 **Version:** 2.0.0
 **Status:** In Development
@@ -27,7 +27,7 @@
 
 ## Overview
 
-SwarmCore is a complete reimagining of Claude Swarm that decouples from Claude Code and runs all AI agents in a single Ruby process using RubyLLM for LLM interactions. It eliminates the complexity of multi-process management and MCP inter-process communication while maintaining the collaborative multi-agent paradigm.
+SwarmSDK is a complete reimagining of Claude Swarm that decouples from Claude Code and runs all AI agents in a single Ruby process using RubyLLM for LLM interactions. It eliminates the complexity of multi-process management and MCP inter-process communication while maintaining the collaborative multi-agent paradigm.
 
 ### Key Innovations
 
@@ -68,7 +68,7 @@ SwarmCore is a complete reimagining of Claude Swarm that decouples from Claude C
 
 ### Breaking Changes from v1
 
-SwarmCore v2 is **not backward compatible** with ClaudeSwarm v1:
+SwarmSDK v2 is **not backward compatible** with ClaudeSwarm v1:
 
 - Configuration format: `version: 2` with `agents` instead of `instances`
 - No MCP server generation
@@ -89,7 +89,7 @@ SwarmCore v2 is **not backward compatible** with ClaudeSwarm v1:
 
 ```ruby
 # This is the library
-module SwarmCore
+module SwarmSDK
   class Swarm
     def execute(prompt) # Core functionality
     end
@@ -97,7 +97,7 @@ module SwarmCore
 end
 
 # This uses the library
-module SwarmCore
+module SwarmSDK
   class CLI < Thor
     def start(config)
       swarm = Swarm.load(config)  # Library API
@@ -109,7 +109,7 @@ end
 
 ### Why This Matters
 
-1. **Embeddable** - Use SwarmCore in Rails, Sinatra, background jobs, APIs
+1. **Embeddable** - Use SwarmSDK in Rails, Sinatra, background jobs, APIs
 2. **Testable** - Test library logic without CLI overhead
 3. **Flexible** - Build custom interfaces (web UI, API, webhooks)
 4. **Reusable** - Multiple consumers of same library
@@ -118,7 +118,7 @@ end
 
 ```ruby
 # Main entry point
-swarm = SwarmCore::Swarm.load("swarm.yml")
+swarm = SwarmSDK::Swarm.load("swarm.yml")
 
 # Execute task
 result = swarm.execute("Build feature")
@@ -232,7 +232,7 @@ chat.on_new_message { }                # Message starting
 
 **Console Output:**
 ```ruby
-swarm = SwarmCore::Swarm.load("swarm.yml")
+swarm = SwarmSDK::Swarm.load("swarm.yml")
 
 swarm.on_log do |log|
   case log[:type]
@@ -278,7 +278,7 @@ end
 
 ### Implementation
 
-`SwarmCore::UnifiedLogger` wraps RubyLLM hooks:
+`SwarmSDK::UnifiedLogger` wraps RubyLLM hooks:
 
 ```ruby
 class UnifiedLogger
@@ -301,8 +301,8 @@ end
 
 ```mermaid
 graph TB
-    CLI[SwarmCore::CLI<br/>Thor Command Line]
-    Core[SwarmCore::Core<br/>Main Orchestration]
+    CLI[SwarmSDK::CLI<br/>Thor Command Line]
+    Core[SwarmSDK::Core<br/>Main Orchestration]
     Config[Configuration<br/>YAML + Markdown Parser]
     Registry[AgentRegistry<br/>Fiber-Safe Agent Lookup]
     Executor[Executor<br/>Async/Fiber Scheduler]
@@ -362,13 +362,13 @@ graph TB
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         SwarmCore::CLI                          │
+│                         SwarmSDK::CLI                          │
 │                    (Thor-based Command Line)                    │
 └────────────────────────────┬────────────────────────────────────┘
                              │
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                        SwarmCore::Core                          │
+│                        SwarmSDK::Core                          │
 │                    (Main Orchestration Engine)                  │
 │  ┌──────────────────────────────────────────────────────────┐  │
 │  │  • Initialize components                                  │  │
@@ -385,7 +385,7 @@ graph TB
      │             │             │               │
      ▼             ▼             ▼               ▼
 ┌─────────────────────────────────────────────────────────┐
-│                  SwarmCore::Agent (Multiple Instances)  │
+│                  SwarmSDK::Agent (Multiple Instances)  │
 │  ┌───────────────────────────────────────────────────┐ │
 │  │  Agent: "lead"                                     │ │
 │  │  • AgentConfig (name, model, tools, connections)  │ │
@@ -403,7 +403,7 @@ graph TB
          │
          ▼
 ┌─────────────────────────────────────────────────────────┐
-│              SwarmCore::LLMManager                      │
+│              SwarmSDK::LLMManager                      │
 │  ┌──────────────────────────────────────────────────┐  │
 │  │  • Chat instance cache (Concurrent::Hash)        │  │
 │  │  • RubyLLM client wrapper                        │  │
@@ -422,7 +422,7 @@ graph TB
          └────────────────────┘
 
 ┌─────────────────────────────────────────────────────────┐
-│            SwarmCore::ToolCalling                       │
+│            SwarmSDK::ToolCalling                       │
 │  ┌──────────────────────────────────────────────────┐  │
 │  │  Tool Router                                      │  │
 │  │  ├─ Built-in Tools (Read, Edit, Write, Bash)    │  │
@@ -432,7 +432,7 @@ graph TB
 └─────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────┐
-│            SwarmCore::Session                           │
+│            SwarmSDK::Session                           │
 │  ┌──────────────────────────────────────────────────┐  │
 │  │  • Session ID and metadata                        │  │
 │  │  • Agent conversation states (serializable)       │  │
@@ -447,7 +447,7 @@ graph TB
 
 ## Core Components
 
-### 1. SwarmCore::Configuration
+### 1. SwarmSDK::Configuration
 
 **Purpose:** Parse and validate version 2 configuration files.
 
@@ -486,7 +486,7 @@ end
 
 ---
 
-### 2. SwarmCore::AgentConfig
+### 2. SwarmSDK::AgentConfig
 
 **Purpose:** Immutable configuration object for a single agent.
 
@@ -523,7 +523,7 @@ end
 
 ---
 
-### 3. SwarmCore::MarkdownParser
+### 3. SwarmSDK::MarkdownParser
 
 **Purpose:** Parse agent definitions from Markdown files with YAML frontmatter.
 
@@ -568,7 +568,7 @@ Always follow Ruby style guide and Rails best practices.
 
 ---
 
-### 4. SwarmCore::AgentRegistry
+### 4. SwarmSDK::AgentRegistry
 
 **Purpose:** Thread-safe registry for all agents in the swarm.
 
@@ -603,7 +603,7 @@ end
 
 ---
 
-### 5. SwarmCore::Agent
+### 5. SwarmSDK::Agent
 
 **Purpose:** Represent a single AI agent with conversation state and execution context.
 
@@ -690,7 +690,7 @@ end
 
 ---
 
-### 6. SwarmCore::LLMManager
+### 6. SwarmSDK::LLMManager
 
 **Purpose:** Manage RubyLLM chat instances and LLM interactions.
 
@@ -741,7 +741,7 @@ chat = RubyLLM.chat(model: "claude-3-5-sonnet-20241022")
 
 ---
 
-### 7. SwarmCore::ToolCalling
+### 7. SwarmSDK::ToolCalling
 
 **Purpose:** Route and execute tool calls from LLM responses.
 
@@ -835,7 +835,7 @@ end
 
 ---
 
-### 8. SwarmCore::Swarm
+### 8. SwarmSDK::Swarm
 
 **Purpose:** Main library API - user-facing orchestration class.
 
@@ -909,7 +909,7 @@ end
 **Usage:**
 ```ruby
 # Simple execution
-swarm = SwarmCore::Swarm.load("swarm.yml")
+swarm = SwarmSDK::Swarm.load("swarm.yml")
 result = swarm.execute("Build authentication")
 puts result.content
 
@@ -924,7 +924,7 @@ result = backend.execute("Implement API")
 
 ---
 
-### 9. SwarmCore::Executor
+### 9. SwarmSDK::Executor
 
 **Purpose:** Execute agent tasks concurrently using async/fibers.
 
@@ -990,7 +990,7 @@ end
 
 ---
 
-### 10. SwarmCore::Session
+### 10. SwarmSDK::Session
 
 **Purpose:** Persist and restore swarm conversation state.
 
@@ -1086,7 +1086,7 @@ end
 
 ---
 
-### 11. SwarmCore::UnifiedLogger
+### 11. SwarmSDK::UnifiedLogger
 
 **Purpose:** Provide structured, real-time logging of all LLM interactions.
 
@@ -1176,7 +1176,7 @@ def attach_to_chat(chat, agent_name:, metadata: {})
 end
 ```
 
-### 12. SwarmCore::CLI
+### 12. SwarmSDK::CLI
 
 **Purpose:** Thin wrapper around library API for command-line usage.
 
@@ -1195,7 +1195,7 @@ swarm clean                       # Clean up old sessions
 **Implementation:**
 ```ruby
 class CLI < Thor
-  desc "start [CONFIG]", "Start a SwarmCore swarm"
+  desc "start [CONFIG]", "Start a SwarmSDK swarm"
   option :prompt, type: :string
   option :session, type: :string
   def start(config_path = "swarm.yml")
@@ -1393,7 +1393,7 @@ flowchart TD
 ### Version 2 YAML Structure
 
 ```yaml
-version: 2  # Required: Must be 2 for SwarmCore
+version: 2  # Required: Must be 2 for SwarmSDK
 
 swarm:
   name: "Development Team"  # Required: Human-readable swarm name
@@ -1480,7 +1480,7 @@ When you need database schema changes, consult the database agent.
 
 ### Environment Variables
 
-SwarmCore supports environment variable interpolation:
+SwarmSDK supports environment variable interpolation:
 
 ```yaml
 agents:
@@ -1732,7 +1732,7 @@ classDiagram
 
 ### Tool Definition Format
 
-SwarmCore uses Anthropic's tool calling format:
+SwarmSDK uses Anthropic's tool calling format:
 
 ```ruby
 {
@@ -1969,7 +1969,7 @@ Sessions are automatically cleaned up if:
 ```mermaid
 graph TB
     subgraph "Main Thread with Fiber Scheduler"
-        Core[SwarmCore::Core<br/>Async Context]
+        Core[SwarmSDK::Core<br/>Async Context]
         Scheduler[Fiber Scheduler<br/>Async::Reactor]
     end
 
@@ -2077,7 +2077,7 @@ flowchart TB
 
 ### Async Architecture
 
-SwarmCore uses the `async` gem with RubyLLM's native fiber support:
+SwarmSDK uses the `async` gem with RubyLLM's native fiber support:
 
 ```ruby
 require 'async'
@@ -2189,7 +2189,7 @@ end
 ### Error Hierarchy
 
 ```ruby
-module SwarmCore
+module SwarmSDK
   class Error < StandardError; end
   class ConfigurationError < Error; end
   class AgentNotFoundError < Error; end
@@ -2288,7 +2288,7 @@ end
 
 ## Comparison with ClaudeSwarm v1
 
-| Aspect | ClaudeSwarm v1 | SwarmCore v2 |
+| Aspect | ClaudeSwarm v1 | SwarmSDK v2 |
 |--------|----------------|--------------|
 | **Architecture** | Multi-process | Single process |
 | **Communication** | MCP JSON-RPC | Direct method calls |
@@ -2318,7 +2318,7 @@ swarm:
   instances:
     lead: { ... }
 
-# v2 (SwarmCore)
+# v2 (SwarmSDK)
 version: 2
 swarm:
   agents:
@@ -2340,42 +2340,42 @@ swarm:
 ### Startup Time
 
 - **ClaudeSwarm v1:** 5-10 seconds (spawn processes, initialize MCP)
-- **SwarmCore v2:** 0.5 seconds (single process, no IPC)
+- **SwarmSDK v2:** 0.5 seconds (single process, no IPC)
 
 **🚀 10x improvement**
 
 ### Memory Usage Per Agent
 
 - **ClaudeSwarm v1:** ~500MB per instance (full Claude Code process)
-- **SwarmCore v2:** ~4KB per agent (fiber overhead)
+- **SwarmSDK v2:** ~4KB per agent (fiber overhead)
 
 **🎯 125,000x reduction**
 
 ### Total Memory for 20 Agents
 
 - **ClaudeSwarm v1:** ~10GB (20 × 500MB processes)
-- **SwarmCore v2:** ~50MB (single Ruby process + 20 fibers @ 4KB)
+- **SwarmSDK v2:** ~50MB (single Ruby process + 20 fibers @ 4KB)
 
 **🎯 200x reduction**
 
 ### Agent Communication Latency
 
 - **ClaudeSwarm v1:** ~100-500ms (stdio MCP, JSON serialization, process IPC)
-- **SwarmCore v2:** <1ms (direct method call in same process)
+- **SwarmSDK v2:** <1ms (direct method call in same process)
 
 **🚀 100-500x improvement**
 
 ### Concurrency
 
 - **ClaudeSwarm v1:** 5-10 agents max (limited by process memory)
-- **SwarmCore v2:** 100+ agents (limited only by API rate limits)
+- **SwarmSDK v2:** 100+ agents (limited only by API rate limits)
 
 **🚀 10-20x improvement**
 
 ### LLM API Waiting Efficiency
 
 - **ClaudeSwarm v1:** Blocks entire process while waiting (~30s per call)
-- **SwarmCore v2:** Fiber yields automatically, other agents continue
+- **SwarmSDK v2:** Fiber yields automatically, other agents continue
 
 **🚀 Unlimited parallelism during I/O waits**
 
@@ -2386,7 +2386,7 @@ swarm:
 - Total time: 4 batches × 30s = **120 seconds**
 - Memory: 2.5GB
 
-**SwarmCore v2:**
+**SwarmSDK v2:**
 - All 20 agents call LLM simultaneously (fibers yield during I/O)
 - Total time: 1 batch × 30s = **30 seconds**
 - Memory: 50MB
@@ -2448,7 +2448,7 @@ swarm:
    - Performance dashboards
 
 4. **API Server Mode**
-   - Run SwarmCore as HTTP API
+   - Run SwarmSDK as HTTP API
    - Remote swarm execution
    - Multi-user support
 
@@ -2456,14 +2456,14 @@ swarm:
 
 ## Conclusion
 
-SwarmCore represents a fundamental architectural shift from ClaudeSwarm v1, eliminating process management complexity while delivering dramatically improved performance. By leveraging RubyLLM and a single-process design, SwarmCore achieves 10x faster startup, 10x lower memory usage, and sub-millisecond agent communication latency.
+SwarmSDK represents a fundamental architectural shift from ClaudeSwarm v1, eliminating process management complexity while delivering dramatically improved performance. By leveraging RubyLLM and a single-process design, SwarmSDK achieves 10x faster startup, 10x lower memory usage, and sub-millisecond agent communication latency.
 
 The modular architecture with clear separation of concerns ensures maintainability, testability, and extensibility for future enhancements. Version 2 configuration format with Markdown agent definitions provides a cleaner, more intuitive developer experience.
 
-SwarmCore is designed for developers who want the power of multi-agent AI collaboration without the overhead of multi-process orchestration.
+SwarmSDK is designed for developers who want the power of multi-agent AI collaboration without the overhead of multi-process orchestration.
 
 ---
 
 **Document Version:** 1.0
-**Author:** SwarmCore Development Team
+**Author:** SwarmSDK Development Team
 **Last Updated:** 2025-09-28

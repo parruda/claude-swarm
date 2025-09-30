@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module SwarmCore
+module SwarmSDK
   class Configuration
     ENV_VAR_WITH_DEFAULT_PATTERN = /\$\{([^:}]+)(:=([^}]*))?\}/
 
@@ -74,7 +74,7 @@ module SwarmCore
     def validate_version
       version = @config["version"]
       raise ConfigurationError, "Missing 'version' field in configuration" unless version
-      raise ConfigurationError, "SwarmCore requires version: 2 configuration. Got version: #{version}" unless version == 2
+      raise ConfigurationError, "SwarmSDK requires version: 2 configuration. Got version: #{version}" unless version == 2
     end
 
     def validate_swarm

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module SwarmCore
+module SwarmSDK
   class Result
     attr_reader :content, :agent, :cost, :tokens, :duration, :logs, :error, :metadata
 

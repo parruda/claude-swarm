@@ -1,14 +1,14 @@
-# SwarmCore Library API
+# SwarmSDK Library API
 
 **Version:** 2.0.0
-**Purpose:** SwarmCore as a standalone Ruby library
+**Purpose:** SwarmSDK as a standalone Ruby library
 **Last Updated:** 2025-09-28
 
 ## Overview
 
-SwarmCore is designed as a **library-first** system. The CLI is a thin wrapper around the library API. This allows developers to:
+SwarmSDK is designed as a **library-first** system. The CLI is a thin wrapper around the library API. This allows developers to:
 
-- Embed SwarmCore in Rails/Sinatra applications
+- Embed SwarmSDK in Rails/Sinatra applications
 - Build custom interfaces (web UI, API endpoints, etc.)
 - Integrate with existing workflows
 - Receive real-time structured logs of all LLM interactions
@@ -18,8 +18,8 @@ SwarmCore is designed as a **library-first** system. The CLI is a thin wrapper a
 ## Core Design Principles
 
 1. **Library First, CLI Second**
-   - All functionality lives in `SwarmCore` module
-   - CLI (`SwarmCore::CLI`) is just one consumer of the library
+   - All functionality lives in `SwarmSDK` module
+   - CLI (`SwarmSDK::CLI`) is just one consumer of the library
    - No global state or CLI dependencies in core classes
 
 2. **Event-Driven Logging**
@@ -39,10 +39,10 @@ SwarmCore is designed as a **library-first** system. The CLI is a thin wrapper a
 ### 1. Simple Swarm Execution
 
 ```ruby
-require 'swarm_core'
+require 'swarm_sdk'
 
 # Load configuration
-swarm = SwarmCore::Swarm.load("swarm.yml")
+swarm = SwarmSDK::Swarm.load("swarm.yml")
 
 # Execute with main agent
 result = swarm.execute("Build user authentication system")
@@ -57,9 +57,9 @@ puts "Cost: $#{result.cost}"
 ### 2. With Real-Time Logging
 
 ```ruby
-require 'swarm_core'
+require 'swarm_sdk'
 
-swarm = SwarmCore::Swarm.load("swarm.yml")
+swarm = SwarmSDK::Swarm.load("swarm.yml")
 
 # Receive logs as they happen
 swarm.on_log do |log_entry|
@@ -74,10 +74,10 @@ result = swarm.execute("Build feature")
 
 ```ruby
 require 'async'
-require 'swarm_core'
+require 'swarm_sdk'
 
 Async do
-  swarm = SwarmCore::Swarm.load("swarm.yml")
+  swarm = SwarmSDK::Swarm.load("swarm.yml")
 
   # Execute multiple tasks concurrently
   tasks = [
@@ -97,7 +97,7 @@ end
 
 ## API Reference
 
-### SwarmCore::Swarm
+### SwarmSDK::Swarm
 
 **Main entry point for library usage.**
 
@@ -105,12 +105,12 @@ end
 
 ```ruby
 # Load swarm from YAML configuration
-swarm = SwarmCore::Swarm.load(config_path)
-# => #<SwarmCore::Swarm>
+swarm = SwarmSDK::Swarm.load(config_path)
+# => #<SwarmSDK::Swarm>
 
 # Create from in-memory configuration
-config = SwarmCore::Configuration.load("swarm.yml")
-swarm = SwarmCore::Swarm.new(config)
+config = SwarmSDK::Configuration.load("swarm.yml")
+swarm = SwarmSDK::Swarm.new(config)
 ```
 
 #### Instance Methods
@@ -122,14 +122,14 @@ result = swarm.execute(prompt, options = {})
 #   agent: String (default: main agent from config)
 #   session_id: String (for session restoration)
 #   metadata: Hash (attached to all logs)
-# => #<SwarmCore::Result>
+# => #<SwarmSDK::Result>
 
 # Execute with specific agent
 result = swarm.execute("Task", agent: "backend")
 
 # Get agent by name
 agent = swarm.agent("backend")
-# => #<SwarmCore::Agent>
+# => #<SwarmSDK::Agent>
 
 # List all agents
 swarm.agents
@@ -137,7 +137,7 @@ swarm.agents
 
 # Session management
 session = swarm.save_session
-# => #<SwarmCore::Session id: "20250928-103045-abc123">
+# => #<SwarmSDK::Session id: "20250928-103045-abc123">
 
 swarm.restore_session(session_id)
 # => self
@@ -174,7 +174,7 @@ end
 
 ---
 
-### SwarmCore::Result
+### SwarmSDK::Result
 
 **Returned from `swarm.execute()`**
 
@@ -194,7 +194,7 @@ result.metadata       # Hash: custom metadata
 
 ---
 
-### SwarmCore::Agent
+### SwarmSDK::Agent
 
 **Direct agent access (advanced usage)**
 
@@ -203,7 +203,7 @@ agent = swarm.agent("backend")
 
 # Execute directly
 result = agent.execute("Implement API endpoint")
-# => #<SwarmCore::Result>
+# => #<SwarmSDK::Result>
 
 # Access agent properties
 agent.name            # String
@@ -224,14 +224,14 @@ agent.reset!
 
 ---
 
-### SwarmCore::Session
+### SwarmSDK::Session
 
 **Session persistence and restoration**
 
 ```ruby
 # Create session
 session = swarm.save_session
-# => #<SwarmCore::Session>
+# => #<SwarmSDK::Session>
 
 session.id            # String: "20250928-103045-abc123"
 session.created_at    # Time
@@ -241,11 +241,11 @@ session.total_tokens  # Hash
 session.agents        # Array<String>
 
 # List sessions
-sessions = SwarmCore::Session.all
+sessions = SwarmSDK::Session.all
 # => [#<Session>, #<Session>, ...]
 
 # Load session
-session = SwarmCore::Session.find(session_id)
+session = SwarmSDK::Session.find(session_id)
 swarm.restore_session(session)
 
 # Delete session
@@ -338,11 +338,11 @@ All log entries are structured JSON emitted via the `on_log` hook.
 # app/services/swarm_service.rb
 class SwarmService
   def self.execute_task(task, user:)
-    swarm = SwarmCore::Swarm.load(Rails.root.join("config/swarm.yml"))
+    swarm = SwarmSDK::Swarm.load(Rails.root.join("config/swarm.yml"))
 
     # Log to Rails logger
     swarm.on_log do |log|
-      Rails.logger.info("[SwarmCore] #{log.to_json}")
+      Rails.logger.info("[SwarmSDK] #{log.to_json}")
     end
 
     # Track in database
@@ -405,7 +405,7 @@ class SwarmJob < ApplicationJob
   queue_as :swarm
 
   def perform(task, user_id)
-    swarm = SwarmCore::Swarm.load("config/swarm.yml")
+    swarm = SwarmSDK::Swarm.load("config/swarm.yml")
 
     # Stream logs to ActionCable
     swarm.on_log do |log|
@@ -434,7 +434,7 @@ class SwarmChannel < ApplicationCable::Channel
   end
 
   def execute(data)
-    swarm = SwarmCore::Swarm.load("config/swarm.yml")
+    swarm = SwarmSDK::Swarm.load("config/swarm.yml")
 
     # Stream all logs to WebSocket
     swarm.on_log do |log|
@@ -458,7 +458,7 @@ module API
   module V1
     class SwarmController < ApplicationController
       def execute
-        swarm = SwarmCore::Swarm.load("config/swarm.yml")
+        swarm = SwarmSDK::Swarm.load("config/swarm.yml")
         logs = []
 
         swarm.on_log { |log| logs << log }
@@ -491,8 +491,8 @@ end
 require 'async'
 
 Async do
-  backend_swarm = SwarmCore::Swarm.load("backend_swarm.yml")
-  frontend_swarm = SwarmCore::Swarm.load("frontend_swarm.yml")
+  backend_swarm = SwarmSDK::Swarm.load("backend_swarm.yml")
+  frontend_swarm = SwarmSDK::Swarm.load("frontend_swarm.yml")
 
   results = Async::Barrier.new do |barrier|
     barrier.async do
@@ -516,8 +516,8 @@ end
 The CLI is a thin wrapper around the library:
 
 ```ruby
-# lib/swarm_core/cli.rb
-module SwarmCore
+# lib/swarm_sdk/cli.rb
+module SwarmSDK
   class CLI < Thor
     desc "start [CONFIG]", "Start swarm"
     option :prompt, type: :string
@@ -566,11 +566,11 @@ require 'test_helper'
 
 class SwarmTest < Minitest::Test
   def test_execute_returns_result
-    swarm = SwarmCore::Swarm.load("test/fixtures/simple_swarm.yml")
+    swarm = SwarmSDK::Swarm.load("test/fixtures/simple_swarm.yml")
 
     result = swarm.execute("Hello")
 
-    assert_kind_of SwarmCore::Result, result
+    assert_kind_of SwarmSDK::Result, result
     assert result.success?
     assert result.content.is_a?(String)
   ensure
@@ -578,7 +578,7 @@ class SwarmTest < Minitest::Test
   end
 
   def test_logs_are_emitted
-    swarm = SwarmCore::Swarm.load("test/fixtures/simple_swarm.yml")
+    swarm = SwarmSDK::Swarm.load("test/fixtures/simple_swarm.yml")
     logs = []
 
     swarm.on_log { |log| logs << log }
@@ -596,10 +596,10 @@ end
 
 ```ruby
 def test_with_mocked_llm
-  llm_mock = SwarmCore::LLMMock.new
+  llm_mock = SwarmSDK::LLMMock.new
   llm_mock.add_response(content: "Mocked response")
 
-  swarm = SwarmCore::Swarm.load(
+  swarm = SwarmSDK::Swarm.load(
     "test/fixtures/swarm.yml",
     llm_client: llm_mock
   )
@@ -618,13 +618,13 @@ end
 
 ```ruby
 begin
-  swarm = SwarmCore::Swarm.load("swarm.yml")
+  swarm = SwarmSDK::Swarm.load("swarm.yml")
   result = swarm.execute("Task")
-rescue SwarmCore::ConfigurationError => e
+rescue SwarmSDK::ConfigurationError => e
   puts "Config error: #{e.message}"
-rescue SwarmCore::LLMError => e
+rescue SwarmSDK::LLMError => e
   puts "LLM error: #{e.message}"
-rescue SwarmCore::AgentNotFoundError => e
+rescue SwarmSDK::AgentNotFoundError => e
   puts "Agent error: #{e.message}"
 ensure
   swarm&.shutdown
@@ -639,7 +639,7 @@ end
 
 ```ruby
 # 20 agents × 4KB fibers = 80KB overhead
-swarm = SwarmCore::Swarm.load("large_swarm.yml")
+swarm = SwarmSDK::Swarm.load("large_swarm.yml")
 
 puts "Agents: #{swarm.agents.count}"
 # => "Agents: 20"
@@ -654,7 +654,7 @@ swarm.execute("Analyze codebase")
 ```ruby
 # Execute multiple tasks with same swarm instance
 Async do
-  swarm = SwarmCore::Swarm.load("swarm.yml")
+  swarm = SwarmSDK::Swarm.load("swarm.yml")
 
   tasks = 10.times.map do |i|
     Async do
@@ -674,7 +674,7 @@ end
 
 **Library-First Design:**
 - ✅ No CLI coupling
-- ✅ All functionality in `SwarmCore` module
+- ✅ All functionality in `SwarmSDK` module
 - ✅ Event-driven logging via callbacks
 - ✅ Async-compatible throughout
 
@@ -696,5 +696,5 @@ The CLI is just one thin wrapper around this powerful library API.
 ---
 
 **Document Version:** 1.0
-**Author:** SwarmCore Team
+**Author:** SwarmSDK Team
 **Last Updated:** 2025-09-28

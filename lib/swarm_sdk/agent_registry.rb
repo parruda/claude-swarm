@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module SwarmCore
+module SwarmSDK
   class AgentRegistry
     def initialize
       @agents = Concurrent::Hash.new

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module SwarmCore
+module SwarmSDK
   class UnifiedLogger
     def initialize
       @log_callbacks = []

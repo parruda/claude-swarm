@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module SwarmCore
+module SwarmSDK
   class Executor
     def initialize(max_concurrent: nil)
       @semaphore = max_concurrent ? Async::Semaphore.new(max_concurrent) : nil

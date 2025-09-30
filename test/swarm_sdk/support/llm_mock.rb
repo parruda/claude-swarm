@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module SwarmCore
+module SwarmSDK
   class LLMMock
     attr_reader :call_history, :chat_instances
 

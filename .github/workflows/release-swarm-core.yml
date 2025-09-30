@@ -1,13 +1,13 @@
-name: Release SwarmCore Gem
+name: Release SwarmSDK Gem
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'lib/swarm_core.rb'
-      - 'lib/swarm_core/**'
-      - 'swarm_core.gemspec'
+      - 'lib/swarm_sdk.rb'
+      - 'lib/swarm_sdk/**'
+      - 'swarm_sdk.gemspec'
       - '.github/workflows/release-swarm-core.yml'
 
 jobs:
@@ -24,10 +24,10 @@ jobs:
       - name: Check if version changed
         id: check
         run: |
-          CURRENT_VERSION=$(grep "VERSION = " lib/swarm_core/version.rb | sed -E 's/.*"(.*)"/\1/')
+          CURRENT_VERSION=$(grep "VERSION = " lib/swarm_sdk/version.rb | sed -E 's/.*"(.*)"/\1/')
           echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
 
-          if git diff HEAD^ HEAD -- lib/swarm_core/version.rb | grep -q "+.*VERSION"; then
+          if git diff HEAD^ HEAD -- lib/swarm_sdk/version.rb | grep -q "+.*VERSION"; then
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "Version changed to $CURRENT_VERSION"
           else
@@ -52,23 +52,23 @@ jobs:
         ruby-version: '3.4'
         bundler-cache: true
 
-    - name: Run SwarmCore tests
-      run: bundle exec rake swarm_core:test
+    - name: Run SwarmSDK tests
+      run: bundle exec rake swarm_sdk:test
 
-    - name: Run SwarmCore linter
-      run: bundle exec rake swarm_core:rubocop
+    - name: Run SwarmSDK linter
+      run: bundle exec rake swarm_sdk:rubocop
 
-    - name: Build swarm_core gem
-      run: gem build swarm_core.gemspec
+    - name: Build swarm_sdk gem
+      run: gem build swarm_sdk.gemspec
 
     - name: Verify gem contents
       run: |
         echo "Gem contents:"
-        tar -tzf swarm_core-*.gem | grep -E "\.(rb|md)$" | head -20
+        tar -tzf swarm_sdk-*.gem | grep -E "\.(rb|md)$" | head -20
         echo ""
         echo "Verifying no claude_swarm code included:"
-        if tar -tzf swarm_core-*.gem | grep -q "lib/claude_swarm"; then
-          echo "ERROR: swarm_core gem contains claude_swarm code!"
+        if tar -tzf swarm_sdk-*.gem | grep -q "lib/claude_swarm"; then
+          echo "ERROR: swarm_sdk gem contains claude_swarm code!"
           exit 1
         fi
         echo "✓ No claude_swarm code found"
@@ -76,15 +76,15 @@ jobs:
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
-        tag_name: swarm_core-v${{ needs.detect-version-change.outputs.new_version }}
-        name: SwarmCore v${{ needs.detect-version-change.outputs.new_version }}
+        tag_name: swarm_sdk-v${{ needs.detect-version-change.outputs.new_version }}
+        name: SwarmSDK v${{ needs.detect-version-change.outputs.new_version }}
         body: |
-          SwarmCore v${{ needs.detect-version-change.outputs.new_version }}
+          SwarmSDK v${{ needs.detect-version-change.outputs.new_version }}
 
           Single-process multi-agent AI orchestration with async/fiber execution.
 
           See [CHANGELOG.md](https://github.com/parruda/claude-swarm/blob/main/CHANGELOG.md) for details.
-        files: swarm_core-*.gem
+        files: swarm_sdk-*.gem
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -94,6 +94,6 @@ jobs:
         touch $HOME/.gem/credentials
         chmod 0600 $HOME/.gem/credentials
         printf -- "---\n:rubygems_api_key: ${GEM_HOST_API_KEY}\n" > $HOME/.gem/credentials
-        gem push swarm_core-*.gem
+        gem push swarm_sdk-*.gem
       env:
         GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_AUTH_TOKEN }}

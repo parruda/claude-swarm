@@ -9,17 +9,17 @@ Minitest::TestTask.create(:test) do |t|
   t.warning = false
 end
 
-namespace :swarm_core do
+namespace :swarm_sdk do
   Minitest::TestTask.create(:test) do |t|
-    t.test_globs = ["test/swarm_core/**/*_test.rb"]
+    t.test_globs = ["test/swarm_sdk/**/*_test.rb"]
     t.warning = false
   end
 
   RuboCop::RakeTask.new(:rubocop) do |t|
-    t.patterns = ["lib/swarm_core.rb", "lib/swarm_core/**/*.rb", "test/swarm_core/**/*.rb"]
+    t.patterns = ["lib/swarm_sdk.rb", "lib/swarm_sdk/**/*.rb", "test/swarm_sdk/**/*.rb"]
   end
 
-  desc "Run SwarmCore tests and linting"
+  desc "Run SwarmSDK tests and linting"
   task all: [:test, :rubocop]
 end
 

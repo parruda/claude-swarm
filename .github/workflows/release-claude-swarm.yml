@@ -71,12 +71,12 @@ jobs:
         echo "Gem contents:"
         tar -tzf claude_swarm-*.gem | grep -E "\.(rb|md)$" | head -20
         echo ""
-        echo "Verifying no swarm_core code included:"
-        if tar -tzf claude_swarm-*.gem | grep -q "lib/swarm_core"; then
-          echo "ERROR: claude_swarm gem contains swarm_core code!"
+        echo "Verifying no swarm_sdk code included:"
+        if tar -tzf claude_swarm-*.gem | grep -q "lib/swarm_sdk"; then
+          echo "ERROR: claude_swarm gem contains swarm_sdk code!"
           exit 1
         fi
-        echo "✓ No swarm_core code found"
+        echo "✓ No swarm_sdk code found"
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1

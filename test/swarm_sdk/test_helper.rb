@@ -2,14 +2,14 @@
 
 $LOAD_PATH.unshift(File.expand_path("../../lib", __dir__))
 
-require "swarm_core"
+require "swarm_sdk"
 require "minitest/autorun"
 require "stringio"
 require "tmpdir"
 
 Dir[File.expand_path("support/**/*.rb", __dir__)].each { |f| require f }
 
-module SwarmCore
+module SwarmSDK
   module TestHelpers
     def silence_output
       original_stdout = $stdout
@@ -23,7 +23,7 @@ module SwarmCore
     end
 
     def with_temp_dir(&block)
-      Dir.mktmpdir("swarm_core_test", &block)
+      Dir.mktmpdir("swarm_sdk_test", &block)
     end
 
     def with_temp_config(content)
@@ -36,7 +36,7 @@ module SwarmCore
   end
 end
 
-Minitest::Test.include(SwarmCore::TestHelpers)
+Minitest::Test.include(SwarmSDK::TestHelpers)
 
 original_home_dir = ENV["CLAUDE_SWARM_HOME"]
 test_swarm_home = Dir.mktmpdir("swarm-core-test")
