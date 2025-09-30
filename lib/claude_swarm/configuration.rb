@@ -13,12 +13,12 @@ module ClaudeSwarm
     ENV_VAR_WITH_DEFAULT_PATTERN = /\$\{([^:}]+)(:=([^}]*))?\}/
     O_SERIES_MODEL_PATTERN = /^o\d+(\s+(Preview|preview))?(-pro|-mini|-deep-research|-mini-deep-research)?$/
 
-    attr_reader :config, :config_path, :swarm, :swarm_name, :main_instance, :instances
+    attr_reader :config, :config_path, :swarm, :swarm_name, :main_instance, :instances, :base_dir
 
     def initialize(config_path, base_dir: nil, options: {})
       @config_path = Pathname.new(config_path).expand_path
       @config_dir = @config_path.dirname
-      @base_dir = base_dir || @config_dir
+      @base_dir = base_dir || @config_dir.to_s
       @options = options
       load_and_validate
     end
