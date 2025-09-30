@@ -2,7 +2,7 @@ PATH
   remote: .
   specs:
     claude_swarm (0.3.11)
-      claude-code-sdk-ruby (~> 0.1)
+      claude-code-sdk-ruby (~> 0.1.6)
       faraday-net_http_persistent (~> 2.0)
       faraday-retry (~> 2.0)
       fast-mcp-annotations (~> 1.5)
