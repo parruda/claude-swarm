@@ -442,6 +442,17 @@ mcps:
       X-Custom-Header: "value"
 ```
 
+#### http (HTTP-based MCP)
+```yaml
+mcps:
+  - name: http_service
+    type: http
+    url: "https://api.example.com/mcp-endpoint"
+    headers:  # Optional: custom headers for authentication
+      Authorization: "Bearer ${API_TOKEN}"
+      X-API-Key: "${API_KEY}"
+```
+
 ### Hooks Configuration
 
 Claude Swarm supports configuring [Claude Code hooks](https://docs.anthropic.com/en/docs/claude-code/hooks) for each instance. Hooks allow you to run custom scripts before/after tools, on prompt submission, and more. Each instance can have its own hooks configuration.

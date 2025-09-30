@@ -1,5 +1,24 @@
 ## [Unreleased]
 
+## [1.0.0]
+
+### Added
+- **HTTP MCP server configuration support**: Added support for HTTP-type MCP servers alongside existing stdio and SSE types
+  - HTTP servers can be configured with a `url` field
+  - Properly preserves server type (http/sse) in generated configurations
+  - Full compatibility with Claude Code's HTTP MCP server implementation
+
+### Changed
+- **Updated dependency from fast-mcp-annotations to fast-mcp gem**: Migrated to the consolidated fast-mcp gem (~> 1.6)
+  - Consolidates MCP functionality into a single, more maintainable gem
+  - Maintains all existing functionality with improved performance
+- **Updated claude-code-sdk-ruby dependency**: Minimum version requirement increased to 0.1.6
+  - Includes latest SDK improvements and bug fixes
+  - Better error handling and stability
+- **Swarm generation improvements**: Generator now avoids creating swarms with circular dependencies
+  - Prevents generation of invalid configurations
+  - Improves reliability of generated swarm templates
+
 ### Fixed
 - **Empty response validation**: Added validation to prevent empty or nil responses from being passed to MCP callers
   - ClaudeCodeExecutor now validates that Claude SDK returns non-empty result content
@@ -12,6 +31,15 @@
   - Works correctly with both regular directories and Git worktrees
   - After commands follow the same logic for consistency
   - Fixes "No such file or directory @ dir_chdir" errors when before commands create directories
+
+### Internal
+- **Centralized JSON handling**: Added JsonHandler class for consistent JSON parsing and generation
+  - Improved error handling for malformed JSON files
+  - Standardized JSON output formatting across all modules
+- **Centralized CLAUDE_SWARM_HOME handling**: Refactored environment variable management for cleaner code
+- **Enhanced test coverage**: Added comprehensive configuration tests and enabled branch coverage in SimpleCov
+  - Extensive validation of edge cases including circular dependencies
+  - Better coverage metrics with branch coverage enabled
 
 ## [0.3.11]
 
