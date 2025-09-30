@@ -5,7 +5,7 @@ PATH
       claude-code-sdk-ruby (~> 0.1)
       faraday-net_http_persistent (~> 2.0)
       faraday-retry (~> 2.0)
-      fast-mcp-annotations (~> 1.5)
+      fast-mcp (~> 1.6)
       ruby-mcp-client (~> 0.7)
       ruby-openai (>= 7.0, < 9.0)
       thor (~> 1.3)
@@ -94,6 +94,13 @@ GEM
       net-http-persistent (>= 4.0.4, < 5)
     faraday-retry (2.3.2)
       faraday (~> 2.0)
+    fast-mcp (1.6.0)
+      addressable (~> 2.8)
+      base64
+      dry-schema (~> 1.14)
+      json (~> 2.0)
+      mime-types (~> 3.4)
+      rack (>= 2.0, < 4.0)
     fast-mcp-annotations (1.5.3)
       addressable (~> 2.8)
       base64
