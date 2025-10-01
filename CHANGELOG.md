@@ -1,5 +1,12 @@
 ## [Unreleased]
 
+## [1.0.1]
+
+### Fixed
+- **Fixed require statement for fast-mcp gem**: Updated `require "fast_mcp_annotations"` to `require "fast_mcp"` to match the gem dependency change in 1.0.0
+  - The gemspec was correctly updated to use fast-mcp (~> 1.6) in 1.0.0, but the require statement was not updated
+  - This fix ensures the correct gem is loaded at runtime
+
 ## [1.0.0]
 
 ### Added
