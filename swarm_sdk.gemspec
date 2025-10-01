@@ -20,7 +20,6 @@ Gem::Specification.new do |spec|
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.2.0"
 
-  spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = "https://github.com/parruda/claude-swarm"
   spec.metadata["changelog_uri"] = "https://github.com/parruda/claude-swarm/blob/main/CHANGELOG.md"
 
@@ -38,7 +37,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency("async", "~> 2.0")
   spec.add_dependency("concurrent-ruby", "~> 1.3")
-  spec.add_dependency("ruby_llm", ">= 1.8")
+  spec.add_dependency("ruby_llm", "~> 1.8")
   spec.add_dependency("thor", "~> 1.3")
   spec.add_dependency("zeitwerk", "~> 2.6")
 end
