@@ -11,7 +11,7 @@ module ClaudeSwarm
         end
 
         # Load config to get main instance name
-        config = YAML.load_file(File.join(session_path, "config.yml"))
+        config = YamlLoader.load_config_file(File.join(session_path, "config.yml"))
         main_instance_name = config.dig("swarm", "main")
 
         # Parse all events to build instance data
