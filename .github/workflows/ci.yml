@@ -51,10 +51,10 @@ jobs:
       run: npm install -g @anthropic-ai/claude-code
 
     - name: Run ClaudeSwarm tests
-      run: bundle exec rake test
+      run: bundle exec rake claude_swarm:test
 
     - name: Run ClaudeSwarm linter
-      run: bundle exec rubocop
+      run: bundle exec rake claude_swarm:rubocop
 
   test-swarm-sdk:
     needs: detect-changes

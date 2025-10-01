@@ -58,10 +58,10 @@ jobs:
         bundler-cache: true
 
     - name: Run ClaudeSwarm tests
-      run: bundle exec rake test
+      run: bundle exec rake claude_swarm:test
 
     - name: Run ClaudeSwarm linter
-      run: bundle exec rake rubocop
+      run: bundle exec rake claude_swarm:rubocop
 
     - name: Build claude_swarm gem
       run: gem build claude_swarm.gemspec
