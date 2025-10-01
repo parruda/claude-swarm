@@ -22,7 +22,7 @@ require "yaml"
 
 # External dependencies
 require "claude_sdk"
-require "fast_mcp_annotations"
+require "fast_mcp"
 require "mcp_client"
 require "thor"
 

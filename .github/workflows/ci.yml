@@ -12,11 +12,11 @@ jobs:
     strategy:
       matrix:
         ruby-version: ['3.2', '3.3', '3.4']
-    
+
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
-    
+
     - name: Set up Ruby ${{ matrix.ruby-version }}
       uses: ruby/setup-ruby@v1
       with:
@@ -24,6 +24,24 @@ jobs:
         bundler-cache: true
     - name: Install Claude Code
       run: npm install -g @anthropic-ai/claude-code
-    
+
     - name: Run tests and linter
       run: bundle exec rake
+    
+    - name: Test gem loads without bundler
+      run: |
+        gem build *.gemspec
+        gem install ./claude_swarm-*.gem
+        ruby -e "require 'claude_swarm'"
+
+    - name: Test in isolated environment with fresh bundle
+      run: |
+        mkdir -p tmp/gem_test
+        cd tmp/gem_test
+        cat > Gemfile <<EOF
+        source 'https://rubygems.org'
+        gem 'claude_swarm', path: '../..'
+        EOF
+        bundle install
+        bundle exec ruby -e "require 'claude_swarm'; puts 'Gem loaded successfully'"
+        bundle exec claude-swarm version
