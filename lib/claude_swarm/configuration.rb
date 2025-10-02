@@ -59,7 +59,7 @@ module ClaudeSwarm
     end
 
     def load_and_validate
-      @config = YAML.load_file(@config_path, aliases: true)
+      @config = YamlLoader.load_config_file(@config_path)
       interpolate_env_vars!(@config)
       validate_version
       validate_swarm
@@ -67,10 +67,6 @@ module ClaudeSwarm
       # Skip directory validation if before commands are present
       # They might create the directories
       validate_directories unless has_before_commands?
-    rescue Errno::ENOENT
-      raise Error, "Configuration file not found: #{@config_path}"
-    rescue Psych::SyntaxError => e
-      raise Error, "Invalid YAML syntax: #{e.message}"
     end
 
     def interpolate_env_vars!(obj)

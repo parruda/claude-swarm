@@ -10,22 +10,9 @@ module ClaudeSwarm
           return
         end
 
-        sessions = []
-
-        # Read all symlinks in run directory
-        Dir.glob("#{run_dir}/*").each do |symlink|
-          next unless File.symlink?(symlink)
-
-          begin
-            session_dir = File.readlink(symlink)
-            # Skip if target doesn't exist (stale symlink)
-            next unless Dir.exist?(session_dir)
-
-            session_info = parse_session_info(session_dir)
-            sessions << session_info if session_info
-          rescue StandardError
-            # Skip problematic symlinks
-          end
+        # Read all symlinks in run directory and process them
+        sessions = Dir.glob("#{run_dir}/*").filter_map do |symlink|
+          process_symlink(symlink)
         end
 
         if sessions.empty?
@@ -83,14 +70,28 @@ module ClaudeSwarm
 
       private
 
-      def parse_session_info(session_dir)
+      def process_symlink(symlink)
+        session_dir = File.readlink(symlink)
         session_id = File.basename(session_dir)
+        # Skip if target doesn't exist (stale symlink)
+        return unless Dir.exist?(session_dir)
 
+        parse_session_info(session_id, session_dir)
+      rescue Errno::EINVAL
+        # Not a symlink, skip it
+        nil
+      rescue StandardError => e
+        # Try to get session_id if we have session_dir
+        warn("⚠️  Skipping session #{session_id}: #{e.message}")
+        nil
+      end
+
+      def parse_session_info(session_id, session_dir)
         # Load config for swarm name and main directory
         config_file = File.join(session_dir, "config.yml")
         return unless File.exist?(config_file)
 
-        config = YAML.load_file(config_file)
+        config = YamlLoader.load_config_file(config_file)
         swarm_name = config.dig("swarm", "name") || "Unknown"
         main_instance = config.dig("swarm", "main")
 
@@ -139,8 +140,6 @@ module ClaudeSwarm
           directory: directories_str,
           start_time: start_time,
         }
-      rescue StandardError
-        nil
       end
 
       def get_start_time(session_dir)

@@ -458,9 +458,15 @@ module ClaudeSwarm
         next unless File.exist?(config_file)
 
         # Load the config to get swarm info
-        config_data = YAML.load_file(config_file)
-        swarm_name = config_data.dig("swarm", "name") || "Unknown"
-        main_instance = config_data.dig("swarm", "main") || "Unknown"
+        begin
+          config_data = YamlLoader.load_config_file(config_file)
+          swarm_name = config_data.dig("swarm", "name") || "Unknown"
+          main_instance = config_data.dig("swarm", "main") || "Unknown"
+        rescue ClaudeSwarm::Error => e
+          # Warn about corrupted config files but continue
+          say_error("⚠️ Skipping session #{session_id} - #{e.message}")
+          next
+        end
 
         mcp_files = Dir.glob(File.join(session_path, "*.mcp.json"))
 
