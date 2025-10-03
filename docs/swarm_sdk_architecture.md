@@ -34,12 +34,11 @@ The following core components are fully implemented and tested (85 tests, 100% p
 1. **SwarmSDK Module** (`lib/swarm_sdk.rb`) - Module setup, error hierarchy, utility methods
 2. **Configuration** (`lib/swarm_sdk/configuration.rb`) - YAML parsing, version 2 validation, env variable interpolation, deep symbolization
 3. **AgentDefinition** (`lib/swarm_sdk/agent_definition.rb`) - Immutable agent configuration with validation
-4. **AgentRegistry** (`lib/swarm_sdk/agent_registry.rb`) - Fiber-safe agent lookup using regular Hash
-5. **MarkdownParser** (`lib/swarm_sdk/markdown_parser.rb`) - Parse agent definitions from Markdown files
-6. **AgentChat** (`lib/swarm_sdk/agent_chat.rb`) - RubyLLM::Chat subclass with parallel tool calling and two-level rate limiting
-7. **UnifiedLogger** (`lib/swarm_sdk/unified_logger.rb`) - Structured logging with automatic cost tracking via RubyLLM model registry
-8. **Result** (`lib/swarm_sdk/result.rb`) - Execution result with log aggregation (total_cost, total_tokens, agents_involved)
-9. **Swarm** (`lib/swarm_sdk/swarm.rb`) - **Partially implemented**: agent-to-agent delegation, streaming execution API, rate limiting
+4. **MarkdownParser** (`lib/swarm_sdk/markdown_parser.rb`) - Parse agent definitions from Markdown files
+5. **AgentChat** (`lib/swarm_sdk/agent_chat.rb`) - RubyLLM::Chat subclass with parallel tool calling and two-level rate limiting
+6. **UnifiedLogger** (`lib/swarm_sdk/unified_logger.rb`) - Structured logging with automatic cost tracking via RubyLLM model registry
+7. **Result** (`lib/swarm_sdk/result.rb`) - Execution result with log aggregation (total_cost, total_tokens, agents_involved)
+8. **Swarm** (`lib/swarm_sdk/swarm.rb`) - **Partially implemented**: agent-to-agent delegation, streaming execution API, rate limiting
 
 ### 🚧 Components In Progress
 
@@ -246,8 +245,8 @@ chat.on_new_message { }                # Message starting
   "timestamp": "2025-09-28T10:30:00.123Z",
   "type": "llm_request",
   "agent": "backend",
-  "model": "claude-3-5-sonnet-20241022",
-  "provider": "anthropic",
+  "model": "gpt-5",
+  "provider": "openai",
   "message_count": 3,
   "tools": ["Read", "Edit", "call_agent__database"]
 }
@@ -259,7 +258,7 @@ chat.on_new_message { }                # Message starting
   "timestamp": "2025-09-28T10:30:01.456Z",
   "type": "llm_response",
   "agent": "backend",
-  "model": "claude-3-5-sonnet-20241022",
+  "model": "gpt-5",
   "content": "I'll query the database.",
   "tool_calls": [
     {"id": "call_123", "name": "call_agent__database", "arguments": {...}}
@@ -372,7 +371,6 @@ graph TB
     CLI[SwarmSDK::CLI<br/>Thor Command Line]
     Swarm[SwarmSDK::Swarm<br/>Main Orchestration]
     Config[Configuration<br/>YAML + Markdown Parser]
-    Registry[AgentRegistry<br/>Fiber-Safe Agent Lookup]
     Session[Session<br/>State Persistence]
 
     Agent1[Agent: Lead<br/>AgentChat Instance]
@@ -572,7 +570,7 @@ end
 class AgentConfig
   attr_reader :name           # String: Agent identifier
   attr_reader :description    # String: Human-readable description
-  attr_reader :model          # String: LLM model (e.g., "claude-3-5-sonnet-20241022")
+  attr_reader :model          # String: LLM model (e.g., "gpt-5")
   attr_reader :directory      # String: Primary working directory
   attr_reader :directories    # Array<String>: All working directories
   attr_reader :tools          # Array<String>: Allowed tools
@@ -588,7 +586,8 @@ end
 - `name` and `description` are required
 - `prompt` is required (system instructions)
 - All directories must exist at initialization time
-- Model defaults to `"claude-3-5-sonnet-20241022"` if not specified
+- Model defaults to `"gpt-5"` if not specified
+- Provider defaults to `"openai"` if not specified
 
 ---
 
@@ -602,7 +601,7 @@ end
 ---
 name: backend_developer
 description: Backend specialist for Ruby on Rails
-model: claude-3-5-sonnet-20241022
+model: gpt-5
 directory: ./backend
 tools:
   - Read
@@ -638,42 +637,7 @@ Always follow Ruby style guide and Rails best practices.
 
 ---
 
-### 4. SwarmSDK::AgentRegistry ✅
-
-**Status:** Implemented
-**Purpose:** Fiber-safe registry for all agents in the swarm.
-
-**Responsibilities:**
-- Register agents with unique names
-- Provide fast agent lookup by name
-- Prevent duplicate registrations
-- Support clearing for testing
-
-**Key Methods:**
-```ruby
-class AgentRegistry
-  def register(agent) -> void
-  def get(name) -> Agent
-  def exists?(name) -> Boolean
-  def all -> Array<Agent>
-  def count -> Integer
-  def names -> Array<String>
-  def clear -> void
-end
-```
-
-**Fiber Safety:**
-- Uses regular `Hash` (no concurrency primitives needed)
-- Fibers are cooperative and never execute in parallel
-- No race conditions possible in single-threaded fiber execution
-
-**Error Handling:**
-- Duplicate registration → `ConfigurationError`
-- Agent not found → `AgentNotFoundError`
-
----
-
-### 5. SwarmSDK::Agent 🚧
+### 4. SwarmSDK::Agent 🚧
 
 **Status:** Planned (Not Yet Implemented)
 **Purpose:** Represent a single AI agent with conversation state and execution context.
@@ -691,7 +655,6 @@ end
 class Agent
   attr_reader :config         # AgentConfig
   attr_reader :name           # String
-  attr_reader :registry       # AgentRegistry (for agent connections)
   attr_reader :llm_manager    # LLMManager
   attr_reader :tool_calling   # ToolCalling
   attr_accessor :conversation_history  # Array<Hash>
@@ -794,7 +757,7 @@ end
 
 **Chat Instance Configuration:**
 ```ruby
-chat = RubyLLM.chat(model: "claude-3-5-sonnet-20241022")
+chat = RubyLLM.chat(model: "gpt-5")
   .with_instructions("You are a backend developer...")
   .with_temperature(0.7)
   .with_max_tokens(4096)
@@ -957,9 +920,8 @@ end
 ```ruby
 def self.load(config_path, llm_client: nil)
   config = Configuration.load(config_path)
-  registry = AgentRegistry.new
   llm_manager = LLMManager.new(llm_client)
-  tool_calling = ToolCalling.new(registry)
+  tool_calling = ToolCalling.new
   executor = Executor.new
   logger = UnifiedLogger.new
   session = Session.new(config.swarm_name)
@@ -1517,7 +1479,7 @@ swarm:
     # Inline agent definition
     lead:
       description: "Lead developer coordinating the team"  # Required
-      model: claude-3-5-sonnet-20241022                   # Optional (default shown)
+      model: gpt-5                                         # Optional (default shown)
       directory: .                                         # Optional (default: ".")
       tools:                                               # Optional (default: [])
         - Read
@@ -1548,7 +1510,7 @@ swarm:
     # Agent with environment variable
     database:
       description: "Database specialist"
-      model: ${DB_MODEL:=claude-3-5-sonnet-20241022}  # Env var with default
+      model: ${DB_MODEL:=gpt-5}  # Env var with default
       directory: ./database
       prompt: "You manage database schemas and migrations..."
 ```
@@ -1560,7 +1522,7 @@ swarm:
 ```markdown
 ---
 description: Backend specialist for Ruby on Rails
-model: claude-3-5-sonnet-20241022
+model: gpt-5
 directory: ./backend
 tools:
   - Read
@@ -1637,8 +1599,7 @@ stateDiagram-v2
 flowchart TD
     Start([Start]) --> LoadConfig[Load Configuration]
     LoadConfig --> ParseAgents[Parse Agent Definitions]
-    ParseAgents --> CreateRegistry[Create AgentRegistry]
-    CreateRegistry --> InitLLM[Initialize LLMManager]
+    ParseAgents --> InitLLM[Initialize LLMManager]
 
     InitLLM --> CreateAgent1[Create Agent: Lead]
     InitLLM --> CreateAgent2[Create Agent: Backend]
@@ -1801,7 +1762,6 @@ classDiagram
 
     class AgentTool {
         +target_agent: String
-        +registry: AgentRegistry
         +execute_delegation(parameters)
     }
 
@@ -2100,7 +2060,6 @@ graph TB
     end
 
     subgraph "Shared State Fiber-Safe"
-        Registry[AgentRegistry<br/>Regular Hash]
         LLMCache[LLM Chat Cache<br/>Regular Hash]
     end
 
@@ -2145,7 +2104,6 @@ graph TB
 ```mermaid
 flowchart TB
     subgraph "Fiber-Safe Components"
-        Registry[AgentRegistry<br/>Regular Hash<br/>Cooperative fibers]
         LLMCache[LLMManager Cache<br/>Regular Hash<br/>Cooperative fibers]
         SessionWrite[Session Write<br/>Async::IO]
     end
@@ -2240,7 +2198,7 @@ end.wait
 ### Fiber Safety
 
 **Fiber-Safe Components:**
-- `AgentRegistry` - Uses regular `Hash` (fibers are cooperative, no parallel execution)
+- `Swarm` - Agent management uses regular `Hash` (fibers are cooperative, no parallel execution)
 - `LLMManager` - Chat cache uses regular `Hash` (no concurrency primitives needed)
 - `Session` - Uses `Async::IO` for file operations
 - `RubyLLM` - Native fiber support, automatically yields on I/O

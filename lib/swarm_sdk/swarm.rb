@@ -23,7 +23,7 @@ module SwarmSDK
   #     delegates_to: [:database]
   #   )
   #
-  #   swarm.set_lead(:backend)
+  #   swarm.lead = :backend
   #   result = swarm.execute("Build authentication")
   #
   # ## YAML API (Convenience)
@@ -35,7 +35,7 @@ module SwarmSDK
     DEFAULT_GLOBAL_LIMIT = 50
     DEFAULT_LOCAL_LIMIT = 10
 
-    attr_reader :name, :agents, :lead_agent, :registry
+    attr_reader :name, :agents, :lead_agent
 
     # Initialize a new Swarm
     #
@@ -49,9 +49,6 @@ module SwarmSDK
 
       # Shared semaphore for all agents
       @global_semaphore = Async::Semaphore.new(@global_limit)
-
-      # Agent registry for lookup
-      @registry = AgentRegistry.new
 
       # Agent definitions and instances
       @agent_definitions = {}
@@ -149,7 +146,7 @@ module SwarmSDK
     # @yield [Hash] Log entry if block given (for streaming)
     # @return [Result] Execution result
     def execute(prompt, &block)
-      raise ConfigurationError, "No lead agent set. Call set_lead first." unless @lead_agent
+      raise ConfigurationError, "No lead agent set. Set lead= first." unless @lead_agent
 
       start_time = Time.now
       logs = []

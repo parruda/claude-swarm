@@ -30,7 +30,6 @@ module SwarmSDK
       assert_equal("Test Swarm", swarm.name)
       assert_equal(50, swarm.instance_variable_get(:@global_limit))
       assert_equal(10, swarm.instance_variable_get(:@default_local_limit))
-      assert_instance_of(AgentRegistry, swarm.registry)
       assert_nil(swarm.lead_agent)
     end
 
