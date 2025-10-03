@@ -26,16 +26,33 @@ module SwarmSDK
           raise ConfigurationError, "Invalid frontmatter format in agent definition"
         end
 
-        config = frontmatter.merge("prompt" => prompt_content)
+        # Symbolize keys for AgentDefinition
+        config = symbolize_keys(frontmatter).merge(system_prompt: prompt_content)
 
         name = @agent_name || frontmatter["name"]
         unless name
           raise ConfigurationError, "Agent definition must include 'name' in frontmatter or be specified externally"
         end
 
+        # Convert name to symbol
+        name = name.to_sym
+
         AgentDefinition.new(name, config)
       else
         raise ConfigurationError, "Invalid Markdown agent definition format. Expected YAML frontmatter followed by prompt content."
+      end
+    end
+
+    private
+
+    def symbolize_keys(obj)
+      case obj
+      when Hash
+        obj.transform_keys(&:to_sym).transform_values { |v| symbolize_keys(v) }
+      when Array
+        obj.map { |item| symbolize_keys(item) }
+      else
+        obj
       end
     end
   end
