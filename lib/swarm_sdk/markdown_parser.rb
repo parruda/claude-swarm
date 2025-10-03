@@ -33,7 +33,7 @@ module SwarmSDK
           raise ConfigurationError, "Agent definition must include 'name' in frontmatter or be specified externally"
         end
 
-        AgentConfig.new(name, config)
+        AgentDefinition.new(name, config)
       else
         raise ConfigurationError, "Invalid Markdown agent definition format. Expected YAML frontmatter followed by prompt content."
       end

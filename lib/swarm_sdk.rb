@@ -12,17 +12,19 @@ require "set"
 require "yaml"
 
 require "async"
-require "concurrent"
+require "async/semaphore"
 require "ruby_llm"
 require "thor"
 
+module SwarmSDK
+end
+
 require "zeitwerk"
-loader = Zeitwerk::Loader.for_gem(warn_on_extra_files: false)
-loader.push_dir("#{__dir__}/swarm_sdk")
+loader = Zeitwerk::Loader.new
+loader.push_dir("#{__dir__}/swarm_sdk", namespace: SwarmSDK)
 loader.inflector.inflect(
   "cli" => "CLI",
-  "llm" => "LLM",
-  "sdk" => "SDK",
+  "llm_manager" => "LLMManager",
 )
 loader.setup
 

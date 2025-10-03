@@ -1,8 +1,8 @@
 # SwarmSDK Architecture
 
 **Version:** 2.0.0
-**Status:** In Development
-**Last Updated:** 2025-09-28
+**Status:** In Development (Core Components Implemented)
+**Last Updated:** 2025-10-01
 
 ## Table of Contents
 
@@ -22,6 +22,74 @@
 - [Comparison with ClaudeSwarm v1](#comparison-with-claudeswarm-v1)
 - [Performance Characteristics](#performance-characteristics)
 - [Future Enhancements](#future-enhancements)
+
+---
+
+## Implementation Status
+
+### ✅ Implemented Components
+
+The following core components are fully implemented and tested (85 tests, 100% passing):
+
+1. **SwarmSDK Module** (`lib/swarm_sdk.rb`) - Module setup, error hierarchy, utility methods
+2. **Configuration** (`lib/swarm_sdk/configuration.rb`) - YAML parsing, version 2 validation, env variable interpolation, deep symbolization
+3. **AgentDefinition** (`lib/swarm_sdk/agent_definition.rb`) - Immutable agent configuration with validation
+4. **AgentRegistry** (`lib/swarm_sdk/agent_registry.rb`) - Fiber-safe agent lookup using regular Hash
+5. **MarkdownParser** (`lib/swarm_sdk/markdown_parser.rb`) - Parse agent definitions from Markdown files
+6. **AgentChat** (`lib/swarm_sdk/agent_chat.rb`) - RubyLLM::Chat subclass with parallel tool calling and two-level rate limiting
+7. **UnifiedLogger** (`lib/swarm_sdk/unified_logger.rb`) - Structured logging with automatic cost tracking via RubyLLM model registry
+8. **Result** (`lib/swarm_sdk/result.rb`) - Execution result with log aggregation (total_cost, total_tokens, agents_involved)
+9. **Swarm** (`lib/swarm_sdk/swarm.rb`) - **Partially implemented**: agent-to-agent delegation, streaming execution API, rate limiting
+
+### 🚧 Components In Progress
+
+The following components need implementation to complete SwarmSDK:
+
+1. **Agent** - Main agent execution logic with conversation history
+2. **ToolCalling** - Built-in tools (Read, Edit, Write, Bash, Glob, Grep)
+3. **Session** - Persistence and restoration of agent state
+4. **CLI** - Thor-based command-line interface
+
+### 📋 What's Working Now
+
+**Agent-to-Agent Delegation:**
+```ruby
+swarm = SwarmSDK::Swarm.new(name: "Dev Team")
+  .add_agent(name: :lead, description: "Coordinator",
+             system_prompt: "You coordinate", delegates_to: [:backend])
+  .add_agent(name: :backend, description: "Backend dev",
+             system_prompt: "You build APIs")
+
+swarm.lead = :lead
+result = swarm.execute("Build auth API")  # Lead delegates to backend automatically
+```
+
+**Streaming Execution:**
+```ruby
+result = swarm.execute("Build feature") do |event|
+  puts "[#{event[:timestamp]}] #{event[:agent]}: #{event[:type]}"
+  puts "💰 Cost: $#{event[:usage][:total_cost]}" if event[:usage]
+end
+
+puts "Total: $#{result.total_cost} | #{result.total_tokens} tokens"
+```
+
+### 📋 Next Steps to Complete SwarmSDK
+
+1. **ToolCalling** (lib/swarm_sdk/tool_calling.rb) - Built-in tool implementations
+   - File tools: Read, Edit, Write, Glob, Grep
+   - Execution tools: Bash
+   - Execute tools in agent's working directory
+
+2. **Session** (lib/swarm_sdk/session.rb) - State persistence
+   - Save/restore conversation histories
+   - Track cumulative costs and token usage
+   - Manage session directory structure
+
+3. **CLI** (lib/swarm_sdk/cli.rb) - Command-line interface
+   - Thin wrapper delegating to Swarm class
+   - Pretty-print logs to console
+   - Handle start/restore/list/show/clean commands
 
 ---
 
@@ -302,40 +370,39 @@ end
 ```mermaid
 graph TB
     CLI[SwarmSDK::CLI<br/>Thor Command Line]
-    Core[SwarmSDK::Core<br/>Main Orchestration]
+    Swarm[SwarmSDK::Swarm<br/>Main Orchestration]
     Config[Configuration<br/>YAML + Markdown Parser]
     Registry[AgentRegistry<br/>Fiber-Safe Agent Lookup]
-    Executor[Executor<br/>Async/Fiber Scheduler]
     Session[Session<br/>State Persistence]
 
-    Agent1[Agent: Lead<br/>Conversation History]
-    Agent2[Agent: Backend<br/>Conversation History]
-    Agent3[Agent: Frontend<br/>Conversation History]
+    Agent1[Agent: Lead<br/>AgentChat Instance]
+    Agent2[Agent: Backend<br/>AgentChat Instance]
+    Agent3[Agent: Frontend<br/>AgentChat Instance]
 
+    AgentChat[AgentChat<br/>Parallel Tool Execution]
     LLM[LLMManager<br/>RubyLLM Interface]
     Tools[ToolCalling<br/>Tool Router]
 
     RubyLLM[RubyLLM<br/>Claude/OpenAI/Gemini APIs]
 
-    CLI --> Core
-    Core --> Config
-    Core --> Registry
-    Core --> Executor
-    Core --> Session
+    CLI --> Swarm
+    Swarm --> Config
+    Swarm --> Registry
+    Swarm --> Session
 
-    Core --> Agent1
-    Core --> Agent2
-    Core --> Agent3
+    Swarm --> Agent1
+    Swarm --> Agent2
+    Swarm --> Agent3
 
-    Agent1 --> LLM
-    Agent2 --> LLM
-    Agent3 --> LLM
+    Agent1 --> AgentChat
+    Agent2 --> AgentChat
+    Agent3 --> AgentChat
+
+    AgentChat --> RubyLLM
 
     Agent1 --> Tools
     Agent2 --> Tools
     Agent3 --> Tools
-
-    LLM --> RubyLLM
 
     Tools --> Agent2
     Tools --> Agent3
@@ -349,7 +416,7 @@ graph TB
     Session -.-> Agent3
 
     style CLI fill:#e1f5ff
-    style Core fill:#fff4e1
+    style Swarm fill:#fff4e1
     style Agent1 fill:#e8f5e9
     style Agent2 fill:#e8f5e9
     style Agent3 fill:#e8f5e9
@@ -368,7 +435,7 @@ graph TB
                              │
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                        SwarmSDK::Core                          │
+│                        SwarmSDK::Swarm                         │
 │                    (Main Orchestration Engine)                  │
 │  ┌──────────────────────────────────────────────────────────┐  │
 │  │  • Initialize components                                  │  │
@@ -447,8 +514,9 @@ graph TB
 
 ## Core Components
 
-### 1. SwarmSDK::Configuration
+### 1. SwarmSDK::Configuration ✅
 
+**Status:** Implemented
 **Purpose:** Parse and validate version 2 configuration files.
 
 **Responsibilities:**
@@ -486,8 +554,9 @@ end
 
 ---
 
-### 2. SwarmSDK::AgentConfig
+### 2. SwarmSDK::AgentConfig ✅
 
+**Status:** Implemented
 **Purpose:** Immutable configuration object for a single agent.
 
 **Responsibilities:**
@@ -523,8 +592,9 @@ end
 
 ---
 
-### 3. SwarmSDK::MarkdownParser
+### 3. SwarmSDK::MarkdownParser ✅
 
+**Status:** Implemented
 **Purpose:** Parse agent definitions from Markdown files with YAML frontmatter.
 
 **Format:**
@@ -568,15 +638,15 @@ Always follow Ruby style guide and Rails best practices.
 
 ---
 
-### 4. SwarmSDK::AgentRegistry
+### 4. SwarmSDK::AgentRegistry ✅
 
-**Purpose:** Thread-safe registry for all agents in the swarm.
+**Status:** Implemented
+**Purpose:** Fiber-safe registry for all agents in the swarm.
 
 **Responsibilities:**
 - Register agents with unique names
 - Provide fast agent lookup by name
 - Prevent duplicate registrations
-- Thread-safe operations using Mutex
 - Support clearing for testing
 
 **Key Methods:**
@@ -592,10 +662,10 @@ class AgentRegistry
 end
 ```
 
-**Thread Safety:**
-- Uses `Concurrent::Hash` for lock-free reads
-- Mutex for write operations (register, clear)
-- Safe for concurrent access from multiple agents
+**Fiber Safety:**
+- Uses regular `Hash` (no concurrency primitives needed)
+- Fibers are cooperative and never execute in parallel
+- No race conditions possible in single-threaded fiber execution
 
 **Error Handling:**
 - Duplicate registration → `ConfigurationError`
@@ -603,8 +673,9 @@ end
 
 ---
 
-### 5. SwarmSDK::Agent
+### 5. SwarmSDK::Agent 🚧
 
+**Status:** Planned (Not Yet Implemented)
 **Purpose:** Represent a single AI agent with conversation state and execution context.
 
 **Responsibilities:**
@@ -690,8 +761,9 @@ end
 
 ---
 
-### 6. SwarmSDK::LLMManager
+### 6. SwarmSDK::LLMManager ✅
 
+**Status:** Implemented
 **Purpose:** Manage RubyLLM chat instances and LLM interactions.
 
 **Responsibilities:**
@@ -741,8 +813,9 @@ chat = RubyLLM.chat(model: "claude-3-5-sonnet-20241022")
 
 ---
 
-### 7. SwarmSDK::ToolCalling
+### 7. SwarmSDK::ToolCalling 🚧
 
+**Status:** Planned (Not Yet Implemented)
 **Purpose:** Route and execute tool calls from LLM responses.
 
 **Responsibilities:**
@@ -835,8 +908,9 @@ end
 
 ---
 
-### 8. SwarmSDK::Swarm
+### 8. SwarmSDK::Swarm 🚧
 
+**Status:** Planned (Not Yet Implemented)
 **Purpose:** Main library API - user-facing orchestration class.
 
 **Responsibilities:**
@@ -924,74 +998,74 @@ result = backend.execute("Implement API")
 
 ---
 
-### 9. SwarmSDK::Executor
+### 9. SwarmSDK::AgentChat ✅
 
-**Purpose:** Execute agent tasks concurrently using async/fibers.
+**Status:** Implemented
+**Purpose:** Enable parallel agent-to-agent tool calling within RubyLLM's automatic loop.
 
-**Responsibilities:**
-- Manage fiber execution with optional rate limiting
-- Execute agent tasks asynchronously (non-blocking)
-- Execute agent tasks synchronously when needed
-- Support semaphore-based concurrency control
-- Wait for all tasks to complete
-- Handle graceful cancellation
+**Design:** Subclasses `RubyLLM::Chat` to override tool execution behavior while preserving the automatic tool calling loop.
 
-**Key Methods:**
+**Key Innovation:**
+- RubyLLM handles the tool calling loop automatically (call LLM → execute tools → call LLM again)
+- AgentChat makes multiple tool calls execute in **parallel** instead of sequentially
+- No manual loop management needed - just override `handle_tool_calls`
+
+**How It Works:**
 ```ruby
-class Executor
-  def initialize(max_concurrent: nil)
-    @semaphore = max_concurrent ? Async::Semaphore.new(max_concurrent) : nil
-  end
+class AgentChat < RubyLLM::Chat
+  private
 
-  # Execute task asynchronously (returns Async::Task)
-  def execute_async(agent, input) -> Async::Task
+  def handle_tool_calls(response, &block)
+    # Single tool call: use default behavior
+    return super if response.tool_calls.size == 1
 
-  # Execute task synchronously (blocks until complete)
-  def execute_sync(agent, input) -> Hash
+    # Multiple tool calls: execute in parallel
+    results = Async do
+      response.tool_calls.map do |_id, tool_call|
+        Async do
+          result = execute_tool(tool_call)  # Agent-to-agent call
+          { tool_call: tool_call, result: result }
+        end
+      end.map(&:wait)  # Wait for all to complete
+    end.wait
 
-  # Execute multiple agents in parallel
-  def execute_all(agents, input) -> Array<Hash>
-
-  # Wait for all pending tasks
-  def wait_all -> void
-end
-```
-
-**Concurrency Model:**
-```ruby
-# Parallel agent execution using Async
-def execute_async(agent, input)
-  Async do
-    if @semaphore
-      @semaphore.acquire do
-        agent.execute(input)
-      end
-    else
-      agent.execute(input)  # RubyLLM automatically yields during I/O
+    # Add all results to conversation
+    results.each do |data|
+      add_message(role: :tool, content: data[:result].to_s,
+                  tool_call_id: data[:tool_call].id)
     end
-  end
-end
 
-# Multiple agents in parallel - all run concurrently
-def execute_all(agents, input)
-  Async do
-    tasks = agents.map { |agent| execute_async(agent, input) }
-    tasks.map(&:wait)  # Wait for all to complete
-  end.wait
+    # Continue automatic loop (recursive call)
+    complete(&block)
+  end
 end
 ```
 
-**Why Async Over Threads:**
-- **Memory**: 4KB per fiber vs 1MB per thread (250x improvement)
-- **Scalability**: 100+ concurrent agents vs 10-50 with threads
-- **I/O efficiency**: RubyLLM yields during API waits (99% of execution time)
-- **Native support**: RubyLLM has built-in fiber support via Net::HTTP
-- **No GIL contention**: Fibers don't fight over the GIL for I/O operations
+**Usage:**
+```ruby
+chat = AgentChat.new(model: 'claude-sonnet-4')
+  .with_tools(call_agent_backend, call_agent_frontend, call_agent_database)
+
+response = chat.ask("Build authentication")
+# RubyLLM automatically:
+# 1. LLM returns tool calls (e.g., backend + frontend)
+# 2. AgentChat executes them in PARALLEL
+# 3. Results added to conversation
+# 4. LLM called again with results
+# 5. Loop continues until LLM returns final answer
+```
+
+**Why This Works:**
+- RubyLLM's `complete()` method is recursive - it calls itself when tools are present
+- We just override the execution step to be parallel
+- The loop, conversation management, and result formatting stay automatic
+- Fibers yield during LLM API calls, enabling true concurrency
 
 ---
 
-### 10. SwarmSDK::Session
+### 10. SwarmSDK::Session 🚧
 
+**Status:** Planned (Not Yet Implemented)
 **Purpose:** Persist and restore swarm conversation state.
 
 **Responsibilities:**
@@ -1086,8 +1160,9 @@ end
 
 ---
 
-### 11. SwarmSDK::UnifiedLogger
+### 11. SwarmSDK::UnifiedLogger ✅
 
+**Status:** Implemented
 **Purpose:** Provide structured, real-time logging of all LLM interactions.
 
 **Responsibilities:**
@@ -1176,8 +1251,9 @@ def attach_to_chat(chat, agent_name:, metadata: {})
 end
 ```
 
-### 12. SwarmSDK::CLI
+### 12. SwarmSDK::CLI 🚧
 
+**Status:** Planned (Not Yet Implemented)
 **Purpose:** Thin wrapper around library API for command-line usage.
 
 **Design:** CLI has **zero business logic** - everything delegates to library.
@@ -1234,6 +1310,43 @@ end
 
 ---
 
+### 13. SwarmSDK::Result ✅
+
+**Status:** Implemented
+**Purpose:** Immutable result object returned from agent executions.
+
+**Key Attributes:**
+```ruby
+class Result
+  attr_reader :content,   # String: Response content
+              :agent,     # String: Agent name
+              :cost,      # Float: Execution cost
+              :tokens,    # Hash: Token usage
+              :duration,  # Float: Execution time
+              :logs,      # Array: Log entries
+              :error,     # Error: Exception if failed
+              :metadata   # Hash: Additional metadata
+
+  def success? # Boolean: true if no error
+  def failure? # Boolean: true if error
+  def to_h     # Hash representation
+  def to_json  # JSON serialization
+end
+```
+
+**Usage:**
+```ruby
+result = agent.execute("Task")
+if result.success?
+  puts result.content
+  puts "Cost: $#{result.cost}"
+else
+  puts "Error: #{result.error}"
+end
+```
+
+---
+
 ## Data Flow
 
 ### Execution Flow Diagram
@@ -1242,7 +1355,7 @@ end
 sequenceDiagram
     participant User
     participant CLI
-    participant Core
+    participant Swarm
     participant Agent
     participant LLM as LLMManager
     participant RubyLLM
@@ -1250,8 +1363,8 @@ sequenceDiagram
     participant SubAgent as Backend Agent
 
     User->>CLI: swarm start --prompt "Build feature"
-    CLI->>Core: execute_main(prompt)
-    Core->>Agent: execute(prompt)
+    CLI->>Swarm: execute_main(prompt)
+    Swarm->>Agent: execute(prompt)
 
     Agent->>Agent: add_message(user, prompt)
     Agent->>LLM: ask(chat, messages, tools)
@@ -1277,8 +1390,8 @@ sequenceDiagram
     RubyLLM-->>LLM: Final response
     LLM-->>Agent: Final response
 
-    Agent->>Core: {content: "Complete", tokens: {...}}
-    Core->>CLI: Result
+    Agent->>Swarm: {content: "Complete", tokens: {...}}
+    Swarm->>CLI: Result
     CLI->>User: Display result
 ```
 
@@ -1289,7 +1402,7 @@ sequenceDiagram
    ↓
 2. CLI.start(prompt)
    ↓
-3. Core.execute_main(prompt)
+3. Swarm.execute(prompt)
    ↓
 4. Agent.execute(prompt)
    ├─ Add user message to conversation
@@ -1921,8 +2034,8 @@ end
 
 ```ruby
 # Automatic session creation on swarm start
-core = Core.new("swarm.yml")
-core.start("Build a user authentication system")
+swarm = SwarmSDK::Swarm.load("swarm.yml")
+swarm.execute("Build a user authentication system")
 
 # Session created with structure:
 # ~/.claude-swarm/sessions/20250928-103045-abc123/
@@ -1969,7 +2082,7 @@ Sessions are automatically cleaned up if:
 ```mermaid
 graph TB
     subgraph "Main Thread with Fiber Scheduler"
-        Core[SwarmSDK::Core<br/>Async Context]
+        Swarm[SwarmSDK::Swarm<br/>Async Context]
         Scheduler[Fiber Scheduler<br/>Async::Reactor]
     end
 
@@ -1987,8 +2100,8 @@ graph TB
     end
 
     subgraph "Shared State Fiber-Safe"
-        Registry[AgentRegistry<br/>Concurrent::Hash]
-        LLMCache[LLM Chat Cache<br/>Concurrent::Hash]
+        Registry[AgentRegistry<br/>Regular Hash]
+        LLMCache[LLM Chat Cache<br/>Regular Hash]
     end
 
     subgraph "I/O Operations"
@@ -1996,7 +2109,7 @@ graph TB
         FileIO[File Operations<br/>Async::IO]
     end
 
-    Core --> Scheduler
+    Swarm --> Scheduler
     Scheduler --> Fiber1
     Scheduler --> Fiber2
     Scheduler --> Fiber3
@@ -2017,7 +2130,7 @@ graph TB
     Agent2 -.->|read| Registry
     Agent3 -.->|read| Registry
 
-    style Core fill:#fff4e1
+    style Swarm fill:#fff4e1
     style Scheduler fill:#e1f5ff
     style Fiber1 fill:#e8f5e9
     style Fiber2 fill:#fff9c4
@@ -2032,9 +2145,9 @@ graph TB
 ```mermaid
 flowchart TB
     subgraph "Fiber-Safe Components"
-        Registry[AgentRegistry<br/>Concurrent::Hash<br/>Read-optimized]
-        LLMCache[LLMManager Cache<br/>Concurrent::Hash<br/>Lock-free reads]
-        SessionWrite[Session Write<br/>Async::IO with locks]
+        Registry[AgentRegistry<br/>Regular Hash<br/>Cooperative fibers]
+        LLMCache[LLMManager Cache<br/>Regular Hash<br/>Cooperative fibers]
+        SessionWrite[Session Write<br/>Async::IO]
     end
 
     subgraph "Per-Fiber Isolated"
@@ -2127,9 +2240,9 @@ end.wait
 ### Fiber Safety
 
 **Fiber-Safe Components:**
-- `AgentRegistry` - Uses `Concurrent::Hash` (lock-free reads, safe concurrent writes)
-- `LLMManager` - Chat cache uses `Concurrent::Hash`
-- `Session` - Uses `Async::IO` with proper locking
+- `AgentRegistry` - Uses regular `Hash` (fibers are cooperative, no parallel execution)
+- `LLMManager` - Chat cache uses regular `Hash` (no concurrency primitives needed)
+- `Session` - Uses `Async::IO` for file operations
 - `RubyLLM` - Native fiber support, automatically yields on I/O
 
 **Fiber-Local State:**
@@ -2267,7 +2380,7 @@ end
 #### 4. Agent Errors (Logged and Continued)
 
 ```ruby
-def execute_main(input)
+def execute(input)
   main_agent.execute(input)
 rescue AgentNotFoundError => e
   puts "Error: #{e.message}"
@@ -2278,7 +2391,7 @@ rescue StandardError => e
 end
 ```
 
-**Handled At:** Core
+**Handled At:** Swarm
 **Recovery:** Log and inform user, swarm continues
 **Examples:**
 - Invalid agent reference
@@ -2458,12 +2571,33 @@ swarm:
 
 SwarmSDK represents a fundamental architectural shift from ClaudeSwarm v1, eliminating process management complexity while delivering dramatically improved performance. By leveraging RubyLLM and a single-process design, SwarmSDK achieves 10x faster startup, 10x lower memory usage, and sub-millisecond agent communication latency.
 
+### Current Implementation Status
+
+As of October 2025, SwarmSDK has **9 of 13 core components fully implemented**:
+
+**✅ Complete (Production-Ready):**
+- Configuration system with version 2 support
+- Agent configuration and registry
+- Markdown parser for agent definitions
+- LLM manager with RubyLLM integration
+- Async/fiber executor with semaphore support
+- Unified logging system with provider-agnostic hooks
+- Result object for execution outcomes
+
+**🚧 In Progress:**
+- Agent execution logic
+- Tool calling system
+- Session management and persistence
+- Main Swarm API
+- CLI interface
+
 The modular architecture with clear separation of concerns ensures maintainability, testability, and extensibility for future enhancements. Version 2 configuration format with Markdown agent definitions provides a cleaner, more intuitive developer experience.
 
 SwarmSDK is designed for developers who want the power of multi-agent AI collaboration without the overhead of multi-process orchestration.
 
 ---
 
-**Document Version:** 1.0
+**Document Version:** 1.1
 **Author:** SwarmSDK Development Team
-**Last Updated:** 2025-09-28
+**Last Updated:** 2025-10-01
+**Changes:** Updated to reflect actual implementation status, marked implemented vs planned components

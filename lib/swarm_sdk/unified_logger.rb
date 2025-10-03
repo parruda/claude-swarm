@@ -91,6 +91,8 @@ module SwarmSDK
     end
 
     def log_llm_response(agent:, message:, tool_executions:, metadata:)
+      cost_info = calculate_cost(message)
+
       emit(
         type: "llm_response",
         agent: agent,
@@ -102,6 +104,9 @@ module SwarmSDK
           input_tokens: message.input_tokens,
           output_tokens: message.output_tokens,
           total_tokens: (message.input_tokens || 0) + (message.output_tokens || 0),
+          input_cost: cost_info[:input_cost],
+          output_cost: cost_info[:output_cost],
+          total_cost: cost_info[:total_cost],
         },
         tool_executions: tool_executions.empty? ? nil : tool_executions,
         metadata: metadata,
@@ -148,6 +153,30 @@ module SwarmSDK
       else
         result.to_s
       end
+    end
+
+    def calculate_cost(message)
+      return zero_cost unless message.input_tokens && message.output_tokens
+
+      model_info = RubyLLM.models.find(message.model_id)
+      return zero_cost unless model_info
+
+      # Prices are per million tokens (USD)
+      input_cost = (message.input_tokens / 1_000_000.0) * model_info.input_price_per_million
+      output_cost = (message.output_tokens / 1_000_000.0) * model_info.output_price_per_million
+
+      {
+        input_cost: input_cost,
+        output_cost: output_cost,
+        total_cost: input_cost + output_cost,
+      }
+    rescue RubyLLM::Error
+      # Model not found in registry, return zero cost
+      zero_cost
+    end
+
+    def zero_cost
+      { input_cost: 0.0, output_cost: 0.0, total_cost: 0.0 }
     end
   end
 end

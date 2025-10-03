@@ -1,9 +1,15 @@
 # frozen_string_literal: true
 
 module SwarmSDK
+  # AgentRegistry provides fiber-safe agent lookup.
+  #
+  # Uses regular Hash instead of concurrent primitives because fibers are
+  # cooperative (not parallel). Only one fiber executes at a time, so there
+  # are no race conditions.
+  #
   class AgentRegistry
     def initialize
-      @agents = Concurrent::Hash.new
+      @agents = {}
     end
 
     def register(agent)

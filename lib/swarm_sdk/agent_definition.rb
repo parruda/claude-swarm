@@ -1,33 +1,37 @@
 # frozen_string_literal: true
 
 module SwarmSDK
-  class AgentConfig
+  class AgentDefinition
     attr_reader :name,
       :description,
       :model,
-      :directory,
       :directories,
       :tools,
-      :connections,
-      :prompt,
+      :delegates_to,
+      :system_prompt,
       :provider,
       :temperature,
-      :max_tokens
+      :max_tokens,
+      :base_url,
+      :mcp_servers,
+      :reasoning_effort
 
     def initialize(name, config = {})
       @name = name
-      @description = config["description"] || config[:description]
-      @model = config["model"] || config[:model] || "claude-3-5-sonnet-20241022"
-      @prompt = config["prompt"] || config[:prompt]
-      @provider = config["provider"] || config[:provider]
-      @temperature = config["temperature"] || config[:temperature]
-      @max_tokens = config["max_tokens"] || config[:max_tokens]
+      @description = config[:description]
+      @model = config[:model] || "gpt-5"
+      @system_prompt = config[:system_prompt]
+      @provider = config[:provider] || "openai"
+      @temperature = config[:temperature]
+      @max_tokens = config[:max_tokens]
+      @base_url = config[:base_url]
+      @reasoning_effort = config[:reasoning_effort]
 
-      @directories = parse_directories(config["directory"] || config[:directory])
-      @directory = @directories.first
+      @directories = parse_directories(config[:directories])
 
-      @tools = Array(config["tools"] || config[:tools] || [])
-      @connections = Array(config["connections"] || config[:connections] || [])
+      @tools = Array(config[:tools] || []).map(&:to_sym)
+      @delegates_to = Array(config[:delegates_to] || []).map(&:to_sym)
+      @mcp_servers = Array(config[:mcp_servers] || [])
 
       validate!
     end
@@ -37,14 +41,16 @@ module SwarmSDK
         name: @name,
         description: @description,
         model: @model,
-        directory: @directory,
         directories: @directories,
         tools: @tools,
-        connections: @connections,
-        prompt: @prompt,
+        delegates_to: @delegates_to,
+        system_prompt: @system_prompt,
         provider: @provider,
         temperature: @temperature,
         max_tokens: @max_tokens,
+        base_url: @base_url,
+        mcp_servers: @mcp_servers,
+        reasoning_effort: @reasoning_effort,
       }.compact
     end
 
@@ -60,7 +66,7 @@ module SwarmSDK
 
     def validate!
       raise ConfigurationError, "Agent '#{@name}' missing required 'description' field" unless @description
-      raise ConfigurationError, "Agent '#{@name}' missing required 'prompt' field" unless @prompt
+      raise ConfigurationError, "Agent '#{@name}' missing required 'system_prompt' field" unless @system_prompt
 
       @directories.each do |dir|
         unless File.directory?(dir)

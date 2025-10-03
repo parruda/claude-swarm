@@ -4,7 +4,7 @@ module SwarmSDK
   class Configuration
     ENV_VAR_WITH_DEFAULT_PATTERN = /\$\{([^:}]+)(:=([^}]*))?\}/
 
-    attr_reader :config_path, :swarm_name, :main_agent, :agents
+    attr_reader :config_path, :swarm_name, :lead_agent, :agents
 
     class << self
       def load(path)
@@ -20,6 +20,12 @@ module SwarmSDK
 
     def load_and_validate
       @config = YAML.load_file(@config_path, aliases: true)
+
+      unless @config.is_a?(Hash)
+        raise ConfigurationError, "Invalid YAML syntax: configuration must be a Hash"
+      end
+
+      @config = deep_symbolize_keys(@config)
       interpolate_env_vars!(@config)
       validate_version
       validate_swarm
@@ -37,10 +43,59 @@ module SwarmSDK
     end
 
     def connections_for(agent_name)
-      @agents[agent_name]&.connections || []
+      @agents[agent_name]&.delegates_to || []
+    end
+
+    # Convert configuration to Swarm instance using Ruby API
+    #
+    # This method bridges YAML configuration to the Ruby API, making YAML
+    # a thin convenience layer over the programmatic interface.
+    #
+    # @return [Swarm] Configured swarm instance
+    def to_swarm
+      swarm = Swarm.new(
+        name: @swarm_name,
+        global_limit: Swarm::DEFAULT_GLOBAL_LIMIT,
+        default_local_limit: Swarm::DEFAULT_LOCAL_LIMIT,
+      )
+
+      # Add all agents using Ruby API
+      @agents.each do |name, agent_def|
+        swarm.add_agent(
+          name: name,
+          description: agent_def.description,
+          model: agent_def.model,
+          system_prompt: agent_def.system_prompt,
+          tools: agent_def.tools,
+          delegates_to: agent_def.delegates_to,
+          directories: agent_def.directories,
+          temperature: agent_def.temperature,
+          max_tokens: agent_def.max_tokens,
+          base_url: agent_def.base_url,
+          mcp_servers: agent_def.mcp_servers,
+          reasoning_effort: agent_def.reasoning_effort,
+        )
+      end
+
+      # Set lead agent
+      swarm.lead = @lead_agent
+
+      swarm
     end
 
     private
+
+    # Recursively convert all hash keys to symbols
+    def deep_symbolize_keys(obj)
+      case obj
+      when Hash
+        obj.transform_keys(&:to_sym).transform_values { |v| deep_symbolize_keys(v) }
+      when Array
+        obj.map { |item| deep_symbolize_keys(item) }
+      else
+        obj
+      end
+    end
 
     def interpolate_env_vars!(obj)
       case obj
@@ -72,39 +127,39 @@ module SwarmSDK
     end
 
     def validate_version
-      version = @config["version"]
+      version = @config[:version]
       raise ConfigurationError, "Missing 'version' field in configuration" unless version
       raise ConfigurationError, "SwarmSDK requires version: 2 configuration. Got version: #{version}" unless version == 2
     end
 
     def validate_swarm
-      raise ConfigurationError, "Missing 'swarm' field in configuration" unless @config["swarm"]
+      raise ConfigurationError, "Missing 'swarm' field in configuration" unless @config[:swarm]
 
-      swarm = @config["swarm"]
-      raise ConfigurationError, "Missing 'name' field in swarm configuration" unless swarm["name"]
-      raise ConfigurationError, "Missing 'agents' field in swarm configuration" unless swarm["agents"]
-      raise ConfigurationError, "Missing 'main' field in swarm configuration" unless swarm["main"]
-      raise ConfigurationError, "No agents defined" if swarm["agents"].empty?
+      swarm = @config[:swarm]
+      raise ConfigurationError, "Missing 'name' field in swarm configuration" unless swarm[:name]
+      raise ConfigurationError, "Missing 'agents' field in swarm configuration" unless swarm[:agents]
+      raise ConfigurationError, "Missing 'lead' field in swarm configuration" unless swarm[:lead]
+      raise ConfigurationError, "No agents defined" if swarm[:agents].empty?
 
-      @swarm_name = swarm["name"]
-      @main_agent = swarm["main"]
+      @swarm_name = swarm[:name]
+      @lead_agent = swarm[:lead].to_sym # Convert to symbol for consistency
     end
 
     def load_agents
-      swarm_agents = @config["swarm"]["agents"]
+      swarm_agents = @config[:swarm][:agents]
 
       swarm_agents.each do |name, agent_config|
         agent_config ||= {}
 
-        @agents[name] = if agent_config["agent_file"]
-          load_agent_from_file(name, agent_config["agent_file"])
+        @agents[name] = if agent_config[:agent_file]
+          load_agent_from_file(name, agent_config[:agent_file])
         else
-          AgentConfig.new(name, agent_config)
+          AgentDefinition.new(name, agent_config)
         end
       end
 
-      unless @agents.key?(@main_agent)
-        raise ConfigurationError, "Main agent '#{@main_agent}' not found in agents"
+      unless @agents.key?(@lead_agent)
+        raise ConfigurationError, "Lead agent '#{@lead_agent}' not found in agents"
       end
     end
 
@@ -146,11 +201,12 @@ module SwarmSDK
 
       path.push(agent_name)
       connections_for(agent_name).each do |connection|
-        unless @agents.key?(connection)
+        connection_sym = connection.to_sym # Convert to symbol for lookup
+        unless @agents.key?(connection_sym)
           raise ConfigurationError, "Agent '#{agent_name}' has connection to unknown agent '#{connection}'"
         end
 
-        detect_cycle_from(connection, visited, path)
+        detect_cycle_from(connection_sym, visited, path)
       end
       path.pop
       visited.add(agent_name)
