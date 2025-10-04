@@ -1,0 +1,104 @@
+name: Release ClaudeSwarm Gem
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'lib/claude_swarm.rb'
+      - 'lib/claude_swarm/**'
+      - 'claude_swarm.gemspec'
+      - '.github/workflows/release-claude-swarm.yml'
+
+jobs:
+  detect-version-change:
+    runs-on: ubuntu-latest
+    outputs:
+      version_changed: ${{ steps.check.outputs.changed }}
+      new_version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if version changed
+        id: check
+        run: |
+          CURRENT_VERSION=$(grep "VERSION = " lib/claude_swarm/version.rb | sed -E 's/.*"(.*)"/\1/')
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+          if git diff HEAD^ HEAD -- lib/claude_swarm/version.rb | grep -q "+.*VERSION"; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Version changed to $CURRENT_VERSION"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "Version unchanged, skipping release"
+          fi
+
+  release:
+    needs: detect-version-change
+    if: needs.detect-version-change.outputs.version_changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-node@v4
+
+    - name: Install Claude Code
+      run: npm install -g @anthropic-ai/claude-code
+
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.4'
+        bundler-cache: true
+
+    - name: Run ClaudeSwarm tests
+      run: bundle exec rake claude_swarm:test
+
+    - name: Run ClaudeSwarm linter
+      run: bundle exec rake claude_swarm:rubocop
+
+    - name: Build claude_swarm gem
+      run: gem build claude_swarm.gemspec
+
+    - name: Verify gem contents
+      run: |
+        echo "Gem contents:"
+        tar -tzf claude_swarm-*.gem | grep -E "\.(rb|md)$" | head -20
+        echo ""
+        echo "Verifying no swarm_sdk code included:"
+        if tar -tzf claude_swarm-*.gem | grep -q "lib/swarm_sdk"; then
+          echo "ERROR: claude_swarm gem contains swarm_sdk code!"
+          exit 1
+        fi
+        echo "✓ No swarm_sdk code found"
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: claude_swarm-v${{ needs.detect-version-change.outputs.new_version }}
+        name: ClaudeSwarm v${{ needs.detect-version-change.outputs.new_version }}
+        body: |
+          ClaudeSwarm v${{ needs.detect-version-change.outputs.new_version }}
+
+          Multi-process Claude Code orchestration via MCP.
+
+          See [CHANGELOG.md](https://github.com/parruda/claude-swarm/blob/main/CHANGELOG.md) for details.
+        files: claude_swarm-*.gem
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Push to RubyGems
+      run: |
+        mkdir -p $HOME/.gem
+        touch $HOME/.gem/credentials
+        chmod 0600 $HOME/.gem/credentials
+        printf -- "---\n:rubygems_api_key: ${GEM_HOST_API_KEY}\n" > $HOME/.gem/credentials
+        gem push claude_swarm-*.gem
+      env:
+        GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_AUTH_TOKEN }}

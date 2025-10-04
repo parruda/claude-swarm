@@ -3,7 +3,8 @@
 source "https://rubygems.org"
 
 # Specify your gem's dependencies in claude_swarm.gemspec
-gemspec
+gemspec name: "claude_swarm"
+gemspec name: "swarm_sdk"
 
 gem "irb", require: false
 gem "rake", "~> 13.0", require: false
