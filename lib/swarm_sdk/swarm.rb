@@ -10,8 +10,8 @@ module SwarmSDK
   #
   #   swarm = Swarm.new(
   #     name: "Development Team",
-  #     global_limit: 50,
-  #     default_local_limit: 10
+  #     global_concurrency: 50,
+  #     default_local_concurrency: 10
   #   )
   #
   #   swarm.add_agent(
@@ -32,23 +32,23 @@ module SwarmSDK
   #   result = swarm.execute("Build authentication")
   #
   class Swarm
-    DEFAULT_GLOBAL_LIMIT = 50
-    DEFAULT_LOCAL_LIMIT = 10
+    DEFAULT_GLOBAL_CONCURRENCY = 50
+    DEFAULT_LOCAL_CONCURRENCY = 10
 
     attr_reader :name, :agents, :lead_agent
 
     # Initialize a new Swarm
     #
     # @param name [String] Human-readable swarm name
-    # @param global_limit [Integer] Max concurrent LLM calls across entire swarm
-    # @param default_local_limit [Integer] Default max concurrent tools per agent
-    def initialize(name:, global_limit: DEFAULT_GLOBAL_LIMIT, default_local_limit: DEFAULT_LOCAL_LIMIT)
+    # @param global_concurrency [Integer] Max concurrent LLM calls across entire swarm
+    # @param default_local_concurrency [Integer] Default max concurrent tool calls per agent
+    def initialize(name:, global_concurrency: DEFAULT_GLOBAL_CONCURRENCY, default_local_concurrency: DEFAULT_LOCAL_CONCURRENCY)
       @name = name
-      @global_limit = global_limit
-      @default_local_limit = default_local_limit
+      @global_concurrency = global_concurrency
+      @default_local_concurrency = default_local_concurrency
 
       # Shared semaphore for all agents
-      @global_semaphore = Async::Semaphore.new(@global_limit)
+      @global_semaphore = Async::Semaphore.new(@global_concurrency)
 
       # Agent definitions and instances
       @agent_definitions = {}
@@ -75,14 +75,14 @@ module SwarmSDK
     # @param description [String] Human-readable description
     # @param model [String] LLM model identifier
     # @param system_prompt [String] Agent's system prompt/instructions
+    # @param provider [Symbol, String, nil] Provider to use (required when base_url is set)
     # @param tools [Array<Symbol>] Built-in tools available to agent
     # @param delegates_to [Array<Symbol>] Other agents this agent can delegate to
     # @param directories [Array<String>] Working directories for agent
-    # @param temperature [Float, nil] Temperature setting
-    # @param max_tokens [Integer, nil] Max tokens limit
     # @param base_url [String, nil] Custom API base URL
     # @param mcp_servers [Array<Hash>, nil] MCP server configurations
-    # @param reasoning_effort [String, nil] Reasoning effort level (e.g., "medium", "high")
+    # @param parameters [Hash, nil] LLM parameters (temperature, max_tokens, reasoning_effort, etc.)
+    # @param timeout [Integer] HTTP request timeout in seconds (default: 300)
     # @param max_concurrent_tools [Integer, nil] Override default local limit
     # @return [self]
     def add_agent(
@@ -90,14 +90,14 @@ module SwarmSDK
       description:,
       model:,
       system_prompt:,
+      provider: nil,
       tools: [],
       delegates_to: [],
       directories: ["."],
-      temperature: nil,
-      max_tokens: nil,
       base_url: nil,
       mcp_servers: [],
-      reasoning_effort: nil,
+      parameters: nil,
+      timeout: AgentDefinition::DEFAULT_TIMEOUT,
       max_concurrent_tools: nil
     )
       name = name.to_sym
@@ -108,16 +108,16 @@ module SwarmSDK
         name: name,
         description: description,
         model: model,
+        provider: provider,
         system_prompt: system_prompt,
         tools: tools,
         delegates_to: delegates_to,
         directories: directories,
-        temperature: temperature,
-        max_tokens: max_tokens,
         base_url: base_url,
         mcp_servers: mcp_servers,
-        reasoning_effort: reasoning_effort,
-        max_concurrent_tools: max_concurrent_tools || @default_local_limit,
+        parameters: parameters || {},
+        timeout: timeout,
+        max_concurrent_tools: max_concurrent_tools || @default_local_concurrency,
       }
 
       self
@@ -177,6 +177,34 @@ module SwarmSDK
     rescue ConfigurationError, AgentNotFoundError
       # Re-raise configuration errors - these should be fixed, not caught
       raise
+    rescue TypeError => e
+      # Catch the specific "String does not have #dig method" error
+      if e.message.include?("does not have #dig method")
+        agent_def = @agent_definitions[@lead_agent]
+        error_msg = if agent_def[:base_url]
+          "LLM API request failed: The proxy/server at '#{agent_def[:base_url]}' returned an invalid response. " \
+            "This usually means the proxy is unreachable, requires authentication, or returned an error in non-JSON format. " \
+            "Original error: #{e.message}"
+        else
+          "LLM API request failed with unexpected response format. Original error: #{e.message}"
+        end
+
+        Result.new(
+          content: nil,
+          agent: @lead_agent.to_s,
+          error: LLMError.new(error_msg),
+          logs: logs,
+          duration: Time.now - start_time,
+        )
+      else
+        Result.new(
+          content: nil,
+          agent: @lead_agent.to_s,
+          error: e,
+          logs: logs,
+          duration: Time.now - start_time,
+        )
+      end
     rescue StandardError => e
       Result.new(
         content: nil,
@@ -234,15 +262,21 @@ module SwarmSDK
     def create_agent_chat(definition)
       chat = AgentChat.new(
         model: definition[:model],
+        provider: definition[:provider],
         global_semaphore: @global_semaphore,
         max_concurrent_tools: definition[:max_concurrent_tools],
         base_url: definition[:base_url],
+        timeout: definition[:timeout],
       )
 
+      # Configure system prompt (dedicated method)
       chat.with_instructions(definition[:system_prompt]) if definition[:system_prompt]
-      chat.with_temperature(definition[:temperature]) if definition[:temperature]
-      chat.with_max_tokens(definition[:max_tokens]) if definition[:max_tokens]
-      chat.with_params(reasoning_effort: definition[:reasoning_effort]) if definition[:reasoning_effort]
+
+      # Configure all LLM parameters via with_params (including temperature)
+      # RubyLLM deep merges params, so all parameters including temperature work correctly
+      # Note: with_params expects keyword arguments, so we use double-splat operator
+      params = definition[:parameters] || {}
+      chat.with_params(**params) if params.any?
 
       register_builtin_tools(chat, definition[:tools])
       register_mcp_servers(chat, definition[:mcp_servers]) if definition[:mcp_servers]&.any?
@@ -310,6 +344,12 @@ module SwarmSDK
         define_method(:execute) do |task:|
           response = self.class.delegate_chat.ask(task)
           halt(response.content)
+        rescue Faraday::TimeoutError, Net::ReadTimeout
+          halt("Error: Request to #{self.class.tool_name} timed out. The agent may be overloaded or the LLM service is not responding. Please try again or simplify the task.")
+        rescue Faraday::Error => e
+          halt("Error: Network error communicating with #{self.class.tool_name}: #{e.class.name}. Please check connectivity and try again.")
+        rescue StandardError => e
+          halt("Error: #{self.class.tool_name} encountered an error: #{e.message}")
         end
       end
 

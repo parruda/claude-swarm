@@ -71,6 +71,7 @@ module SwarmSDK
     def test_initialization_with_base_url
       chat = AgentChat.new(
         model: "gpt-5",
+        provider: "openai",
         base_url: "https://custom.api",
       )
 

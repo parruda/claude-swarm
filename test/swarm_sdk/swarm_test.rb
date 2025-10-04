@@ -28,20 +28,20 @@ module SwarmSDK
       swarm = Swarm.new(name: "Test Swarm")
 
       assert_equal("Test Swarm", swarm.name)
-      assert_equal(50, swarm.instance_variable_get(:@global_limit))
-      assert_equal(10, swarm.instance_variable_get(:@default_local_limit))
+      assert_equal(50, swarm.instance_variable_get(:@global_concurrency))
+      assert_equal(10, swarm.instance_variable_get(:@default_local_concurrency))
       assert_nil(swarm.lead_agent)
     end
 
     def test_initialization_with_custom_limits
       swarm = Swarm.new(
         name: "Custom Swarm",
-        global_limit: 100,
-        default_local_limit: 20,
+        global_concurrency: 100,
+        default_local_concurrency: 20,
       )
 
-      assert_equal(100, swarm.instance_variable_get(:@global_limit))
-      assert_equal(20, swarm.instance_variable_get(:@default_local_limit))
+      assert_equal(100, swarm.instance_variable_get(:@global_concurrency))
+      assert_equal(20, swarm.instance_variable_get(:@default_local_concurrency))
     end
 
     def test_initialization_creates_global_semaphore
@@ -78,11 +78,13 @@ module SwarmSDK
         tools: [:Read, :Edit],
         delegates_to: [:other],
         directories: [".", "./lib"],
-        temperature: 0.7,
-        max_tokens: 4000,
         base_url: "https://api.anthropic.com",
         mcp_servers: [{ type: :stdio }],
-        reasoning_effort: "high",
+        parameters: {
+          temperature: 0.7,
+          max_tokens: 4000,
+          reasoning_effort: "high",
+        },
         max_concurrent_tools: 15,
       )
 
@@ -270,8 +272,8 @@ module SwarmSDK
     end
 
     def test_default_constants
-      assert_equal(50, Swarm::DEFAULT_GLOBAL_LIMIT)
-      assert_equal(10, Swarm::DEFAULT_LOCAL_LIMIT)
+      assert_equal(50, Swarm::DEFAULT_GLOBAL_CONCURRENCY)
+      assert_equal(10, Swarm::DEFAULT_LOCAL_CONCURRENCY)
     end
 
     def test_chaining_add_agent_and_set_lead
@@ -324,7 +326,7 @@ module SwarmSDK
     end
 
     def test_agent_gets_default_local_limit
-      swarm = Swarm.new(name: "Test Swarm", default_local_limit: 15)
+      swarm = Swarm.new(name: "Test Swarm", default_local_concurrency: 15)
 
       swarm.add_agent(
         name: :agent1,
@@ -340,7 +342,7 @@ module SwarmSDK
     end
 
     def test_agent_can_override_local_limit
-      swarm = Swarm.new(name: "Test Swarm", default_local_limit: 15)
+      swarm = Swarm.new(name: "Test Swarm", default_local_concurrency: 15)
 
       swarm.add_agent(
         name: :agent1,
@@ -354,6 +356,39 @@ module SwarmSDK
       agent_def = swarm.instance_variable_get(:@agent_definitions)[:agent1]
 
       assert_equal(25, agent_def[:max_concurrent_tools])
+    end
+
+    def test_agent_uses_default_timeout
+      swarm = Swarm.new(name: "Test Swarm")
+
+      swarm.add_agent(
+        name: :agent1,
+        description: "Agent 1",
+        model: "gpt-5",
+        system_prompt: "Test",
+        directories: ["."],
+      )
+
+      agent_def = swarm.instance_variable_get(:@agent_definitions)[:agent1]
+
+      assert_equal(300, agent_def[:timeout]) # 5 minutes default
+    end
+
+    def test_agent_can_override_timeout
+      swarm = Swarm.new(name: "Test Swarm")
+
+      swarm.add_agent(
+        name: :agent1,
+        description: "Agent 1",
+        model: "gpt-5",
+        system_prompt: "Test",
+        directories: ["."],
+        timeout: 600, # 10 minutes for reasoning models
+      )
+
+      agent_def = swarm.instance_variable_get(:@agent_definitions)[:agent1]
+
+      assert_equal(600, agent_def[:timeout])
     end
 
     private

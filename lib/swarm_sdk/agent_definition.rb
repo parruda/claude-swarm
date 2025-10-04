@@ -2,6 +2,10 @@
 
 module SwarmSDK
   class AgentDefinition
+    DEFAULT_MODEL = "gpt-5"
+    DEFAULT_PROVIDER = "openai"
+    DEFAULT_TIMEOUT = 300 # 5 minutes - reasoning models can take a while
+
     attr_reader :name,
       :description,
       :model,
@@ -10,22 +14,20 @@ module SwarmSDK
       :delegates_to,
       :system_prompt,
       :provider,
-      :temperature,
-      :max_tokens,
       :base_url,
       :mcp_servers,
-      :reasoning_effort
+      :parameters,
+      :timeout
 
     def initialize(name, config = {})
       @name = name
       @description = config[:description]
-      @model = config[:model] || "gpt-5"
+      @model = config[:model] || DEFAULT_MODEL
       @system_prompt = config[:system_prompt]
-      @provider = config[:provider] || "openai"
-      @temperature = config[:temperature]
-      @max_tokens = config[:max_tokens]
+      @provider = config[:provider] || DEFAULT_PROVIDER
       @base_url = config[:base_url]
-      @reasoning_effort = config[:reasoning_effort]
+      @parameters = config[:parameters] || {}
+      @timeout = config[:timeout] || DEFAULT_TIMEOUT
 
       @directories = parse_directories(config[:directories])
 
@@ -46,11 +48,10 @@ module SwarmSDK
         delegates_to: @delegates_to,
         system_prompt: @system_prompt,
         provider: @provider,
-        temperature: @temperature,
-        max_tokens: @max_tokens,
         base_url: @base_url,
         mcp_servers: @mcp_servers,
-        reasoning_effort: @reasoning_effort,
+        parameters: @parameters,
+        timeout: @timeout,
       }.compact
     end
 

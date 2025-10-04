@@ -32,27 +32,55 @@ module SwarmSDK
     # Initialize AgentChat with rate limiting
     #
     # @param model [String] LLM model identifier
+    # @param provider [Symbol, String, nil] Provider to use (required when base_url is set)
     # @param global_semaphore [Async::Semaphore, nil] Shared across all agents
     # @param max_concurrent_tools [Integer, nil] Max concurrent tool calls for this agent
     # @param base_url [String, nil] Custom API endpoint (creates isolated context)
-    def initialize(model:, global_semaphore: nil, max_concurrent_tools: nil, base_url: nil, **options)
-      # Create isolated context if custom base_url specified
-      if base_url
+    # @param timeout [Integer] HTTP request timeout in seconds (default: 300)
+    # @raise [ArgumentError] If provider doesn't support custom base_url or provider not specified with base_url
+    def initialize(model:, provider: nil, global_semaphore: nil, max_concurrent_tools: nil, base_url: nil, timeout: AgentDefinition::DEFAULT_TIMEOUT, **options)
+      # Create isolated context if custom base_url or timeout specified
+      if base_url || timeout != AgentDefinition::DEFAULT_TIMEOUT
+        # Provider is required when using custom base_url
+        raise ArgumentError, "Provider must be specified when base_url is set" if base_url && !provider
+
         context = RubyLLM.context do |config|
-          # Detect provider from model name and set appropriate base URL and API key
-          if model.start_with?("gpt-", "o1-", "o3-")
-            config.openai_api_base = base_url
-            config.openai_api_key = ENV["OPENAI_API_KEY"] if ENV["OPENAI_API_KEY"]
-          elsif model.start_with?("claude-")
-            config.anthropic_api_base = base_url
-            config.anthropic_api_key = ENV["ANTHROPIC_API_KEY"] if ENV["ANTHROPIC_API_KEY"]
-          else
-            # Default to OpenAI-compatible
-            config.openai_api_base = base_url
-            config.openai_api_key = ENV["OPENAI_API_KEY"] if ENV["OPENAI_API_KEY"]
+          # Set timeout for all providers
+          config.request_timeout = timeout
+
+          # Configure base_url if specified
+          if base_url
+            # RubyLLM accepts both String and Symbol for provider
+            case provider.to_s
+            when "openai", "deepseek", "perplexity", "mistral", "openrouter"
+              config.openai_api_base = base_url
+              config.openai_api_key = ENV["OPENAI_API_KEY"] || "dummy-key-for-local"
+
+              # Auto-detect if we need system role compatibility
+              # Namespaced models (google:, anthropic:, etc.) through proxies need 'system' role
+              # instead of OpenAI's newer 'developer' role
+              config.openai_use_system_role = true if model.include?(":")
+            when "ollama"
+              config.ollama_api_base = base_url
+            when "gpustack"
+              config.gpustack_api_base = base_url
+              config.gpustack_api_key = ENV["GPUSTACK_API_KEY"] || "dummy-key"
+            else
+              raise ArgumentError,
+                "Provider '#{provider}' doesn't support custom base_url. " \
+                  "Only OpenAI-compatible providers (openai, deepseek, perplexity, mistral, openrouter), " \
+                  "ollama, and gpustack support custom endpoints."
+            end
           end
         end
-        super(model: model, context: context, **options)
+
+        # Use assume_model_exists to bypass model validation for custom endpoints
+        # This allows proxy-namespaced names like "google:gemini-2.5-pro"
+        # RubyLLM handles provider as both String or Symbol
+        super(model: model, provider: provider, assume_model_exists: base_url ? true : false, context: context, **options)
+      elsif provider
+        # No custom base_url or timeout: use RubyLLM's defaults (with optional provider override)
+        super(model: model, provider: provider, **options)
       else
         super(model: model, **options)
       end

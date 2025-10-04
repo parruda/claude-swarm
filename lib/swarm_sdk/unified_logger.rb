@@ -158,7 +158,11 @@ module SwarmSDK
     def calculate_cost(message)
       return zero_cost unless message.input_tokens && message.output_tokens
 
-      model_info = RubyLLM.models.find(message.model_id)
+      # Strip namespace from model name if present (e.g., "google:gemini-2.5-flash" -> "gemini-2.5-flash")
+      # This is needed for proxy models that use namespace prefixes for routing
+      model_name = message.model_id.include?(":") ? message.model_id.split(":", 2).last : message.model_id
+
+      model_info = RubyLLM.models.find(model_name)
       return zero_cost unless model_info
 
       # Prices are per million tokens (USD)
@@ -170,8 +174,9 @@ module SwarmSDK
         output_cost: output_cost,
         total_cost: input_cost + output_cost,
       }
-    rescue RubyLLM::Error
-      # Model not found in registry, return zero cost
+    rescue StandardError
+      # Model not found in registry or pricing not available, return zero cost
+      # This happens when the model doesn't have pricing info in RubyLLM's registry
       zero_cost
     end
 

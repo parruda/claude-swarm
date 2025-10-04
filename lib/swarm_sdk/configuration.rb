@@ -55,8 +55,8 @@ module SwarmSDK
     def to_swarm
       swarm = Swarm.new(
         name: @swarm_name,
-        global_limit: Swarm::DEFAULT_GLOBAL_LIMIT,
-        default_local_limit: Swarm::DEFAULT_LOCAL_LIMIT,
+        global_concurrency: Swarm::DEFAULT_GLOBAL_CONCURRENCY,
+        default_local_concurrency: Swarm::DEFAULT_LOCAL_CONCURRENCY,
       )
 
       # Add all agents using Ruby API
@@ -66,14 +66,14 @@ module SwarmSDK
           description: agent_def.description,
           model: agent_def.model,
           system_prompt: agent_def.system_prompt,
+          provider: agent_def.provider,
           tools: agent_def.tools,
           delegates_to: agent_def.delegates_to,
           directories: agent_def.directories,
-          temperature: agent_def.temperature,
-          max_tokens: agent_def.max_tokens,
           base_url: agent_def.base_url,
           mcp_servers: agent_def.mcp_servers,
-          reasoning_effort: agent_def.reasoning_effort,
+          parameters: agent_def.parameters,
+          timeout: agent_def.timeout,
         )
       end
 

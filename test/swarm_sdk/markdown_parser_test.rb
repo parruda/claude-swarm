@@ -71,10 +71,11 @@ module SwarmSDK
         description: Full configuration agent
         model: claude-sonnet-4
         provider: anthropic
-        temperature: 0.7
-        max_tokens: 4000
         base_url: https://api.anthropic.com
-        reasoning_effort: high
+        parameters:
+          temperature: 0.7
+          max_tokens: 4000
+          reasoning_effort: high
         directories:
           - .
           - ./lib
@@ -95,10 +96,10 @@ module SwarmSDK
       assert_equal(:full_agent, agent_def.name)
       assert_equal("claude-sonnet-4", agent_def.model)
       assert_equal("anthropic", agent_def.provider)
-      assert_in_delta(0.7, agent_def.temperature)
-      assert_equal(4000, agent_def.max_tokens)
+      assert_in_delta(0.7, agent_def.parameters[:temperature])
+      assert_equal(4000, agent_def.parameters[:max_tokens])
       assert_equal("https://api.anthropic.com", agent_def.base_url)
-      assert_equal("high", agent_def.reasoning_effort)
+      assert_equal("high", agent_def.parameters[:reasoning_effort])
       assert_equal(2, agent_def.directories.length)
       assert_equal([:Read, :Edit, :Bash], agent_def.tools)
       assert_equal([:backend, :frontend], agent_def.delegates_to)

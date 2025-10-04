@@ -45,10 +45,12 @@ module SwarmSDK
           model: "claude-sonnet-4",
           system_prompt: "You are full",
           provider: "anthropic",
-          temperature: 0.7,
-          max_tokens: 4000,
           base_url: "https://api.anthropic.com",
-          reasoning_effort: "high",
+          parameters: {
+            temperature: 0.7,
+            max_tokens: 4000,
+            reasoning_effort: "high",
+          },
           directories: [".", "./lib"],
           tools: [:Read, :Edit, :Bash],
           delegates_to: [:backend, :frontend],
@@ -58,10 +60,10 @@ module SwarmSDK
 
       assert_equal("claude-sonnet-4", agent_def.model)
       assert_equal("anthropic", agent_def.provider)
-      assert_in_delta(0.7, agent_def.temperature)
-      assert_equal(4000, agent_def.max_tokens)
+      assert_in_delta(0.7, agent_def.parameters[:temperature])
+      assert_equal(4000, agent_def.parameters[:max_tokens])
       assert_equal("https://api.anthropic.com", agent_def.base_url)
-      assert_equal("high", agent_def.reasoning_effort)
+      assert_equal("high", agent_def.parameters[:reasoning_effort])
       assert_equal(2, agent_def.directories.length)
       assert_equal([:Read, :Edit, :Bash], agent_def.tools)
       assert_equal([:backend, :frontend], agent_def.delegates_to)
@@ -173,10 +175,12 @@ module SwarmSDK
           model: "gpt-5",
           system_prompt: "Test prompt",
           provider: "openai",
-          temperature: 0.8,
-          max_tokens: 2000,
           base_url: "https://api.openai.com",
-          reasoning_effort: "medium",
+          parameters: {
+            temperature: 0.8,
+            max_tokens: 2000,
+            reasoning_effort: "medium",
+          },
           directories: ["."],
           tools: [:Read],
           delegates_to: [:backend],
@@ -191,10 +195,10 @@ module SwarmSDK
       assert_equal("gpt-5", hash[:model])
       assert_equal("Test prompt", hash[:system_prompt])
       assert_equal("openai", hash[:provider])
-      assert_in_delta(0.8, hash[:temperature])
-      assert_equal(2000, hash[:max_tokens])
+      assert_in_delta(0.8, hash[:parameters][:temperature])
+      assert_equal(2000, hash[:parameters][:max_tokens])
       assert_equal("https://api.openai.com", hash[:base_url])
-      assert_equal("medium", hash[:reasoning_effort])
+      assert_equal("medium", hash[:parameters][:reasoning_effort])
       assert_equal(agent_def.directories, hash[:directories])
       assert_equal([:Read], hash[:tools])
       assert_equal([:backend], hash[:delegates_to])
@@ -243,11 +247,57 @@ module SwarmSDK
       assert_respond_to(agent_def, :delegates_to)
       assert_respond_to(agent_def, :system_prompt)
       assert_respond_to(agent_def, :provider)
-      assert_respond_to(agent_def, :temperature)
-      assert_respond_to(agent_def, :max_tokens)
       assert_respond_to(agent_def, :base_url)
       assert_respond_to(agent_def, :mcp_servers)
-      assert_respond_to(agent_def, :reasoning_effort)
+      assert_respond_to(agent_def, :parameters)
+      assert_respond_to(agent_def, :timeout)
+    end
+
+    def test_default_timeout_constant
+      assert_equal(300, AgentDefinition::DEFAULT_TIMEOUT)
+    end
+
+    def test_timeout_defaults_to_300_seconds
+      agent_def = AgentDefinition.new(
+        :test_agent,
+        {
+          description: "Test agent",
+          system_prompt: "Test prompt",
+          directories: ["."],
+        },
+      )
+
+      assert_equal(300, agent_def.timeout)
+    end
+
+    def test_timeout_can_be_customized
+      agent_def = AgentDefinition.new(
+        :test_agent,
+        {
+          description: "Test agent",
+          system_prompt: "Test prompt",
+          directories: ["."],
+          timeout: 600,
+        },
+      )
+
+      assert_equal(600, agent_def.timeout)
+    end
+
+    def test_to_h_includes_timeout
+      agent_def = AgentDefinition.new(
+        :test_agent,
+        {
+          description: "Test agent",
+          system_prompt: "Test prompt",
+          directories: ["."],
+          timeout: 450,
+        },
+      )
+
+      hash = agent_def.to_h
+
+      assert_equal(450, hash[:timeout])
     end
   end
 end
