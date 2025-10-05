@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+# rubocop:disable Lint/UnusedBlockArgument
 require "test_helper"
 require "tmpdir"
 require "fileutils"
@@ -34,12 +35,10 @@ class OrchestratorWorktreeErrorCleanupTest < Minitest::Test
             model: sonnet
     YAML
 
-    # Change to repo directory
-    Dir.chdir(@repo_dir)
+    # No need to change directory - Configuration uses base_dir
   end
 
   def teardown
-    Dir.chdir("/") # Change out of temp dir before deleting
     FileUtils.rm_rf(@temp_dir)
   end
 
@@ -70,8 +69,8 @@ class OrchestratorWorktreeErrorCleanupTest < Minitest::Test
     )
 
     # Mock the system! method to prevent actual Claude execution
-    orchestrator.stub(:system!, nil) do
-      orchestrator.stub(:stream_to_session_log, nil) do
+    orchestrator.stub(:system!, lambda { |*_args, chdir: nil| nil }) do
+      orchestrator.stub(:stream_to_session_log, lambda { |*_args, chdir: nil| nil }) do
         # Capture output to avoid test noise
         capture_io do
           # The orchestrator should exit(1) when before commands fail
@@ -119,8 +118,8 @@ class OrchestratorWorktreeErrorCleanupTest < Minitest::Test
     )
 
     # Mock the system! method to prevent actual Claude execution
-    orchestrator.stub(:system!, nil) do
-      orchestrator.stub(:stream_to_session_log, nil) do
+    orchestrator.stub(:system!, lambda { |*_args, chdir: nil| nil }) do
+      orchestrator.stub(:stream_to_session_log, lambda { |*_args, chdir: nil| nil }) do
         # Capture output to avoid test noise
         capture_io do
           # The orchestrator should exit(1) when directory validation fails
@@ -141,13 +140,12 @@ class OrchestratorWorktreeErrorCleanupTest < Minitest::Test
 
   def setup_git_repo(path)
     FileUtils.mkdir_p(path)
-    Dir.chdir(path) do
-      system("git init", out: File::NULL, err: File::NULL)
-      system("git config user.name 'Test User'", out: File::NULL, err: File::NULL)
-      system("git config user.email 'test@example.com'", out: File::NULL, err: File::NULL)
-      File.write("README.md", "Test repo")
-      system("git add README.md", out: File::NULL, err: File::NULL)
-      system("git commit -m 'Initial commit'", out: File::NULL, err: File::NULL)
-    end
+    system("git init", chdir: path, out: File::NULL, err: File::NULL)
+    system("git config user.name 'Test User'", chdir: path, out: File::NULL, err: File::NULL)
+    system("git config user.email 'test@example.com'", chdir: path, out: File::NULL, err: File::NULL)
+    File.write(File.join(path, "README.md"), "Test repo")
+    system("git add README.md", chdir: path, out: File::NULL, err: File::NULL)
+    system("git commit -m 'Initial commit'", chdir: path, out: File::NULL, err: File::NULL)
   end
 end
+# rubocop:enable Lint/UnusedBlockArgument

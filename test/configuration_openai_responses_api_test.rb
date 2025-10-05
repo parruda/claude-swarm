@@ -4,7 +4,7 @@ require "test_helper"
 
 class ConfigurationOpenaiResponsesApiTest < Minitest::Test
   def with_openai_config_file(instances_config)
-    with_temp_dir do
+    Dir.mktmpdir do |tmpdir|
       instances_yaml = instances_config.map do |name, config|
         lines = ["    #{name}:"]
         config.each do |key, value|
@@ -27,8 +27,9 @@ class ConfigurationOpenaiResponsesApiTest < Minitest::Test
         #{instances_yaml}
       YAML
 
-      write_config_file("claude-swarm.yml", yaml_content)
-      yield "claude-swarm.yml"
+      config_file = File.join(tmpdir, "claude-swarm.yml")
+      File.write(config_file, yaml_content)
+      yield config_file
     end
   end
 

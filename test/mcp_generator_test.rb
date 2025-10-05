@@ -33,11 +33,9 @@ class McpGeneratorTest < Minitest::Test
     config = ClaudeSwarm::Configuration.new(@config_path)
     generator = ClaudeSwarm::McpGenerator.new(config)
 
-    Dir.chdir(@tmpdir) do
-      generator.generate_all
+    generator.generate_all
 
-      assert(Dir.exist?(@session_path), "Expected session directory to exist")
-    end
+    assert(Dir.exist?(@session_path), "Expected session directory to exist")
   end
 
   def test_generate_main_instance_config
@@ -72,56 +70,54 @@ class McpGeneratorTest < Minitest::Test
     config = ClaudeSwarm::Configuration.new(@config_path)
     generator = ClaudeSwarm::McpGenerator.new(config)
 
-    Dir.chdir(@tmpdir) do
-      generator.generate_all
+    generator.generate_all
 
-      # Read generated config
-      mcp_config = read_mcp_config("lead")
+    # Read generated config
+    mcp_config = read_mcp_config("lead")
 
-      # Check mcpServers section
-      assert(mcp_config.key?("mcpServers"))
-      servers = mcp_config["mcpServers"]
+    # Check mcpServers section
+    assert(mcp_config.key?("mcpServers"))
+    servers = mcp_config["mcpServers"]
 
-      # Check backend connection
-      assert(servers.key?("backend"))
-      backend = servers["backend"]
+    # Check backend connection
+    assert(servers.key?("backend"))
+    backend = servers["backend"]
 
-      assert_equal("stdio", backend["type"])
-      assert_equal("claude-swarm", backend["command"])
+    assert_equal("stdio", backend["type"])
+    assert_equal("claude-swarm", backend["command"])
 
-      args = backend["args"]
+    args = backend["args"]
 
-      assert_equal("mcp-serve", args[0])
-      assert_includes(args, "--name")
-      assert_includes(args, "backend")
-      assert_includes(args, "--directory")
-      # Check that the directory arg is present - it may have different path formats
-      dir_index = args.index("--directory")
+    assert_equal("mcp-serve", args[0])
+    assert_includes(args, "--name")
+    assert_includes(args, "backend")
+    assert_includes(args, "--directory")
+    # Check that the directory arg is present - it may have different path formats
+    dir_index = args.index("--directory")
 
-      assert(dir_index, "Should have --directory flag")
-      assert(args[dir_index + 1].end_with?("backend"), "Directory should end with 'backend'")
-      assert_includes(args, "--model")
-      assert_includes(args, "claude-3-5-haiku-20241022")
-      assert_includes(args, "--prompt")
-      assert_includes(args, "Backend developer")
-      assert_includes(args, "--allowed-tools")
-      assert_includes(args, "Bash,Grep")
+    assert(dir_index, "Should have --directory flag")
+    assert(args[dir_index + 1].end_with?("backend"), "Directory should end with 'backend'")
+    assert_includes(args, "--model")
+    assert_includes(args, "claude-3-5-haiku-20241022")
+    assert_includes(args, "--prompt")
+    assert_includes(args, "Backend developer")
+    assert_includes(args, "--allowed-tools")
+    assert_includes(args, "Bash,Grep")
 
-      # Check frontend connection
-      assert(servers.key?("frontend"))
-      frontend = servers["frontend"]
+    # Check frontend connection
+    assert(servers.key?("frontend"))
+    frontend = servers["frontend"]
 
-      assert_equal("stdio", frontend["type"])
-      assert_equal("claude-swarm", frontend["command"])
+    assert_equal("stdio", frontend["type"])
+    assert_equal("claude-swarm", frontend["command"])
 
-      # Check custom MCP server
-      assert(servers.key?("test_server"))
-      test_server = servers["test_server"]
+    # Check custom MCP server
+    assert(servers.key?("test_server"))
+    test_server = servers["test_server"]
 
-      assert_equal("stdio", test_server["type"])
-      assert_equal("test-cmd", test_server["command"])
-      assert_equal(["--flag"], test_server["args"])
-    end
+    assert_equal("stdio", test_server["type"])
+    assert_equal("test-cmd", test_server["command"])
+    assert_equal(["--flag"], test_server["args"])
   end
 
   def test_sse_mcp_server
@@ -142,18 +138,16 @@ class McpGeneratorTest < Minitest::Test
     config = ClaudeSwarm::Configuration.new(@config_path)
     generator = ClaudeSwarm::McpGenerator.new(config)
 
-    Dir.chdir(@tmpdir) do
-      generator.generate_all
+    generator.generate_all
 
-      mcp_config = read_mcp_config("lead")
+    mcp_config = read_mcp_config("lead")
 
-      api_server = mcp_config["mcpServers"]["api_server"]
+    api_server = mcp_config["mcpServers"]["api_server"]
 
-      assert_equal("sse", api_server["type"])
-      assert_equal("http://localhost:3000/events", api_server["url"])
-      assert_nil(api_server["command"])
-      assert_nil(api_server["args"])
-    end
+    assert_equal("sse", api_server["type"])
+    assert_equal("http://localhost:3000/events", api_server["url"])
+    assert_nil(api_server["command"])
+    assert_nil(api_server["args"])
   end
 
   def test_http_mcp_server
@@ -174,18 +168,16 @@ class McpGeneratorTest < Minitest::Test
     config = ClaudeSwarm::Configuration.new(@config_path)
     generator = ClaudeSwarm::McpGenerator.new(config)
 
-    Dir.chdir(@tmpdir) do
-      generator.generate_all
+    generator.generate_all
 
-      mcp_config = read_mcp_config("lead")
+    mcp_config = read_mcp_config("lead")
 
-      api_server = mcp_config["mcpServers"]["api_server"]
+    api_server = mcp_config["mcpServers"]["api_server"]
 
-      assert_equal("http", api_server["type"])
-      assert_equal("http://localhost:3000/mcp", api_server["url"])
-      assert_nil(api_server["command"])
-      assert_nil(api_server["args"])
-    end
+    assert_equal("http", api_server["type"])
+    assert_equal("http://localhost:3000/mcp", api_server["url"])
+    assert_nil(api_server["command"])
+    assert_nil(api_server["args"])
   end
 
   def test_http_mcp_server_with_headers
@@ -209,20 +201,18 @@ class McpGeneratorTest < Minitest::Test
     config = ClaudeSwarm::Configuration.new(@config_path)
     generator = ClaudeSwarm::McpGenerator.new(config)
 
-    Dir.chdir(@tmpdir) do
-      generator.generate_all
+    generator.generate_all
 
-      mcp_config = read_mcp_config("lead")
+    mcp_config = read_mcp_config("lead")
 
-      api_server = mcp_config["mcpServers"]["api_server"]
+    api_server = mcp_config["mcpServers"]["api_server"]
 
-      assert_equal("http", api_server["type"])
-      assert_equal("http://localhost:3000/mcp", api_server["url"])
-      assert_equal("Bearer token123", api_server["headers"]["Authorization"])
-      assert_equal("custom-value", api_server["headers"]["X-Custom-Header"])
-      assert_nil(api_server["command"])
-      assert_nil(api_server["args"])
-    end
+    assert_equal("http", api_server["type"])
+    assert_equal("http://localhost:3000/mcp", api_server["url"])
+    assert_equal("Bearer token123", api_server["headers"]["Authorization"])
+    assert_equal("custom-value", api_server["headers"]["X-Custom-Header"])
+    assert_nil(api_server["command"])
+    assert_nil(api_server["args"])
   end
 
   def test_empty_tools_and_connections
@@ -239,14 +229,12 @@ class McpGeneratorTest < Minitest::Test
     config = ClaudeSwarm::Configuration.new(@config_path)
     generator = ClaudeSwarm::McpGenerator.new(config)
 
-    Dir.chdir(@tmpdir) do
-      generator.generate_all
+    generator.generate_all
 
-      mcp_config = read_mcp_config("lead")
+    mcp_config = read_mcp_config("lead")
 
-      # Should have no MCP servers
-      assert_equal(0, mcp_config["mcpServers"].size)
-    end
+    # Should have no MCP servers
+    assert_equal(0, mcp_config["mcpServers"].size)
   end
 
   def test_generate_for_specific_instance
@@ -273,19 +261,17 @@ class McpGeneratorTest < Minitest::Test
     config = ClaudeSwarm::Configuration.new(@config_path)
     generator = ClaudeSwarm::McpGenerator.new(config)
 
-    Dir.chdir(@tmpdir) do
-      generator.generate_all
+    generator.generate_all
 
-      # Check backend config has database connection
-      backend_config = read_mcp_config("backend")
+    # Check backend config has database connection
+    backend_config = read_mcp_config("backend")
 
-      assert(backend_config["mcpServers"].key?("database"))
+    assert(backend_config["mcpServers"].key?("database"))
 
-      # Check database config has no MCP servers
-      database_config = read_mcp_config("database")
+    # Check database config has no MCP servers
+    database_config = read_mcp_config("database")
 
-      assert_equal(0, database_config["mcpServers"].size)
-    end
+    assert_equal(0, database_config["mcpServers"].size)
   end
 
   def test_mcp_config_path_in_args
@@ -307,21 +293,19 @@ class McpGeneratorTest < Minitest::Test
     config = ClaudeSwarm::Configuration.new(@config_path)
     generator = ClaudeSwarm::McpGenerator.new(config)
 
-    Dir.chdir(@tmpdir) do
-      generator.generate_all
+    generator.generate_all
 
-      lead_config = read_mcp_config("lead")
-      worker_args = lead_config["mcpServers"]["worker"]["args"]
+    lead_config = read_mcp_config("lead")
+    worker_args = lead_config["mcpServers"]["worker"]["args"]
 
-      mcp_path_index = worker_args.index("--mcp-config-path")
+    mcp_path_index = worker_args.index("--mcp-config-path")
 
-      assert(mcp_path_index, "Should include --mcp-config-path flag")
+    assert(mcp_path_index, "Should include --mcp-config-path flag")
 
-      mcp_path = worker_args[mcp_path_index + 1]
+    mcp_path = worker_args[mcp_path_index + 1]
 
-      assert(mcp_path.end_with?("worker.mcp.json"))
-      assert_path_exists(mcp_path)
-    end
+    assert(mcp_path.end_with?("worker.mcp.json"))
+    assert_path_exists(mcp_path)
   end
 
   def test_preserves_mcp_args_array
@@ -343,16 +327,14 @@ class McpGeneratorTest < Minitest::Test
     config = ClaudeSwarm::Configuration.new(@config_path)
     generator = ClaudeSwarm::McpGenerator.new(config)
 
-    Dir.chdir(@tmpdir) do
-      generator.generate_all
+    generator.generate_all
 
-      mcp_config = read_mcp_config("lead")
+    mcp_config = read_mcp_config("lead")
 
-      server = mcp_config["mcpServers"]["complex_server"]
-      expected_args = ["--port", "3000", "--verbose", "--config", "/path/to/config.json"]
+    server = mcp_config["mcpServers"]["complex_server"]
+    expected_args = ["--port", "3000", "--verbose", "--config", "/path/to/config.json"]
 
-      assert_equal(expected_args, server["args"])
-    end
+    assert_equal(expected_args, server["args"])
   end
 
   def test_vibe_mode_no_mcp_servers
@@ -370,14 +352,12 @@ class McpGeneratorTest < Minitest::Test
     # Test with vibe mode enabled
     generator = ClaudeSwarm::McpGenerator.new(config, vibe: true)
 
-    Dir.chdir(@tmpdir) do
-      generator.generate_all
+    generator.generate_all
 
-      mcp_config = read_mcp_config("lead")
+    mcp_config = read_mcp_config("lead")
 
-      # In vibe mode, should have no MCPs
-      assert_empty(mcp_config["mcpServers"])
-    end
+    # In vibe mode, should have no MCPs
+    assert_empty(mcp_config["mcpServers"])
   end
 
   def test_instance_ids_are_generated
@@ -399,41 +379,39 @@ class McpGeneratorTest < Minitest::Test
     config = ClaudeSwarm::Configuration.new(@config_path)
     generator = ClaudeSwarm::McpGenerator.new(config)
 
-    Dir.chdir(@tmpdir) do
-      generator.generate_all
+    generator.generate_all
 
-      # Check lead config has instance_id
-      lead_config = read_mcp_config("lead")
+    # Check lead config has instance_id
+    lead_config = read_mcp_config("lead")
 
-      assert(lead_config.key?("instance_id"))
-      assert(lead_config.key?("instance_name"))
-      assert_equal("lead", lead_config["instance_name"])
-      assert_match(/^lead_[a-f0-9]{8}$/, lead_config["instance_id"])
+    assert(lead_config.key?("instance_id"))
+    assert(lead_config.key?("instance_name"))
+    assert_equal("lead", lead_config["instance_name"])
+    assert_match(/^lead_[a-f0-9]{8}$/, lead_config["instance_id"])
 
-      # Check backend config has instance_id
-      backend_config = read_mcp_config("backend")
+    # Check backend config has instance_id
+    backend_config = read_mcp_config("backend")
 
-      assert(backend_config.key?("instance_id"))
-      assert(backend_config.key?("instance_name"))
-      assert_equal("backend", backend_config["instance_name"])
-      assert_match(/^backend_[a-f0-9]{8}$/, backend_config["instance_id"])
+    assert(backend_config.key?("instance_id"))
+    assert(backend_config.key?("instance_name"))
+    assert_equal("backend", backend_config["instance_name"])
+    assert_match(/^backend_[a-f0-9]{8}$/, backend_config["instance_id"])
 
-      # Check that connection includes calling_instance_id
-      backend_connection = lead_config["mcpServers"]["backend"]
+    # Check that connection includes calling_instance_id
+    backend_connection = lead_config["mcpServers"]["backend"]
 
-      assert_includes(backend_connection["args"], "--calling-instance-id")
+    assert_includes(backend_connection["args"], "--calling-instance-id")
 
-      calling_id_index = backend_connection["args"].index("--calling-instance-id") + 1
+    calling_id_index = backend_connection["args"].index("--calling-instance-id") + 1
 
-      assert_equal(lead_config["instance_id"], backend_connection["args"][calling_id_index])
+    assert_equal(lead_config["instance_id"], backend_connection["args"][calling_id_index])
 
-      # Check that connection includes instance_id for the target instance
-      assert_includes(backend_connection["args"], "--instance-id")
+    # Check that connection includes instance_id for the target instance
+    assert_includes(backend_connection["args"], "--instance-id")
 
-      instance_id_index = backend_connection["args"].index("--instance-id") + 1
+    instance_id_index = backend_connection["args"].index("--instance-id") + 1
 
-      assert_equal(backend_config["instance_id"], backend_connection["args"][instance_id_index])
-    end
+    assert_equal(backend_config["instance_id"], backend_connection["args"][instance_id_index])
   end
 
   def test_multiple_callers_get_different_ids
@@ -459,25 +437,23 @@ class McpGeneratorTest < Minitest::Test
     config = ClaudeSwarm::Configuration.new(@config_path)
     generator = ClaudeSwarm::McpGenerator.new(config)
 
-    Dir.chdir(@tmpdir) do
-      generator.generate_all
+    generator.generate_all
 
-      lead_config = read_mcp_config("lead")
-      frontend_config = read_mcp_config("frontend")
+    lead_config = read_mcp_config("lead")
+    frontend_config = read_mcp_config("frontend")
 
-      # Both should have unique instance IDs
-      refute_equal(lead_config["instance_id"], frontend_config["instance_id"])
+    # Both should have unique instance IDs
+    refute_equal(lead_config["instance_id"], frontend_config["instance_id"])
 
-      # Check that shared service gets different calling_instance_ids from each caller
-      lead_shared_connection = lead_config["mcpServers"]["shared"]
-      frontend_shared_connection = frontend_config["mcpServers"]["shared"]
+    # Check that shared service gets different calling_instance_ids from each caller
+    lead_shared_connection = lead_config["mcpServers"]["shared"]
+    frontend_shared_connection = frontend_config["mcpServers"]["shared"]
 
-      lead_calling_id_index = lead_shared_connection["args"].index("--calling-instance-id") + 1
-      frontend_calling_id_index = frontend_shared_connection["args"].index("--calling-instance-id") + 1
+    lead_calling_id_index = lead_shared_connection["args"].index("--calling-instance-id") + 1
+    frontend_calling_id_index = frontend_shared_connection["args"].index("--calling-instance-id") + 1
 
-      assert_equal(lead_config["instance_id"], lead_shared_connection["args"][lead_calling_id_index])
-      assert_equal(frontend_config["instance_id"], frontend_shared_connection["args"][frontend_calling_id_index])
-    end
+    assert_equal(lead_config["instance_id"], lead_shared_connection["args"][lead_calling_id_index])
+    assert_equal(frontend_config["instance_id"], frontend_shared_connection["args"][frontend_calling_id_index])
   end
 
   def test_openai_instance_gets_claude_tools_mcp
@@ -504,20 +480,18 @@ class McpGeneratorTest < Minitest::Test
     config = ClaudeSwarm::Configuration.new(@config_path)
     generator = ClaudeSwarm::McpGenerator.new(config)
 
-    Dir.chdir(@tmpdir) do
-      generator.generate_all
+    generator.generate_all
 
-      # Check that OpenAI instance has claude_tools MCP server
-      config_json = read_mcp_config("openai_assistant")
+    # Check that OpenAI instance has claude_tools MCP server
+    config_json = read_mcp_config("openai_assistant")
 
-      assert(config_json["mcpServers"].key?("claude_tools"), "OpenAI instance should have claude_tools MCP server")
+    assert(config_json["mcpServers"].key?("claude_tools"), "OpenAI instance should have claude_tools MCP server")
 
-      claude_tools_config = config_json["mcpServers"]["claude_tools"]
+    claude_tools_config = config_json["mcpServers"]["claude_tools"]
 
-      assert_equal("stdio", claude_tools_config["type"])
-      assert_equal("claude", claude_tools_config["command"])
-      assert_equal(["mcp", "serve"], claude_tools_config["args"])
-    end
+    assert_equal("stdio", claude_tools_config["type"])
+    assert_equal("claude", claude_tools_config["command"])
+    assert_equal(["mcp", "serve"], claude_tools_config["args"])
   ensure
     ENV.delete("OPENAI_API_KEY")
   end
@@ -538,14 +512,12 @@ class McpGeneratorTest < Minitest::Test
     config = ClaudeSwarm::Configuration.new(@config_path)
     generator = ClaudeSwarm::McpGenerator.new(config)
 
-    Dir.chdir(@tmpdir) do
-      generator.generate_all
+    generator.generate_all
 
-      # Check that Claude instance does NOT have claude_tools MCP server
-      config_json = read_mcp_config("claude_assistant")
+    # Check that Claude instance does NOT have claude_tools MCP server
+    config_json = read_mcp_config("claude_assistant")
 
-      refute(config_json["mcpServers"].key?("claude_tools"), "Claude instance should NOT have claude_tools MCP server")
-    end
+    refute(config_json["mcpServers"].key?("claude_tools"), "Claude instance should NOT have claude_tools MCP server")
   end
 
   private
