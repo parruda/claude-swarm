@@ -676,112 +676,147 @@ class CLITest < Minitest::Test
 
   def test_generate_without_claude_installed
     # Mock system call to simulate Claude not being installed (command -v fails)
+    status = Minitest::Mock.new
+    status.expect(:success?, false)
+    status.expect(:exitstatus, 1)
+
     @cli.stub(:system, lambda { |cmd|
       !cmd.include?("command -v claude")
     }) do
-      _, err = capture_cli_output do
-        assert_raises(SystemExit) { @cli.generate }
-      end
+      @cli.stub(:last_status, status) do
+        _, err = capture_cli_output do
+          assert_raises(SystemExit) { @cli.generate }
+        end
 
-      assert_match(/Claude CLI is not installed or not in PATH/, err)
-      assert_match(/To install Claude CLI, visit:/, err)
+        assert_match(/Claude CLI is not installed or not in PATH/, err)
+        assert_match(/To install Claude CLI, visit:/, err)
+      end
     end
+    status.verify
   end
 
   def test_generate_with_claude_installed
     # Mock system call to simulate Claude being installed (command -v succeeds)
+    # Create a mock status object for successful command
+    success_status = Minitest::Mock.new
+    success_status.expect(:success?, true)
+
     @cli.stub(:system, lambda { |cmd|
       cmd.include?("command -v claude") || false
     }) do
-      # Read the actual template file before stubbing
-      actual_template_path = File.expand_path("../lib/claude_swarm/templates/generation_prompt.md.erb", __dir__)
-      template_content = File.read(actual_template_path)
-      # Mock File operations for README and template
-      File.stub(:exist?, ->(path) { path.include?("README.md") || path.include?("generation_prompt.md.erb") }) do
-        File.stub(:read, lambda { |path|
-          if path.include?("README.md")
-            "Mock README content"
-          elsif path.include?("generation_prompt.md.erb")
-            template_content
-          else
-            ""
-          end
-        }) do
-          # Stub exec to prevent actual execution and capture the command
-          exec_called = false
-          exec_args = nil
-
-          @cli.stub(:exec, lambda { |*args|
-            exec_called = true
-            exec_args = args
-            # Prevent actual exec
-            nil
+      @cli.stub(:last_status, success_status) do
+        # Read the actual template file before stubbing
+        actual_template_path = File.expand_path("../lib/claude_swarm/templates/generation_prompt.md.erb", __dir__)
+        template_content = File.read(actual_template_path)
+        # Mock File operations for README and template
+        File.stub(:exist?, ->(path) { path.include?("README.md") || path.include?("generation_prompt.md.erb") }) do
+          File.stub(:read, lambda { |path|
+            if path.include?("README.md")
+              "Mock README content"
+            elsif path.include?("generation_prompt.md.erb")
+              template_content
+            else
+              ""
+            end
           }) do
-            @cli.options = { model: "sonnet" }
-            @cli.generate
+            # Stub exec to prevent actual execution and capture the command
+            exec_called = false
+            exec_args = nil
 
-            assert(exec_called, "exec should have been called")
-            assert_equal("claude", exec_args[0])
-            assert_equal("--model", exec_args[1])
-            assert_equal("sonnet", exec_args[2])
-            # Test that the prompt includes README content
-            assert_match(%r{<full_readme>.*Mock README content.*</full_readme>}m, exec_args[3])
+            @cli.stub(:exec, lambda { |*args|
+              exec_called = true
+              exec_args = args
+              # Prevent actual exec
+              nil
+            }) do
+              @cli.options = { model: "sonnet" }
+              @cli.generate
+
+              assert(exec_called, "exec should have been called")
+              assert_equal("claude", exec_args[0])
+              assert_equal("--model", exec_args[1])
+              assert_equal("sonnet", exec_args[2])
+              # Test that the prompt includes README content
+              assert_match(%r{<full_readme>.*Mock README content.*</full_readme>}m, exec_args[3])
+            end
           end
         end
       end
     end
+    success_status.verify
   end
 
   def test_generate_without_output_file_includes_naming_instructions
+    # Create a mock status object for successful command
+    success_status = Minitest::Mock.new
+    success_status.expect(:success?, true)
+
     @cli.stub(:system, true) do
-      exec_args = nil
+      @cli.stub(:last_status, success_status) do
+        exec_args = nil
 
-      @cli.stub(:exec, lambda { |*args|
-        exec_args = args
-        nil
-      }) do
-        @cli.options = { model: "sonnet" }
-        @cli.generate
+        @cli.stub(:exec, lambda { |*args|
+          exec_args = args
+          nil
+        }) do
+          @cli.options = { model: "sonnet" }
+          @cli.generate
 
-        # Check that the prompt includes instructions to name based on function
-        assert_match(/name the file based on the swarm's function/, exec_args[3])
-        assert_match(/web-dev-swarm\.yml/, exec_args[3])
-        assert_match(/data-pipeline-swarm\.yml/, exec_args[3])
+          # Check that the prompt includes instructions to name based on function
+          assert_match(/name the file based on the swarm's function/, exec_args[3])
+          assert_match(/web-dev-swarm\.yml/, exec_args[3])
+          assert_match(/data-pipeline-swarm\.yml/, exec_args[3])
+        end
       end
     end
+    success_status.verify
   end
 
   def test_generate_with_custom_output_file
+    # Create a mock status object for successful command
+    success_status = Minitest::Mock.new
+    success_status.expect(:success?, true)
+
     @cli.stub(:system, true) do
-      exec_args = nil
+      @cli.stub(:last_status, success_status) do
+        exec_args = nil
 
-      @cli.stub(:exec, lambda { |*args|
-        exec_args = args
-        nil
-      }) do
-        @cli.options = { output: "my-custom-config.yml", model: "sonnet" }
-        @cli.generate
+        @cli.stub(:exec, lambda { |*args|
+          exec_args = args
+          nil
+        }) do
+          @cli.options = { output: "my-custom-config.yml", model: "sonnet" }
+          @cli.generate
 
-        # Check that the custom output file is mentioned in the prompt
-        assert_match(/save it to: my-custom-config\.yml/, exec_args[3])
+          # Check that the custom output file is mentioned in the prompt
+          assert_match(/save it to: my-custom-config\.yml/, exec_args[3])
+        end
       end
     end
+    success_status.verify
   end
 
   def test_generate_with_custom_model
+    # Create a mock status object for successful command
+    success_status = Minitest::Mock.new
+    success_status.expect(:success?, true)
+
     @cli.stub(:system, true) do
-      exec_args = nil
+      @cli.stub(:last_status, success_status) do
+        exec_args = nil
 
-      @cli.stub(:exec, lambda { |*args|
-        exec_args = args
-        nil
-      }) do
-        @cli.options = { output: "claude-swarm.yml", model: "opus" }
-        @cli.generate
+        @cli.stub(:exec, lambda { |*args|
+          exec_args = args
+          nil
+        }) do
+          @cli.options = { output: "claude-swarm.yml", model: "opus" }
+          @cli.generate
 
-        assert_equal("opus", exec_args[2])
+          assert_equal("opus", exec_args[2])
+        end
       end
     end
+    success_status.verify
   end
 
   def test_generate_includes_readme_content_if_exists
@@ -791,6 +826,10 @@ class CLITest < Minitest::Test
     # Read the actual template file before stubbing
     actual_template_path = File.expand_path("../lib/claude_swarm/templates/generation_prompt.md.erb", __dir__)
     template_content = File.read(actual_template_path)
+
+    # Create a mock status object for successful command
+    success_status = Minitest::Mock.new
+    success_status.expect(:success?, true)
 
     File.stub(:exist?, ->(path) { path.include?("README.md") || path.include?("generation_prompt.md.erb") }) do
       File.stub(:read, lambda { |path|
@@ -803,21 +842,24 @@ class CLITest < Minitest::Test
         end
       }) do
         @cli.stub(:system, true) do
-          exec_args = nil
+          @cli.stub(:last_status, success_status) do
+            exec_args = nil
 
-          @cli.stub(:exec, lambda { |*args|
-            exec_args = args
-            nil
-          }) do
-            @cli.options = { model: "sonnet" }
-            @cli.generate
+            @cli.stub(:exec, lambda { |*args|
+              exec_args = args
+              nil
+            }) do
+              @cli.options = { model: "sonnet" }
+              @cli.generate
 
-            # The prompt should include the README content in full_readme tags
-            assert_match(%r{<full_readme>.*# Claude Swarm.*This is a test README content.*</full_readme>}m, exec_args[3])
+              # The prompt should include the README content in full_readme tags
+              assert_match(%r{<full_readme>.*# Claude Swarm.*This is a test README content.*</full_readme>}m, exec_args[3])
+            end
           end
         end
       end
     end
+    success_status.verify
   end
 
   def test_build_generation_prompt_with_output_file

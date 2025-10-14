@@ -6,12 +6,6 @@ module ClaudeSwarm
 
     attr_reader :config, :session_path, :session_log_path
 
-    ["INT", "TERM", "QUIT"].each do |signal|
-      Signal.trap(signal) do
-        puts "\n🛑 Received #{signal} signal."
-      end
-    end
-
     def initialize(configuration, mcp_generator, vibe: false, prompt: nil, interactive_prompt: nil, stream_logs: false, debug: false,
       restore_session_path: nil, worktree: nil, session_id: nil)
       @config = configuration
@@ -72,18 +66,39 @@ module ClaudeSwarm
       # Track start time
       @start_time = Time.now
 
+      # Setup signal handlers for graceful shutdown
+      setup_signal_handlers do
+        @signal_received = true
+        cleanup_all
+      end
+
       begin
         start_internal
       rescue StandardError => e
         # Ensure cleanup happens even on unexpected errors
-        cleanup_processes
-        cleanup_run_symlink
-        cleanup_worktrees
+        cleanup_all
         raise e
       end
     end
 
     private
+
+    def cleanup_all
+      execute_after_commands_once
+      cleanup_processes
+      cleanup_run_symlink
+      cleanup_worktrees
+    end
+
+    def setup_signal_handlers(&cleanup_block)
+      ["INT", "TERM", "QUIT", "HUP"].each do |signal|
+        Signal.trap(signal) do
+          puts "\n🛑 Received #{signal} signal. Shutting down gracefully..."
+          cleanup_block&.call
+          exit(0)
+        end
+      end
+    end
 
     def start_internal
       if @restore_session_path
@@ -142,9 +157,7 @@ module ClaudeSwarm
             end
           rescue StandardError => e
             non_interactive_output { print("❌ Failed to setup worktrees: #{e.message}") }
-            cleanup_processes
-            cleanup_run_symlink
-            cleanup_worktrees
+            cleanup_all
             raise
           end
         end
@@ -226,9 +239,7 @@ module ClaudeSwarm
           success = execute_before_commands?(before_commands)
           unless success
             non_interactive_output { print("❌ Before commands failed. Aborting swarm launch.") }
-            cleanup_processes
-            cleanup_run_symlink
-            cleanup_worktrees
+            cleanup_all
             exit(1)
           end
         end
@@ -245,9 +256,7 @@ module ClaudeSwarm
           end
         rescue ClaudeSwarm::Error => e
           non_interactive_output { print("❌ Directory validation failed: #{e.message}") }
-          cleanup_processes
-          cleanup_run_symlink
-          cleanup_worktrees
+          cleanup_all
           exit(1)
         end
       end
@@ -261,7 +270,12 @@ module ClaudeSwarm
           if @non_interactive_prompt
             stream_to_session_log(*command)
           else
-            system!(*command)
+            system_with_pid!(*command) do |pid|
+              @process_tracker.track_pid(pid, "claude_#{@config.main_instance}")
+              non_interactive_output do
+                puts "✓ Claude instance started with PID: #{pid}"
+              end
+            end
           end
         end
       end
@@ -279,37 +293,10 @@ module ClaudeSwarm
       display_summary
 
       # Execute after commands if specified
-      # Use the same logic as before commands for consistency
-      after_commands = @config.after_commands
-      if after_commands.any? && !@restore_session_path
-        # Determine where to run after commands (same logic as before commands)
-        if File.exist?(main_instance[:directory])
-          # Directory exists, run commands in it
-          after_commands_dir = main_instance[:directory]
-        else
-          # Directory doesn't exist (shouldn't happen after main instance runs, but be safe)
-          parent_dir = File.dirname(File.expand_path(main_instance[:directory]))
-          after_commands_dir = parent_dir
-        end
-
-        Dir.chdir(after_commands_dir) do
-          non_interactive_output do
-            print("⚙️  Executing after commands...")
-          end
-
-          success = execute_after_commands?(after_commands)
-          unless success
-            non_interactive_output do
-              puts "⚠️  Some after commands failed"
-            end
-          end
-        end
-      end
+      execute_after_commands_once
 
       # Clean up child processes and run symlink
-      cleanup_processes
-      cleanup_run_symlink
-      cleanup_worktrees
+      cleanup_all
     end
 
     def non_interactive_output
@@ -325,6 +312,42 @@ module ClaudeSwarm
 
     def execute_after_commands?(commands)
       execute_commands(commands, phase: "after", fail_fast: false)
+    end
+
+    def execute_after_commands_once
+      # Ensure after commands are only executed once
+      return if @after_commands_executed
+
+      @after_commands_executed = true
+
+      # Use the same logic as before commands for consistency
+      after_commands = @config.after_commands
+      return if after_commands.empty? || @restore_session_path
+
+      main_instance = @config.main_instance_config
+
+      # Determine where to run after commands (same logic as before commands)
+      if File.exist?(main_instance[:directory])
+        # Directory exists, run commands in it
+        after_commands_dir = main_instance[:directory]
+      else
+        # Directory doesn't exist (shouldn't happen after main instance runs, but be safe)
+        parent_dir = File.dirname(File.expand_path(main_instance[:directory]))
+        after_commands_dir = parent_dir
+      end
+
+      Dir.chdir(after_commands_dir) do
+        non_interactive_output do
+          print("⚙️  Executing after commands...")
+        end
+
+        success = execute_after_commands?(after_commands)
+        unless success
+          non_interactive_output do
+            puts "⚠️  Some after commands failed"
+          end
+        end
+      end
     end
 
     def save_swarm_config_path(session_path)
@@ -800,7 +823,8 @@ module ClaudeSwarm
       all_succeeded = true
 
       # Setup logger for session logging if we have a session path
-      logger = Logger.new(@session_log_path, level: :info)
+      log_dev = @signal_received ? nil : @session_log_path
+      logger = Logger.new(log_dev, level: :info)
 
       commands.each_with_index do |command, index|
         # Log the command execution to session log

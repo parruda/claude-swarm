@@ -69,8 +69,11 @@ class OrchestratorWorktreeErrorCleanupTest < Minitest::Test
       worktree: "test-branch",
     )
 
-    # Mock the system! method to prevent actual Claude execution
-    orchestrator.stub(:system!, nil) do
+    # Mock the system_with_pid! method to prevent actual Claude execution
+    orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+      block&.call(12345)
+      nil
+    }) do
       orchestrator.stub(:stream_to_session_log, nil) do
         # Capture output to avoid test noise
         capture_io do
@@ -118,8 +121,11 @@ class OrchestratorWorktreeErrorCleanupTest < Minitest::Test
       worktree: "test-branch",
     )
 
-    # Mock the system! method to prevent actual Claude execution
-    orchestrator.stub(:system!, nil) do
+    # Mock the system_with_pid! method to prevent actual Claude execution
+    orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+      block&.call(12345)
+      nil
+    }) do
       orchestrator.stub(:stream_to_session_log, nil) do
         # Capture output to avoid test noise
         capture_io do

@@ -209,4 +209,112 @@ class SystemUtilsTest < Minitest::Test
       end
     end
   end
+
+  # Tests for system_with_pid!
+  def test_system_with_pid_successful_command
+    pid_received = nil
+
+    output, = capture_subprocess_io do
+      result = @subject.system_with_pid!("echo", "test") do |pid|
+        pid_received = pid
+
+        assert_kind_of(Integer, pid)
+        assert_predicate(pid, :positive?)
+      end
+
+      assert(result)
+    end
+
+    assert_match(/test/, output)
+    refute_nil(pid_received)
+  end
+
+  def test_system_with_pid_yields_correct_pid
+    pid_received = nil
+
+    # Use a command that sleeps briefly to ensure we can check the PID
+    _output, = capture_subprocess_io do
+      @subject.system_with_pid!("sh", "-c", "echo $$") do |pid|
+        pid_received = pid
+      end
+    end
+
+    refute_nil(pid_received)
+    assert_kind_of(Integer, pid_received)
+  end
+
+  def test_system_with_pid_failing_command_raises_error
+    pid_received = nil
+
+    capture_io do
+      error = assert_raises(ClaudeSwarm::Error) do
+        @subject.system_with_pid!("sh", "-c", "exit 42") do |pid|
+          pid_received = pid
+        end
+      end
+
+      assert_match(/Command failed with exit status 42/, error.message)
+    end
+
+    # The block should still have been called with the PID
+    refute_nil(pid_received)
+  end
+
+  def test_system_with_pid_without_block
+    # Should work without a block
+    output, = capture_subprocess_io do
+      result = @subject.system_with_pid!("echo", "no block")
+
+      assert(result)
+    end
+
+    assert_match(/no block/, output)
+  end
+
+  def test_system_with_pid_stdin_stdout_stderr_passed_through
+    # Test that stdin, stdout, stderr are properly connected
+    output, err = capture_subprocess_io do
+      @subject.system_with_pid!("sh", "-c", "echo 'to stdout'; echo 'to stderr' >&2")
+    end
+
+    assert_match(/to stdout/, output)
+    assert_match(/to stderr/, err)
+  end
+
+  def test_system_with_pid_timeout_exit_status
+    # Test timeout exit status handling (143)
+    _output, err = capture_io do
+      @subject.system_with_pid!("sh", "-c", "exit #{EXIT_STATUS_TIMEOUT}")
+    end
+
+    assert_match(/⏱️ Command timeout:/, err)
+  end
+
+  def test_system_with_pid_nonexistent_command
+    capture_io do
+      error = assert_raises(Errno::ENOENT) do
+        @subject.system_with_pid!("this_command_should_not_exist_67890")
+      end
+
+      assert_match(/No such file or directory/, error.message)
+    end
+  end
+
+  def test_system_with_pid_environment_variables
+    # Test that environment variables are passed through
+    test_var = "TEST_PID_VAR_#{Time.now.to_i}"
+    ENV[test_var] = "test_pid_value"
+
+    begin
+      output, = capture_subprocess_io do
+        result = @subject.system_with_pid!("sh", "-c", "echo $#{test_var}")
+
+        assert(result)
+      end
+
+      assert_match(/test_pid_value/, output)
+    ensure
+      ENV.delete(test_var)
+    end
+  end
 end

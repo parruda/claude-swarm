@@ -123,7 +123,8 @@ class OrchestratorWorktreeRestorationTest < Minitest::Test
       # Mock system call to verify directory
       worktree_dir_used = nil
       dir_existed_during_run = false
-      orchestrator.stub(:system, lambda { |*_args|
+      orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+        block&.call(12345)
         worktree_dir_used = Dir.pwd
         dir_existed_during_run = File.exist?(Dir.pwd)
         true
@@ -184,7 +185,8 @@ class OrchestratorWorktreeRestorationTest < Minitest::Test
 
       # Mock system call to verify directory
       dir_used = nil
-      orchestrator.stub(:system, lambda { |*_args|
+      orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+        block&.call(12345)
         dir_used = Dir.pwd
         true
       }) do

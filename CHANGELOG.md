@@ -1,5 +1,18 @@
 ## [Unreleased]
 
+### Changed
+- **Improved signal handling and graceful shutdown**: Enhanced signal handling for more reliable cleanup on interruption
+  - Added comprehensive signal handlers for `INT`, `TERM`, `QUIT`, and `HUP` signals
+  - Signals now trigger a graceful shutdown sequence that ensures all cleanup operations complete
+  - Moved signal trap setup from module-level to instance-level for better control and testability
+  - After commands now execute consistently during normal completion, signal-triggered shutdown, and error conditions
+
+- **Simplified ProcessTracker usage**: ProcessTracker now only tracks the main Claude process
+  - Removed redundant MCP server PID tracking from `ClaudeMcpServer#start`
+  - The Claude process manages its own MCP server child processes
+  - When the main Claude process terminates, it automatically handles cleanup of its associated MCP servers
+  - Results in cleaner process hierarchy and more reliable cleanup
+
 ## [1.0.1]
 
 ### Fixed

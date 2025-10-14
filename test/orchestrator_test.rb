@@ -86,7 +86,10 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     Dir.chdir(@tmpdir) do
-      orchestrator.stub(:system, true) do
+      orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+        block&.call(12345)
+        true
+      }) do
         capture_io do
           orchestrator.start
         end
@@ -107,7 +110,10 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     # Test behavior: start should complete without errors
-    orchestrator.stub(:system, true) do
+    orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+      block&.call(12345)
+      true
+    }) do
       capture_io { orchestrator.start }
     end
 
@@ -126,8 +132,9 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     expected_command = nil
-    orchestrator.stub(:system, lambda { |*args|
+    orchestrator.stub(:system_with_pid!, lambda { |*args, &block|
       expected_command = args
+      block&.call(12345)
       true
     }) do
       Dir.chdir(@tmpdir) do
@@ -174,8 +181,9 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     expected_command = nil
-    orchestrator.stub(:system, lambda { |*args|
+    orchestrator.stub(:system_with_pid!, lambda { |*args, &block|
       expected_command = args
+      block&.call(12345)
       true
     }) do
       Dir.chdir(@tmpdir) do
@@ -205,8 +213,9 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     expected_command = nil
-    orchestrator.stub(:system, lambda { |*args|
+    orchestrator.stub(:system_with_pid!, lambda { |*args, &block|
       expected_command = args
+      block&.call(12345)
       true
     }) do
       Dir.chdir(@tmpdir) do
@@ -238,8 +247,9 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     expected_command = nil
-    orchestrator.stub(:system, lambda { |*args|
+    orchestrator.stub(:system_with_pid!, lambda { |*args, &block|
       expected_command = args
+      block&.call(12345)
       true
     }) do
       Dir.chdir(@tmpdir) do
@@ -261,7 +271,10 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator, debug: true)
 
     output = nil
-    orchestrator.stub(:system, true) do
+    orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+      block&.call(12345)
+      true
+    }) do
       output = capture_io { orchestrator.start }[0]
     end
 
@@ -295,8 +308,9 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     expected_command = nil
-    orchestrator.stub(:system, lambda { |*args|
+    orchestrator.stub(:system_with_pid!, lambda { |*args, &block|
       expected_command = args
+      block&.call(12345)
       true
     }) do
       Dir.chdir(@tmpdir) do
@@ -324,8 +338,9 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     expected_command = nil
-    orchestrator.stub(:system, lambda { |*args|
+    orchestrator.stub(:system_with_pid!, lambda { |*args, &block|
       expected_command = args
+      block&.call(12345)
       true
     }) do
       Dir.chdir(@tmpdir) do
@@ -353,7 +368,10 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     output = nil
-    orchestrator.stub(:system, true) do
+    orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+      block&.call(12345)
+      true
+    }) do
       output = capture_io { orchestrator.start }[0]
     end
 
@@ -382,8 +400,9 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     expected_command = nil
-    orchestrator.stub(:system, lambda { |*args|
+    orchestrator.stub(:system_with_pid!, lambda { |*args, &block|
       expected_command = args
+      block&.call(12345)
       true
     }) do
       Dir.chdir(@tmpdir) do
@@ -403,8 +422,9 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     expected_command = nil
-    orchestrator.stub(:system, lambda { |*args|
+    orchestrator.stub(:system_with_pid!, lambda { |*args, &block|
       expected_command = args
+      block&.call(12345)
       true
     }) do
       Dir.chdir(@tmpdir) do
@@ -494,7 +514,10 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     output = nil
-    orchestrator.stub(:system, true) do
+    orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+      block&.call(12345)
+      true
+    }) do
       output = capture_io { orchestrator.start }[0]
     end
 
@@ -549,8 +572,9 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     expected_command = nil
-    orchestrator.stub(:system, lambda { |*args|
+    orchestrator.stub(:system_with_pid!, lambda { |*args, &block|
       expected_command = args
+      block&.call(12345)
       true
     }) do
       Dir.chdir(@tmpdir) do
@@ -582,8 +606,9 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     expected_command = nil
-    orchestrator.stub(:system, lambda { |*args|
+    orchestrator.stub(:system_with_pid!, lambda { |*args, &block|
       expected_command = args
+      block&.call(12345)
       true
     }) do
       Dir.chdir(@tmpdir) do
@@ -647,7 +672,10 @@ class OrchestratorTest < Minitest::Test
       command_executed = true
       "Should not see this\n"
     }) do
-      orchestrator.stub(:system, true) do
+      orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+        block&.call(12345)
+        true
+      }) do
         output = capture_io { orchestrator.start }[0]
 
         refute(command_executed, "Before commands should not execute during session restoration")
@@ -677,7 +705,10 @@ class OrchestratorTest < Minitest::Test
       command_executed = true
       "Should not execute\n"
     }) do
-      orchestrator.stub(:system, true) do
+      orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+        block&.call(12345)
+        true
+      }) do
         output = capture_io { orchestrator.start }[0]
 
         refute(command_executed, "No commands should be executed with empty before array")
@@ -691,8 +722,11 @@ class OrchestratorTest < Minitest::Test
     generator = ClaudeSwarm::McpGenerator.new(config)
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
-    # Mock system! to prevent actual execution
-    orchestrator.stub(:system!, true) do
+    # Mock system_with_pid! to prevent actual execution
+    orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+      block&.call(12345)
+      true
+    }) do
       capture_io { orchestrator.start }
     end
 
@@ -733,8 +767,11 @@ class OrchestratorTest < Minitest::Test
     generator = ClaudeSwarm::McpGenerator.new(config)
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
-    # Mock system! to prevent actual execution
-    orchestrator.stub(:system!, true) do
+    # Mock system_with_pid! to prevent actual execution
+    orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+      block&.call(12345)
+      true
+    }) do
       Dir.chdir(@tmpdir) do
         capture_io { orchestrator.start }
       end
@@ -771,8 +808,9 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     system_called = false
-    orchestrator.stub(:system!, lambda { |*_args|
+    orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
       system_called = true
+      block&.call(12345)
       true
     }) do
       orchestrator.stub(:cleanup_processes, nil) do
@@ -852,8 +890,9 @@ class OrchestratorTest < Minitest::Test
         commands.each { |cmd| system(cmd) }
         true
       }) do
-        orchestrator.stub(:system, lambda { |*_args|
+        orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
           system_called = true
+          block&.call(12345)
           true
         }) do
           orchestrator.stub(:cleanup_processes, nil) do
@@ -908,7 +947,10 @@ class OrchestratorTest < Minitest::Test
         after_executed = true
         true
       }) do
-        orchestrator.stub(:system, true) do
+        orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+          block&.call(12345)
+          true
+        }) do
           orchestrator.stub(:cleanup_processes, nil) do
             orchestrator.stub(:cleanup_run_symlink, nil) do
               orchestrator.stub(:cleanup_worktrees, nil) do
@@ -946,7 +988,10 @@ class OrchestratorTest < Minitest::Test
     generator.stub(:generate_all, nil) do
       orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
-      orchestrator.stub(:system, true) do
+      orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+        block&.call(12345)
+        true
+      }) do
         orchestrator.stub(:cleanup_processes, nil) do
           orchestrator.stub(:cleanup_run_symlink, nil) do
             orchestrator.stub(:cleanup_worktrees, nil) do
@@ -995,8 +1040,9 @@ class OrchestratorTest < Minitest::Test
       cleanup_run_symlink_called = false
       cleanup_worktrees_called = false
 
-      orchestrator.stub(:system, lambda { |*_args|
+      orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
         system_called = true
+        block&.call(12345)
         true
       }) do
         orchestrator.stub(:cleanup_processes, lambda {
@@ -1049,7 +1095,10 @@ class OrchestratorTest < Minitest::Test
         after_executed = true
         true
       }) do
-        orchestrator.stub(:system, true) do
+        orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+          block&.call(12345)
+          true
+        }) do
           orchestrator.stub(:cleanup_processes, nil) do
             orchestrator.stub(:cleanup_run_symlink, nil) do
               orchestrator.stub(:cleanup_worktrees, nil) do
@@ -1086,23 +1135,31 @@ class OrchestratorTest < Minitest::Test
     generator.stub(:generate_all, nil) do
       orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
-      # Setup signal handler
-      orchestrator.send(:setup_signal_handlers)
-
       # Mock exit to prevent actual process termination
       exit_called = false
-      orchestrator.stub(:exit, lambda { exit_called = true }) do
-        orchestrator.stub(:cleanup_processes, nil) do
-          orchestrator.stub(:cleanup_run_symlink, nil) do
-            orchestrator.stub(:cleanup_worktrees, nil) do
-              Dir.chdir(@tmpdir) do
-                # Simulate signal
-                capture_io do
-                  Signal.trap("INT") { orchestrator.send(:setup_signal_handlers) }
-                  Process.kill("INT", Process.pid)
-                end
-              end
+      orchestrator.stub(:exit, lambda { |_| exit_called = true }) do
+        orchestrator.stub(:cleanup_all, nil) do
+          Dir.chdir(@tmpdir) do
+            # Track if cleanup block was called
+            cleanup_called = false
+
+            # Setup signal handler with a test block
+            orchestrator.send(:setup_signal_handlers) do
+              cleanup_called = true
+              orchestrator.send(:cleanup_all)
+              exit(0)
             end
+
+            # Get the current handler and simulate calling it
+            handler = Signal.trap("INT", "DEFAULT")
+            Signal.trap("INT", handler)
+
+            # Call the handler directly (safer than sending actual signal)
+            capture_io do
+              handler.call
+            end
+
+            assert(cleanup_called, "Cleanup block should be called")
           end
         end
       end
@@ -1137,7 +1194,10 @@ class OrchestratorTest < Minitest::Test
     )
 
     # Mock system to prevent actual execution
-    orchestrator.stub(:system!, true) do
+    orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+      block&.call(12345)
+      true
+    }) do
       capture_io { orchestrator.start }
     end
 
@@ -1155,7 +1215,10 @@ class OrchestratorTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     # Mock system to prevent actual execution
-    orchestrator.stub(:system!, true) do
+    orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+      block&.call(12345)
+      true
+    }) do
       capture_io { orchestrator.start }
     end
 
@@ -1189,7 +1252,10 @@ class OrchestratorTest < Minitest::Test
       )
 
       # Mock system to prevent actual execution
-      orchestrator.stub(:system!, true) do
+      orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+        block&.call(12345)
+        true
+      }) do
         capture_io { orchestrator.start }
       end
 
@@ -1218,7 +1284,10 @@ class OrchestratorTest < Minitest::Test
     )
 
     # Mock system to prevent actual execution
-    orchestrator.stub(:system!, true) do
+    orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+      block&.call(12345)
+      true
+    }) do
       capture_io { orchestrator.start }
     end
 
