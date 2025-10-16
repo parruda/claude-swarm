@@ -1,0 +1,21 @@
+# Test: user_prompt with exit 0
+# Expected: stdout appended to prompt and shown to agent
+# Run: bundle exec exe/swarm run lib/swarm_sdk/examples/hooks/user_prompt_exit_0.yml -p "What is 2+2?"
+
+version: 2
+swarm:
+  name: "user_prompt Exit 0 Test"
+  lead: agent
+
+  agents:
+    agent:
+      description: "Test agent"
+      model: gpt-5
+      provider: openai
+      system_prompt: "You are a test agent."
+
+      hooks:
+        user_prompt:
+          - type: command
+            command: "echo 'Additional context from hook: Current timestamp is' $(date) && exit 0"
+            timeout: 5

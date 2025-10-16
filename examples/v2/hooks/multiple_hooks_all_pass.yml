@@ -1,0 +1,37 @@
+# Test: Multiple hooks for same event - all pass
+# Expected: All three hooks run sequentially, tool executes
+# Run: bundle exec exe/swarm run lib/swarm_sdk/examples/hooks/multiple_hooks_all_pass.yml -p "Run 'ls' command" --verbose
+
+version: 2
+swarm:
+  name: "Multiple Hooks - All Pass"
+  lead: agent
+
+  agents:
+    agent:
+      description: "Test agent"
+      model: gpt-5
+      provider: openai
+      system_prompt: "You are a test agent."
+      tools:
+        - Bash
+
+      hooks:
+        pre_tool_use:
+          # Hook 1: Succeeds
+          - matcher: "Bash"
+            type: command
+            command: "echo 'Hook 1: validation passed' && echo 'Hook 1 executed' >> tmp/hooks_log.txt && exit 0"
+            timeout: 5
+
+          # Hook 2: Succeeds
+          - matcher: "Bash"
+            type: command
+            command: "echo 'Hook 2: security check passed' && echo 'Hook 2 executed' >> tmp/hooks_log.txt && exit 0"
+            timeout: 5
+
+          # Hook 3: Succeeds
+          - matcher: "Bash"
+            type: command
+            command: "echo 'Hook 3: audit logged' && echo 'Hook 3 executed' >> tmp/hooks_log.txt && exit 0"
+            timeout: 5

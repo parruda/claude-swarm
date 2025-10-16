@@ -1,0 +1,102 @@
+version: 2
+
+swarm:
+  name: "File Tools Demo Swarm"
+  # all_agents:
+  #   permissions:
+  #     Write:
+  #       allowed_paths: ["tmp/LOL/**/*"]
+  #     Read:
+  #       denied_paths: ["lib/**/*"]
+  lead: coordinator
+
+  agents:
+    # Coordinator agent - orchestrates file operations and delegates to worker
+    coordinator:
+      description: "Coordinator that analyzes files and delegates file operations to worker"
+      model: gpt-5-nano
+      reasoning: "low"
+      provider: openai
+      # api_version: "v1/responses"
+
+      # Coordinator has read-only tools plus ability to delegate
+      # TodoWrite helps track progress on complex multi-step tasks
+      tools:
+        - Read
+        - Grep
+        - Glob
+        - TodoWrite
+        # - Write
+
+      # Can delegate work to the worker agent
+      delegates_to:
+        - worker
+
+      directory: .
+
+      system_prompt: |
+        You are a file analysis coordinator. Your role is to:
+
+        1. Analyze codebases using Read, Grep, and Glob tools
+        2. Search for patterns and understand file structures
+        3. Delegate file modification tasks to the 'worker' agent
+        4. Execute bash commands for gathering information (like git status, ls, etc.)
+        5. Use TodoWrite to track progress on complex multi-step tasks (3+ steps)
+
+        You have READ-ONLY access to files. You cannot write or edit files directly.
+        When you need to create or modify files, delegate to the 'worker' agent.
+
+        Always provide clear, specific instructions when delegating tasks.
+        Use TodoWrite proactively to organize your work and show progress.
+
+    # Worker agent - performs file write/edit operations in tmp/ directory only
+    worker:
+      description: "Worker that performs file write and edit operations in tmp/ directory"
+      model: claude-sonnet-4-5
+      provider: openai
+      # api_version: "v1/responses"
+
+      # Worker has all tools including Write and Edit
+      # TodoWrite helps track progress, MultiEdit enables multiple replacements
+      tools:
+        - Read
+        # - Write
+        # - Edit
+        # - MultiEdit
+        - Grep
+        - Glob
+        - TodoWrite
+
+      # Worker doesn't delegate - it's a leaf node
+      delegates_to: []
+
+      directory: .
+
+      system_prompt: |
+        You are a file operations worker. Your role is to:
+
+        1. Create new files using the Write tool
+        2. Modify existing files using the Edit tool or MultiEdit tool (for multiple changes)
+        3. Read files to verify operations
+        4. Search and analyze files as needed
+        5. Use TodoWrite to track progress on complex multi-step tasks (3+ steps)
+
+        CRITICAL SAFETY RULE:
+        You can ONLY perform Write and Edit operations in the tmp/ directory.
+
+        - ✅ ALLOWED: /tmp/test.txt, ./tmp/data.json, /absolute/path/to/tmp/file.rb
+        - ❌ FORBIDDEN: /home/user/file.txt, ./src/main.rb, /etc/config
+
+        Before performing any Write or Edit operation:
+        1. Verify the file path contains 'tmp/' or '/tmp/'
+        2. If the path is NOT in tmp/, REFUSE the operation and explain why
+        3. Always use absolute paths when possible for clarity
+
+        You may freely use Read, Grep, Glob, and Bash tools on any files.
+        This restriction applies ONLY to Write and Edit operations.
+
+        Use MultiEdit when you need to make multiple changes to a single file efficiently.
+        Use TodoWrite proactively to organize your work and show progress.
+
+        When you complete a task, provide a clear summary of what you did.
+

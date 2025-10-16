@@ -1,0 +1,37 @@
+# Test: Multiple hooks for same event - first one fails with exit 2
+# Expected: First hook blocks, remaining hooks DON'T run
+# Run: bundle exec exe/swarm run lib/swarm_sdk/examples/hooks/multiple_hooks_first_fails.yml -p "Run 'ls' command" --verbose
+
+version: 2
+swarm:
+  name: "Multiple Hooks - First Fails"
+  lead: agent
+
+  agents:
+    agent:
+      description: "Test agent"
+      model: gpt-5
+      provider: openai
+      system_prompt: "You are a test agent."
+      tools:
+        - Bash
+
+      hooks:
+        pre_tool_use:
+          # Hook 1: Fails immediately (exit 2)
+          - matcher: "Bash"
+            type: command
+            command: "echo 'Hook 1: BLOCKING' >&2 && echo 'Hook 1 executed' >> tmp/hooks_log.txt && exit 2"
+            timeout: 5
+
+          # Hook 2: Would succeed (but shouldn't run because hook 1 blocks)
+          - matcher: "Bash"
+            type: command
+            command: "echo 'Hook 2: This should NOT run' && echo 'Hook 2 executed' >> tmp/hooks_log.txt && exit 0"
+            timeout: 5
+
+          # Hook 3: Would succeed (but shouldn't run)
+          - matcher: "Bash"
+            type: command
+            command: "echo 'Hook 3: This should NOT run' && echo 'Hook 3 executed' >> tmp/hooks_log.txt && exit 0"
+            timeout: 5

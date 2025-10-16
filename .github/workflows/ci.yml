@@ -7,7 +7,31 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      claude_swarm_changed: ${{ steps.filter.outputs.claude_swarm }}
+      swarm_sdk_changed: ${{ steps.filter.outputs.swarm_sdk }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            claude_swarm:
+              - 'lib/claude_swarm.rb'
+              - 'lib/claude_swarm/**'
+              - 'claude_swarm.gemspec'
+              - 'test/claude_swarm/**'
+            swarm_sdk:
+              - 'lib/swarm_sdk.rb'
+              - 'lib/swarm_sdk/**'
+              - 'swarm_sdk.gemspec'
+              - 'test/swarm_sdk/**'
+
+  test-claude-swarm:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.claude_swarm_changed == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -22,26 +46,41 @@ jobs:
       with:
         ruby-version: ${{ matrix.ruby-version }}
         bundler-cache: true
+
+    - name: Install ripgrep
+      run: sudo apt-get update && sudo apt-get install -y ripgrep
+
     - name: Install Claude Code
       run: npm install -g @anthropic-ai/claude-code
 
-    - name: Run tests and linter
-      run: bundle exec rake
-    
-    - name: Test gem loads without bundler
-      run: |
-        gem build *.gemspec
-        gem install ./claude_swarm-*.gem
-        ruby -e "require 'claude_swarm'"
+    - name: Run ClaudeSwarm tests
+      run: bundle exec rake claude_swarm:test
 
-    - name: Test in isolated environment with fresh bundle
-      run: |
-        mkdir -p tmp/gem_test
-        cd tmp/gem_test
-        cat > Gemfile <<EOF
-        source 'https://rubygems.org'
-        gem 'claude_swarm', path: '../..'
-        EOF
-        bundle install
-        bundle exec ruby -e "require 'claude_swarm'; puts 'Gem loaded successfully'"
-        bundle exec claude-swarm version
+    - name: Run ClaudeSwarm linter
+      run: bundle exec rake claude_swarm:rubocop
+
+  test-swarm-sdk:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.swarm_sdk_changed == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ruby-version: ['3.2', '3.3', '3.4']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Ruby ${{ matrix.ruby-version }}
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ matrix.ruby-version }}
+        bundler-cache: true
+
+    - name: Install ripgrep
+      run: sudo apt-get update && sudo apt-get install -y ripgrep
+
+    - name: Run SwarmSDK tests
+      run: bundle exec rake swarm_sdk:test
+
+    - name: Run SwarmSDK linter
+      run: bundle exec rake swarm_sdk:rubocop

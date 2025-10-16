@@ -1,0 +1,73 @@
+version: 2
+
+swarm:
+  name: "Simple Swarm"
+  # all_agents:
+  #   permissions:
+  #     Bash:
+  #       denied_commands: ["^ls.*"]
+  #       allowed_paths: ["tmp/LOL/**/*"]
+  #     Read:
+  #       denied_paths: ["lib/**/*"]
+  lead: coordinator
+
+  agents:
+    # Coordinator agent - orchestrates file operations and delegates to worker
+    coordinator:
+      description: "A helpful assistant"
+      model: claude-sonnet-4-5-20250929
+      provider: openai
+      parameters:
+        temperature: 1.0
+      mcp_servers:
+      - name: vault-mcp
+        type: stdio
+        command: /opt/homebrew/bin/uvx
+        args: ["shopify-mcp-bridge"]
+        env:
+          MCP_API_TOKEN: "${VAULT_TOKEN}"
+          MCP_TARGET_URL: "https://vault.shopify.io/mcp"
+        timeout: 30  # seconds
+      # api_version: "v1/responses"
+
+      # Coordinator has read-only tools plus ability to delegate
+      # TodoWrite helps track progress on complex multi-step tasks
+      tools:
+        - Bash
+        # - Write
+
+      # Can delegate work to the worker agent
+      delegates_to:
+        - worker
+
+      directory: .
+
+      system_prompt: |
+       You are a helpful assistant.
+
+    # Worker agent - performs file write/edit operations in tmp/ directory only
+    worker:
+      description: "A helpful assistant"
+      model: claude-sonnet-4-5-20250929
+      provider: openai
+      # api_version: "v1/responses"
+
+      # Worker has all tools including Write and Edit
+      # TodoWrite helps track progress, MultiEdit enables multiple replacements
+      tools:
+        - Read
+        # - Write
+        # - Edit
+        # - MultiEdit
+        - Grep
+        - Glob
+        - TodoWrite
+
+      # Worker doesn't delegate - it's a leaf node
+      delegates_to: []
+
+      directory: .
+
+      system_prompt: |
+        You are a helpful assistant.
+

@@ -1,0 +1,26 @@
+# Test: post_tool_use with multiple tool matcher (Read|Grep|Glob) and exit 0
+# Expected: stdout logged, execution continues
+# Run: bundle exec exe/swarm run lib/swarm_sdk/examples/hooks/post_tool_use_multi_matcher_exit_0.yml -p "Search README.md for 'swarm'"
+
+version: 2
+swarm:
+  name: "post_tool_use Multi-Matcher Exit 0"
+  lead: agent
+
+  agents:
+    agent:
+      description: "Test agent"
+      model: gpt-5
+      provider: openai
+      system_prompt: "You are a test agent."
+      tools:
+        - Read
+        - Grep
+        - Glob
+
+      hooks:
+        post_tool_use:
+          - matcher: "Read|Grep|Glob"
+            type: command
+            command: "echo 'File access logged successfully for audit' && exit 0"
+            timeout: 5

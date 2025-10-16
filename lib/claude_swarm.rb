@@ -30,8 +30,10 @@ require "thor"
 require "zeitwerk"
 loader = Zeitwerk::Loader.for_gem
 loader.ignore("#{__dir__}/claude_swarm/templates")
-loader.ignore("#{__dir__}/swarm_core.rb")
-loader.ignore("#{__dir__}/swarm_core")
+loader.ignore("#{__dir__}/swarm_sdk.rb")
+loader.ignore("#{__dir__}/swarm_sdk")
+loader.ignore("#{__dir__}/swarm_cli.rb")
+loader.ignore("#{__dir__}/swarm_cli")
 loader.inflector.inflect(
   "cli" => "CLI",
   "openai" => "OpenAI",

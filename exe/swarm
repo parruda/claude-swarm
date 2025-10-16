@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require "swarm_core"
+require "swarm_cli"
 
-SwarmCore::CLI.start(ARGV)
+SwarmCLI::CLI.start(ARGV)
