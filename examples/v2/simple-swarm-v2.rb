@@ -22,7 +22,6 @@ SwarmSDK.build do
     model "gpt-5-mini"
     provider "openai"
 
-
     system_prompt <<~PROMPT
       You are the lead architect coordinating a development team. You have access to:
       - frontend_dev: Specializes in React and UI/UX

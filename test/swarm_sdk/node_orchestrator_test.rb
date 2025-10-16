@@ -5,8 +5,36 @@ require "test_helper"
 module SwarmSDK
   class NodeOrchestratorTest < Minitest::Test
     def setup
+      # Reset logging state before each test (in case previous test failed)
+      begin
+        SwarmSDK::LogStream.reset!
+      rescue StandardError
+        nil
+      end
+
+      begin
+        SwarmSDK::LogCollector.reset!
+      rescue StandardError
+        nil
+      end
+
       @model_id = "gpt-4o-mini"
       @provider = "openai"
+    end
+
+    def teardown
+      # Use begin/ensure to guarantee cleanup even if reset! raises
+      begin
+        SwarmSDK::LogStream.reset!
+      rescue StandardError
+        nil
+      end
+
+      begin
+        SwarmSDK::LogCollector.reset!
+      rescue StandardError
+        nil
+      end
     end
 
     def test_basic_two_node_workflow

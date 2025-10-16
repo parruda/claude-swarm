@@ -52,6 +52,26 @@ module SwarmSDK
 
       SwarmSDK::Agent::Definition.new(name, config)
     end
+
+    # Clean up LogCollector and LogStream state
+    #
+    # Call this in setup/teardown for tests that use swarm.execute with logging blocks
+    # to ensure no frozen state leaks between tests.
+    #
+    # @return [void]
+    def cleanup_logging_state
+      begin
+        SwarmSDK::LogCollector.reset!
+      rescue StandardError
+        nil
+      end
+
+      begin
+        SwarmSDK::LogStream.reset!
+      rescue StandardError
+        nil
+      end
+    end
   end
 end
 

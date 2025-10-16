@@ -7,6 +7,19 @@ module SwarmSDK
     include LLMMockHelper
 
     def setup
+      # Reset logging state before each test (in case previous test failed)
+      begin
+        LogStream.reset!
+      rescue StandardError
+        nil
+      end
+
+      begin
+        LogCollector.reset!
+      rescue StandardError
+        nil
+      end
+
       # Set dummy API key for tests
       @original_api_key = ENV["OPENAI_API_KEY"]
       ENV["OPENAI_API_KEY"] = "test-key-12345"
@@ -17,8 +30,19 @@ module SwarmSDK
     end
 
     def teardown
-      LogStream.reset!
-      LogCollector.reset!
+      # Use begin/ensure to guarantee cleanup even if reset! raises
+      begin
+        LogStream.reset!
+      rescue StandardError
+        nil
+      end
+
+      begin
+        LogCollector.reset!
+      rescue StandardError
+        nil
+      end
+
       WebMock.reset!
       ENV["OPENAI_API_KEY"] = @original_api_key
       # Reset RubyLLM configuration
