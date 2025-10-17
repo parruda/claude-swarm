@@ -5,7 +5,7 @@
 #
 # Tests: all_agents permissions, agent permissions, path and command restrictions
 #
-# Run: VAULT_TOKEN=xxx bundle exec ruby -Ilib lib/swarm_sdk/examples/dsl/06_permissions.rb
+# Run: bundle exec ruby -Ilib lib/swarm_sdk/examples/dsl/06_permissions.rb
 
 require "swarm_sdk"
 require_relative "../../../swarm_sdk/swarm_builder"

@@ -18,7 +18,7 @@
 # 2. Use permissions to grant access to other directories
 # 3. Use relative paths like '../other_dir/file.txt'
 #
-# Run: VAULT_TOKEN=xxx swarm-cli run -f lib/swarm_sdk/examples/multi_directory_permissions.yml
+# Run: swarm-cli run -f lib/swarm_sdk/examples/multi_directory_permissions.yml
 
 version: 2
 

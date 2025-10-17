@@ -5,7 +5,7 @@
 #
 # Tests: model, provider, base_url, api_version, context_window, system_prompt, description
 #
-# Run: VAULT_TOKEN=xxx bundle exec ruby -Ilib lib/swarm_sdk/examples/dsl/02_core_parameters.rb
+# Run: bundle exec ruby -Ilib lib/swarm_sdk/examples/dsl/02_core_parameters.rb
 
 require "swarm_sdk"
 require_relative "../../../swarm_sdk/swarm_builder"

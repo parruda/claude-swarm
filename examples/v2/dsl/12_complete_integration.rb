@@ -5,7 +5,7 @@
 #
 # Tests: ALL features combined in one swarm
 #
-# Run: VAULT_TOKEN=xxx bundle exec ruby -Ilib lib/swarm_sdk/examples/dsl/12_complete_integration.rb
+# Run: bundle exec ruby -Ilib lib/swarm_sdk/examples/dsl/12_complete_integration.rb
 
 require "swarm_sdk"
 require_relative "../../../swarm_sdk/swarm_builder"
@@ -62,16 +62,13 @@ swarm = SwarmSDK.build do
     delegates_to(:helper)
     directory(".")
 
-    # MCP server
+    # MCP server (example using filesystem-mcp)
     mcp_server(
-      :vault_mcp,
+      :filesystem,
       type: :stdio,
-      command: "/opt/homebrew/bin/uvx",
-      args: ["shopify-mcp-bridge"],
-      env: {
-        MCP_API_TOKEN: "test-key",
-        MCP_TARGET_URL: "https://vault.shopify.io/mcp",
-      },
+      command: "npx",
+      args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+      env: {},
     )
 
     # LLM parameters (gpt-5-nano doesn't support temperature, using empty hash for demo)
@@ -114,7 +111,7 @@ puts "  ✓ Swarm config (name, lead)"
 puts "  ✓ Agent core params (model, provider, base_url, api_version, context_window)"
 puts "  ✓ Agent identity (system_prompt, description)"
 puts "  ✓ Capabilities (tools, delegates_to, directory)"
-puts "  ✓ MCP servers (vault-mcp via stdio)"
+puts "  ✓ MCP servers (filesystem via stdio)"
 puts "  ✓ LLM params (parameters, timeout)"
 puts "  ✓ Advanced flags (include_default_tools, bypass_permissions, skip_base_prompt, assume_model_exists)"
 puts "  ✓ Permissions (all_agents and agent-level)"

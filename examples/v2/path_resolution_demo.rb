@@ -13,7 +13,7 @@
 # 3. Absolute paths are used as-is
 # 4. This is fiber-safe (no reliance on Dir.pwd)
 #
-# Run: VAULT_TOKEN=xxx bundle exec ruby -Ilib lib/swarm_sdk/examples/path_resolution_demo.rb
+# Run: bundle exec ruby -Ilib lib/swarm_sdk/examples/path_resolution_demo.rb
 
 require "swarm_sdk"
 require "fileutils"

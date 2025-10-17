@@ -5,7 +5,7 @@
 #
 # Tests: all_agents { hook } (applies to all agents)
 #
-# Run: VAULT_TOKEN=xxx bundle exec ruby -Ilib lib/swarm_sdk/examples/dsl/10_all_agents_hooks.rb
+# Run: bundle exec ruby -Ilib lib/swarm_sdk/examples/dsl/10_all_agents_hooks.rb
 
 require "swarm_sdk"
 require_relative "../../../swarm_sdk/swarm_builder"

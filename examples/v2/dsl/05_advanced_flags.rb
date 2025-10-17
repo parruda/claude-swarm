@@ -5,7 +5,7 @@
 #
 # Tests: include_default_tools, bypass_permissions, skip_base_prompt, assume_model_exists
 #
-# Run: VAULT_TOKEN=xxx bundle exec ruby -Ilib lib/swarm_sdk/examples/dsl/05_advanced_flags.rb
+# Run: bundle exec ruby -Ilib lib/swarm_sdk/examples/dsl/05_advanced_flags.rb
 
 require "swarm_sdk"
 require_relative "../../../swarm_sdk/swarm_builder"

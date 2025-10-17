@@ -20,13 +20,11 @@ swarm:
       parameters:
         temperature: 1.0
       mcp_servers:
-      - name: vault-mcp
+      - name: filesystem
         type: stdio
-        command: /opt/homebrew/bin/uvx
-        args: ["shopify-mcp-bridge"]
-        env:
-          MCP_API_TOKEN: "${VAULT_TOKEN}"
-          MCP_TARGET_URL: "https://vault.shopify.io/mcp"
+        command: npx
+        args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+        env: {}
         timeout: 30  # seconds
       # api_version: "v1/responses"
 

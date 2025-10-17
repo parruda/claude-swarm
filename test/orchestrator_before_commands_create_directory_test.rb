@@ -34,22 +34,22 @@ class OrchestratorBeforeCommandsCreateDirectoryTest < Minitest::Test
         main: lead
         before:
           - echo "Creating directories..."
-          - mkdir -p ./team_assessments/evidence
-          - mkdir -p ./team_assessments/reports
-          - mkdir -p ./team_assessments/sessions
-          - mkdir -p ./team_assessments/data
-          - mkdir -p ./team_assessments/evidence/vault
-          - mkdir -p ./team_assessments/evidence/google
-          - mkdir -p ./team_assessments/evidence/data
+          - mkdir -p ./project_workspace/evidence
+          - mkdir -p ./project_workspace/reports
+          - mkdir -p ./project_workspace/sessions
+          - mkdir -p ./project_workspace/data
+          - mkdir -p ./project_workspace/evidence/documents
+          - mkdir -p ./project_workspace/evidence/archives
+          - mkdir -p ./project_workspace/evidence/data
         instances:
           lead:
             description: "Lead developer"
-            directory: ./team_assessments
+            directory: ./project_workspace
             model: sonnet
     YAML
 
-    # The team_assessments directory should NOT exist yet
-    refute_path_exists(File.join(@tmpdir, "team_assessments"), "Directory should not exist before running")
+    # The project_workspace directory should NOT exist yet
+    refute_path_exists(File.join(@tmpdir, "project_workspace"), "Directory should not exist before running")
 
     config = ClaudeSwarm::Configuration.new(@config_path)
     generator = ClaudeSwarm::McpGenerator.new(config)
@@ -64,14 +64,14 @@ class OrchestratorBeforeCommandsCreateDirectoryTest < Minitest::Test
     end
 
     # Verify the directories were created
-    assert_path_exists(File.join(@tmpdir, "team_assessments"))
-    assert_path_exists(File.join(@tmpdir, "team_assessments", "evidence"))
-    assert_path_exists(File.join(@tmpdir, "team_assessments", "reports"))
-    assert_path_exists(File.join(@tmpdir, "team_assessments", "sessions"))
-    assert_path_exists(File.join(@tmpdir, "team_assessments", "data"))
-    assert_path_exists(File.join(@tmpdir, "team_assessments", "evidence", "vault"))
-    assert_path_exists(File.join(@tmpdir, "team_assessments", "evidence", "google"))
-    assert_path_exists(File.join(@tmpdir, "team_assessments", "evidence", "data"))
+    assert_path_exists(File.join(@tmpdir, "project_workspace"))
+    assert_path_exists(File.join(@tmpdir, "project_workspace", "evidence"))
+    assert_path_exists(File.join(@tmpdir, "project_workspace", "reports"))
+    assert_path_exists(File.join(@tmpdir, "project_workspace", "sessions"))
+    assert_path_exists(File.join(@tmpdir, "project_workspace", "data"))
+    assert_path_exists(File.join(@tmpdir, "project_workspace", "evidence", "documents"))
+    assert_path_exists(File.join(@tmpdir, "project_workspace", "evidence", "archives"))
+    assert_path_exists(File.join(@tmpdir, "project_workspace", "evidence", "data"))
   end
 
   def test_before_commands_run_in_existing_directory_when_present

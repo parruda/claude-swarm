@@ -5,7 +5,7 @@
 #
 # Tests: parameters (temperature, max_tokens, reasoning), timeout
 #
-# Run: VAULT_TOKEN=xxx bundle exec ruby -Ilib lib/swarm_sdk/examples/dsl/04_llm_parameters.rb
+# Run: bundle exec ruby -Ilib lib/swarm_sdk/examples/dsl/04_llm_parameters.rb
 
 require "swarm_sdk"
 require_relative "../../../swarm_sdk/swarm_builder"
