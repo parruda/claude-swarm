@@ -52,12 +52,6 @@ module ClaudeSwarm
     end
 
     def start
-      # Track this process
-      if @executor.session_path && File.exist?(@executor.session_path)
-        tracker = ProcessTracker.new(@executor.session_path)
-        tracker.track_pid(Process.pid, "mcp_#{@instance_config[:name]}")
-      end
-
       server = FastMcp::Server.new(
         name: @instance_config[:name],
         version: "1.0.0",

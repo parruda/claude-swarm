@@ -1,53 +1,17 @@
 ## [Unreleased]
 
-### Added
+### Changed
+- **Improved signal handling and graceful shutdown**: Enhanced signal handling for more reliable cleanup on interruption
+  - Added comprehensive signal handlers for `INT`, `TERM`, `QUIT`, and `HUP` signals
+  - Signals now trigger a graceful shutdown sequence that ensures all cleanup operations complete
+  - Moved signal trap setup from module-level to instance-level for better control and testability
+  - After commands now execute consistently during normal completion, signal-triggered shutdown, and error conditions
 
-- **finish_agent and finish_swarm hook actions**: Hooks can now terminate execution early with custom messages, providing powerful control flow for workflow automation
-  - `ctx.finish_agent(message)` - Exits the current agent immediately and returns the message as the final response. If the agent was delegated to, control returns to the calling agent. Use this when an agent completes its work early (e.g., validation fails, task is already done, early exit condition met)
-  - `ctx.finish_swarm(message)` - Stops the entire swarm execution immediately and returns the message as the final result. Use this for critical failures or when the entire workflow should terminate (e.g., security violation detected, all tasks complete)
-  - Available in `pre_tool_use`, `post_tool_use`, and `user_prompt` hooks
-  - Works correctly with delegation chains - finish actions propagate through nested agents
-  - Compatible with parallel tool execution - all parallel tools complete before termination
-  - Example use cases:
-    * Validation hooks that stop execution on invalid input
-    * Early exit when prerequisites aren't met
-    * Timeout or resource limit enforcement
-    * Security checks that halt dangerous operations
-    * Task completion detection (stop when goal achieved)
-
-- **Convenience methods on Hooks::Context**: Cleaner, more intuitive hook API
-  - Call `ctx.finish_agent(msg)` instead of `SwarmSDK::Hooks::Result.finish_agent(msg)`
-  - Also available: `ctx.halt(msg)`, `ctx.replace(value)`, `ctx.reprompt(prompt)`
-  - Makes hooks more readable and reduces boilerplate
-  - Example:
-    ```ruby
-    swarm.add_default_callback(:pre_tool_use, matcher: "Write") do |ctx|
-      # Clean, intuitive API
-      ctx.finish_agent("File writing not allowed") if sensitive_path?(ctx.tool_call.parameters[:file_path])
-    end
-    ```
-
-- **Enhanced event schema for better monitoring**:
-  - `swarm_stop` event now includes `last_agent` field (which agent produced the final response)
-  - `swarm_stop` event now includes `content` field (the final response content)
-  - `agent_stop` event includes custom `finish_reason` when terminated by finish actions:
-    * `"stop"` - Normal completion (LLM decided to stop)
-    * `"finish_agent"` - Agent terminated by finish_agent hook
-    * `"finish_swarm"` - Agent terminated by finish_swarm hook
-  - Better visibility into execution flow and termination reasons for logging and analytics
-
-### Improved
-
-- **Simplified CLI JSON formatter**: Removed duplicate event emission logic
-  - SwarmSDK's `swarm_stop` event now contains all necessary information (last_agent, content, metrics)
-  - No need for CLI to emit separate completion events
-  - Cleaner event stream with no duplicates
-
-### Internal
-
-- **Custom finish reasons in ContextTracker**: Supports finish_reason_override for agent_stop events
-- **Finish marker detection in Agent::Chat**: handle_tool_calls detects finish markers from hooks in both single and parallel execution paths
-- **Finish marker propagation**: Finish markers flow correctly through delegation chains using hash markers (`{ __finish_agent__: true, message: ... }`)
+- **Simplified ProcessTracker usage**: ProcessTracker now only tracks the main Claude process
+  - Removed redundant MCP server PID tracking from `ClaudeMcpServer#start`
+  - The Claude process manages its own MCP server child processes
+  - When the main Claude process terminates, it automatically handles cleanup of its associated MCP servers
+  - Results in cleaner process hierarchy and more reliable cleanup
 
 ## [1.0.1]
 

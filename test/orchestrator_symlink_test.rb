@@ -113,7 +113,10 @@ module ClaudeSwarm
         @generator.stub(:generate_all, nil) do
           @orchestrator.instance_variable_get(:@settings_generator).stub(:generate_all, nil) do
             @orchestrator.stub(:build_main_command, ["echo", "test"]) do
-              @orchestrator.stub(:system, true) do
+              @orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+                block&.call(12345)
+                true
+              }) do
                 @orchestrator.stub(:cleanup_processes, nil) do
                   @orchestrator.stub(:cleanup_run_symlink, nil) do
                     @orchestrator.stub(:cleanup_worktrees, nil) do
@@ -145,7 +148,10 @@ module ClaudeSwarm
       @generator.stub(:generate_all, nil) do
         @orchestrator.instance_variable_get(:@settings_generator).stub(:generate_all, nil) do
           @orchestrator.stub(:build_main_command, ["echo", "test"]) do
-            @orchestrator.stub(:system, true) do
+            @orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+              block&.call(12345)
+              true
+            }) do
               @orchestrator.stub(:cleanup_processes, nil) do
                 @orchestrator.stub(:cleanup_run_symlink, nil) do
                   @orchestrator.stub(:cleanup_worktrees, nil) do

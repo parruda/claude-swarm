@@ -38,7 +38,8 @@ class OrchestratorWorktreeCleanupTest < Minitest::Test
       changes_made = false
 
       # Mock system to simulate Claude execution and make changes
-      orchestrator.stub(:system, lambda { |*args|
+      orchestrator.stub(:system_with_pid!, lambda { |*args, &block|
+        block&.call(12345)
         # When claude is launched, we're in the worktree directory
         if args.any? { |arg| arg.to_s.include?("claude") } && !changes_made
           # Get the worktree path from the manager
@@ -78,7 +79,8 @@ class OrchestratorWorktreeCleanupTest < Minitest::Test
       commits_made = false
 
       # Mock system to simulate Claude execution and make commits
-      orchestrator.stub(:system, lambda { |*args|
+      orchestrator.stub(:system_with_pid!, lambda { |*args, &block|
+        block&.call(12345)
         # When claude is launched, we're in the worktree directory
         if args.any? { |arg| arg.to_s.include?("claude") } && !commits_made
           # Get the worktree path from the manager
@@ -117,7 +119,8 @@ class OrchestratorWorktreeCleanupTest < Minitest::Test
       # We'll get the worktree path after it's created
       worktree_path = nil
 
-      orchestrator.stub(:system, lambda { |*args|
+      orchestrator.stub(:system_with_pid!, lambda { |*args, &block|
+        block&.call(12345)
         # Get the worktree path from the manager when claude is launched
         if args.any? { |arg| arg.to_s.include?("claude") }
           worktree_manager = orchestrator.instance_variable_get(:@worktree_manager)

@@ -55,8 +55,11 @@ class OrchestratorBeforeCommandsCreateDirectoryTest < Minitest::Test
     generator = ClaudeSwarm::McpGenerator.new(config)
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
-    # Mock system! to prevent actual Claude execution
-    orchestrator.stub(:system!, true) do
+    # Mock system_with_pid! to prevent actual Claude execution
+    orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+      block&.call(12345)
+      true
+    }) do
       capture_io { orchestrator.start }
     end
 
@@ -96,8 +99,11 @@ class OrchestratorBeforeCommandsCreateDirectoryTest < Minitest::Test
     generator = ClaudeSwarm::McpGenerator.new(config)
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
-    # Mock system! to prevent actual Claude execution
-    orchestrator.stub(:system!, true) do
+    # Mock system_with_pid! to prevent actual Claude execution
+    orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+      block&.call(12345)
+      true
+    }) do
       capture_io { orchestrator.start }
     end
 

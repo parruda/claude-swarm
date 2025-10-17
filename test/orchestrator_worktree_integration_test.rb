@@ -30,7 +30,10 @@ class OrchestratorWorktreeIntegrationTest < Minitest::Test
       )
 
       # Start the orchestrator and capture the worktree path
-      orchestrator.stub(:system, true) do
+      orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+        block&.call(12345)
+        true
+      }) do
         capture_io { orchestrator.start }
       end
 
@@ -66,7 +69,8 @@ class OrchestratorWorktreeIntegrationTest < Minitest::Test
 
       worktree_name = nil
 
-      orchestrator.stub(:system, lambda { |*_args|
+      orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+        block&.call(12345)
         # Capture the worktree name from the manager
         worktree_name = orchestrator.instance_variable_get(:@worktree_manager).worktree_name
         true
@@ -88,7 +92,10 @@ class OrchestratorWorktreeIntegrationTest < Minitest::Test
         @config, @generator
       )
 
-      orchestrator.stub(:system, true) do
+      orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+        block&.call(12345)
+        true
+      }) do
         capture_io { orchestrator.start }
       end
 
@@ -115,7 +122,8 @@ class OrchestratorWorktreeIntegrationTest < Minitest::Test
       cleanup_called = false
 
       # Stub the system call and check cleanup at exit
-      orchestrator.stub(:system, lambda { |*_args|
+      orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+        block&.call(12345)
         # After start, worktree_manager should exist
         worktree_manager = orchestrator.instance_variable_get(:@worktree_manager)
         # Mock the cleanup method
