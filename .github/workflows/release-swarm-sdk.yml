@@ -11,33 +11,33 @@ on:
       - '.github/workflows/release-swarm-sdk.yml'
 
 jobs:
-  detect-version-change:
-    runs-on: ubuntu-latest
-    outputs:
-      version_changed: ${{ steps.check.outputs.changed }}
-      new_version: ${{ steps.check.outputs.version }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
+  # detect-version-change:
+  #   runs-on: ubuntu-latest
+  #   outputs:
+  #     version_changed: ${{ steps.check.outputs.changed }}
+  #     new_version: ${{ steps.check.outputs.version }}
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 2
 
-      - name: Check if version changed
-        id: check
-        run: |
-          CURRENT_VERSION=$(grep "VERSION = " lib/swarm_sdk/version.rb | sed -E 's/.*"(.*)"/\1/')
-          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+  #     - name: Check if version changed
+  #       id: check
+  #       run: |
+  #         CURRENT_VERSION=$(grep "VERSION = " lib/swarm_sdk/version.rb | sed -E 's/.*"(.*)"/\1/')
+  #         echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
 
-          if git diff HEAD^ HEAD -- lib/swarm_sdk/version.rb | grep -q "+.*VERSION"; then
-            echo "changed=true" >> $GITHUB_OUTPUT
-            echo "Version changed to $CURRENT_VERSION"
-          else
-            echo "changed=false" >> $GITHUB_OUTPUT
-            echo "Version unchanged, skipping release"
-          fi
+  #         if git diff HEAD^ HEAD -- lib/swarm_sdk/version.rb | grep -q "+.*VERSION"; then
+  #           echo "changed=true" >> $GITHUB_OUTPUT
+  #           echo "Version changed to $CURRENT_VERSION"
+  #         else
+  #           echo "changed=false" >> $GITHUB_OUTPUT
+  #           echo "Version unchanged, skipping release"
+  #         fi
 
   release:
-    needs: detect-version-change
-    if: needs.detect-version-change.outputs.version_changed == 'true'
+    # needs: detect-version-change
+    # if: needs.detect-version-change.outputs.version_changed == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -99,4 +99,4 @@ jobs:
         printf -- "---\n:rubygems_api_key: ${GEM_HOST_API_KEY}\n" > $HOME/.gem/credentials
         gem push swarm_sdk-*.gem
       env:
-        GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_AUTH_TOKEN }}
+        GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_AUTH_TOKEN_SWARM_SDK }}
