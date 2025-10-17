@@ -13,6 +13,7 @@ module SwarmSDK
       builder = Agent::Builder.new(:test_agent)
       builder.instance_eval do
         description("Test")
+        model("gpt-4")
         mcp_server(
           :filesystem,
           type: :stdio,
@@ -22,7 +23,8 @@ module SwarmSDK
         )
       end
 
-      servers = builder.instance_variable_get(:@mcp_servers)
+      definition = builder.to_definition
+      servers = definition.mcp_servers
 
       assert_equal(1, servers.size)
       assert_equal(:filesystem, servers[0][:name])
@@ -36,6 +38,7 @@ module SwarmSDK
       builder = Agent::Builder.new(:test_agent)
       builder.instance_eval do
         description("Test")
+        model("gpt-4")
         mcp_server(
           :web,
           type: :sse,
@@ -45,7 +48,8 @@ module SwarmSDK
         )
       end
 
-      servers = builder.instance_variable_get(:@mcp_servers)
+      definition = builder.to_definition
+      servers = definition.mcp_servers
 
       assert_equal(1, servers.size)
       assert_equal(:web, servers[0][:name])
@@ -59,6 +63,7 @@ module SwarmSDK
       builder = Agent::Builder.new(:test_agent)
       builder.instance_eval do
         description("Test")
+        model("gpt-4")
         mcp_server(
           :api,
           type: :http,
@@ -68,7 +73,8 @@ module SwarmSDK
         )
       end
 
-      servers = builder.instance_variable_get(:@mcp_servers)
+      definition = builder.to_definition
+      servers = definition.mcp_servers
 
       assert_equal(1, servers.size)
       assert_equal(:api, servers[0][:name])
@@ -82,12 +88,14 @@ module SwarmSDK
       builder = Agent::Builder.new(:test_agent)
       builder.instance_eval do
         description("Test")
+        model("gpt-4")
         mcp_server(:server1, type: :stdio, command: "cmd1")
         mcp_server(:server2, type: :sse, url: "https://example.com")
         mcp_server(:server3, type: :http, url: "https://api.example.com")
       end
 
-      servers = builder.instance_variable_get(:@mcp_servers)
+      definition = builder.to_definition
+      servers = definition.mcp_servers
 
       assert_equal(3, servers.size)
       assert_equal(:server1, servers[0][:name])
@@ -108,7 +116,7 @@ module SwarmSDK
         ],
       ))
 
-      agent_def = swarm.instance_variable_get(:@agent_definitions)[:test]
+      agent_def = swarm.agent_definition(:test)
 
       assert_equal(1, agent_def.mcp_servers.size)
       assert_equal(:server1, agent_def.mcp_servers[0][:name])

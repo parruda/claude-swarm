@@ -11,7 +11,7 @@ require "swarm_sdk"
 require_relative "../../../swarm_sdk/swarm_builder"
 require_relative "../../../swarm_sdk/agent_builder"
 
-ENV["OPENAI_API_KEY"] = ENV["VAULT_TOKEN"]
+ENV["OPENAI_API_KEY"] = "test-key"
 
 swarm = SwarmSDK.build do
   name("LLM Parameters Test")

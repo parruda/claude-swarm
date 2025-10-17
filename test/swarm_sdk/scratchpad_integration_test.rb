@@ -43,12 +43,21 @@ module SwarmSDK
       end
     end
 
-    def test_scratchpad_instance_exists
-      # Verify that the swarm has a scratchpad instance
-      scratchpad = @swarm.instance_variable_get(:@scratchpad)
+    def test_scratchpad_tools_work_across_agents
+      # Test behavior: Verify scratchpad actually works by using the tools
+      # This tests that scratchpad exists and is shared without checking internal state
+      writer = @swarm.agent(:Writer)
+      reader = @swarm.agent(:Reader)
 
-      refute_nil(scratchpad, "Swarm should have a scratchpad instance")
-      assert_instance_of(Tools::Stores::Scratchpad, scratchpad)
+      # Writer writes to scratchpad
+      write_tool = writer.tools[:ScratchpadWrite]
+      write_tool.execute(file_path: "test/data", content: "test_value", title: "Test Entry")
+
+      # Reader can read from same scratchpad
+      read_tool = reader.tools[:ScratchpadRead]
+      result = read_tool.execute(file_path: "test/data")
+
+      assert_includes(result, "test_value", "Reader should access Writer's scratchpad data")
     end
 
     def test_scratchpad_tools_are_always_available
@@ -93,16 +102,46 @@ module SwarmSDK
     end
 
     def test_each_swarm_has_separate_scratchpad
-      # Each swarm instance gets its own scratchpad
+      # Test behavior: Verify each swarm has isolated scratchpad storage
       swarm1 = Swarm.new(name: "Swarm 1")
       swarm2 = Swarm.new(name: "Swarm 2")
 
-      scratchpad1 = swarm1.instance_variable_get(:@scratchpad)
-      scratchpad2 = swarm2.instance_variable_get(:@scratchpad)
+      # Add agents to both swarms
+      swarm1.add_agent(create_agent(
+        name: :Agent1,
+        description: "Agent 1",
+        model: "claude-sonnet-4",
+        provider: "anthropic",
+        system_prompt: "Agent 1",
+      ))
 
-      refute_nil(scratchpad1)
-      refute_nil(scratchpad2)
-      refute_same(scratchpad1, scratchpad2, "Each swarm should have its own scratchpad")
+      swarm2.add_agent(create_agent(
+        name: :Agent2,
+        description: "Agent 2",
+        model: "claude-sonnet-4",
+        provider: "anthropic",
+        system_prompt: "Agent 2",
+      ))
+
+      # Write to swarm1's scratchpad
+      agent1 = swarm1.agent(:Agent1)
+      write_tool1 = agent1.tools[:ScratchpadWrite]
+      write_tool1.execute(file_path: "test/shared", content: "swarm1_value", title: "Swarm 1 Data")
+
+      # Write to swarm2's scratchpad with same path
+      agent2 = swarm2.agent(:Agent2)
+      write_tool2 = agent2.tools[:ScratchpadWrite]
+      write_tool2.execute(file_path: "test/shared", content: "swarm2_value", title: "Swarm 2 Data")
+
+      # Read from both - should have different values (isolated scratchpads)
+      read_tool1 = agent1.tools[:ScratchpadRead]
+      read_tool2 = agent2.tools[:ScratchpadRead]
+
+      result1 = read_tool1.execute(file_path: "test/shared")
+      result2 = read_tool2.execute(file_path: "test/shared")
+
+      assert_includes(result1, "swarm1_value", "Swarm1 should have its own value")
+      assert_includes(result2, "swarm2_value", "Swarm2 should have its own value")
     end
   end
 end

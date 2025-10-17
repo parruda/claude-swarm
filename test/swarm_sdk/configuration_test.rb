@@ -192,18 +192,17 @@ module SwarmSDK
     def test_deep_symbolization_of_yaml_keys
       with_config_file(valid_config) do |path|
         configuration = Configuration.load(path)
-        raw_config = configuration.instance_variable_get(:@config)
 
-        # Top-level keys
-        assert(raw_config.keys.all? { |k| k.is_a?(Symbol) })
+        # Test symbolization through public API - agent names should be symbols
+        assert(configuration.agent_names.all? { |k| k.is_a?(Symbol) })
 
-        # Swarm keys
-        assert(raw_config[:swarm].keys.all? { |k| k.is_a?(Symbol) })
+        # Test that agents hash has symbol keys
+        assert(configuration.agents.keys.all? { |k| k.is_a?(Symbol) })
 
-        # Agent config keys
-        agent_config = raw_config[:swarm][:agents][:lead]
+        # Test that agent config is accessible with symbols
+        lead_agent = configuration.agents[:lead]
 
-        assert(agent_config.keys.all? { |k| k.is_a?(Symbol) })
+        assert_instance_of(Agent::Definition, lead_agent)
       end
     end
 
@@ -215,10 +214,12 @@ module SwarmSDK
 
       with_config_file(config) do |path|
         configuration = Configuration.load(path)
-        raw_config = configuration.instance_variable_get(:@config)
 
-        mcp_servers = raw_config[:swarm][:agents][:lead][:mcp_servers]
+        # Test symbolization through public API
+        lead_agent = configuration.agents[:lead]
+        mcp_servers = lead_agent.mcp_servers
 
+        # MCP server configs should have symbol keys
         assert(mcp_servers.first.keys.all? { |k| k.is_a?(Symbol) })
       end
     end
@@ -523,24 +524,6 @@ module SwarmSDK
         # Should fail validation since description is required
         assert_match(/missing required.*description/i, error.message)
       end
-    end
-
-    def test_resolve_agent_file_path_with_absolute_path
-      config = Configuration.new("/path/to/config.yml")
-      config.instance_variable_set(:@config_dir, Pathname.new("/path/to"))
-
-      resolved = config.send(:resolve_agent_file_path, "/absolute/path/agent.md")
-
-      assert_equal("/absolute/path/agent.md", resolved)
-    end
-
-    def test_resolve_agent_file_path_with_relative_path
-      config = Configuration.new("/path/to/config.yml")
-      config.instance_variable_set(:@config_dir, Pathname.new("/path/to"))
-
-      resolved = config.send(:resolve_agent_file_path, "agents/agent.md")
-
-      assert_equal("/path/to/agents/agent.md", resolved)
     end
 
     def test_configuration_path_is_expanded

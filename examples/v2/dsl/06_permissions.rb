@@ -14,7 +14,7 @@ require_relative "../../../swarm_sdk/all_agents_builder"
 require_relative "../../../swarm_sdk/permissions_builder"
 require "fileutils"
 
-ENV["OPENAI_API_KEY"] = ENV["VAULT_TOKEN"]
+ENV["OPENAI_API_KEY"] = "test-key"
 
 # Setup test environment
 FileUtils.mkdir_p("tmp/allowed")

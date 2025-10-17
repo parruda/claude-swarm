@@ -9,84 +9,92 @@ module SwarmSDK
       @compactor = ContextCompactor.new(@chat)
     end
 
-    def test_prune_tool_results_truncates_long_results
-      # Create messages with long tool result
+    def test_compact_truncates_long_tool_results
+      # Add messages with long tool result to chat
       long_result = "x" * 1000
-      messages = [
-        create_message(:user, "test"),
-        create_message(:tool, long_result, tool_call_id: "1"),
-      ]
+      @chat.messages << create_message(:user, "test")
+      @chat.messages << create_message(:tool, long_result, tool_call_id: "1")
 
-      pruned = @compactor.send(:prune_tool_results, messages)
+      # Compact
+      @compactor.compact
 
-      # Tool result should be truncated
-      assert_equal(2, pruned.size)
-      assert_operator(pruned[1].content.length, :<, long_result.length)
-      assert_includes(pruned[1].content, "truncated by context compaction")
+      # Tool result should be truncated after compaction
+      tool_message = @chat.messages.find { |m| m.role == :tool }
+
+      assert_operator(tool_message.content.length, :<, long_result.length)
+      assert_includes(tool_message.content, "truncated by context compaction")
     end
 
-    def test_prune_tool_results_preserves_short_results
-      # Create messages with short tool result
+    def test_compact_preserves_short_tool_results
+      # Add messages with short tool result to chat
       short_result = "OK"
-      messages = [
-        create_message(:user, "test"),
-        create_message(:tool, short_result, tool_call_id: "1"),
-      ]
+      @chat.messages << create_message(:user, "test")
+      @chat.messages << create_message(:tool, short_result, tool_call_id: "1")
 
-      pruned = @compactor.send(:prune_tool_results, messages)
+      # Compact
+      @compactor.compact
 
-      # Tool result should NOT be truncated
-      assert_equal(2, pruned.size)
-      assert_equal(short_result, pruned[1].content)
+      # Short tool result should NOT be truncated
+      tool_message = @chat.messages.find { |m| m.role == :tool }
+
+      assert_equal(short_result, tool_message.content)
     end
 
-    def test_create_checkpoint_if_needed_does_not_checkpoint_short_conversations
-      # Create conversation with fewer messages than threshold
-      messages = 20.times.map { |i| create_message(:user, "message #{i}") }
+    def test_compact_does_not_checkpoint_short_conversations
+      # Add fewer messages than threshold
+      20.times { |i| @chat.messages << create_message(:user, "message #{i}") }
+      original_count = @chat.messages.size
 
-      checkpointed = @compactor.send(:create_checkpoint_if_needed, messages)
+      # Compact
+      @compactor.compact
 
-      # Should return original messages (no checkpoint)
-      assert_equal(messages.size, checkpointed.size)
-      refute(checkpointed.any? { |m| m.content.to_s.include?("CHECKPOINT") })
+      # Should not create checkpoint for short conversation
+      refute(@chat.messages.any? { |m| m.content.to_s.include?("CHECKPOINT") })
+      # Should still have messages (just pruned)
+      assert_operator(@chat.messages.size, :<=, original_count)
     end
 
-    def test_create_checkpoint_if_needed_creates_checkpoint_for_long_conversations
+    def test_compact_creates_checkpoint_for_long_conversations
       # Mock the summarization to avoid real LLM calls
       stub_summarization(@compactor)
 
-      # Create conversation with more messages than threshold
-      messages = 60.times.map { |i| create_message(:user, "message #{i}") }
+      # Add many messages to trigger checkpointing
+      60.times { |i| @chat.messages << create_message(:user, "message #{i}") }
+      original_count = @chat.messages.size
 
-      checkpointed = @compactor.send(:create_checkpoint_if_needed, messages)
+      # Compact
+      @compactor.compact
 
-      # Should have fewer messages + a checkpoint message
-      assert_operator(checkpointed.size, :<, messages.size)
-      assert(checkpointed.any? { |m| m.content.to_s.include?("CHECKPOINT") })
+      # Should have fewer messages due to checkpointing
+      assert_operator(@chat.messages.size, :<, original_count)
+      # Should have a checkpoint message
+      assert(@chat.messages.any? { |m| m.content.to_s.include?("CHECKPOINT") })
     end
 
-    def test_apply_sliding_window_keeps_recent_messages
-      # Create many messages
-      messages = 50.times.map { |i| create_message(:user, "message #{i}") }
+    def test_compact_applies_sliding_window
+      # Add many messages to trigger sliding window
+      50.times { |i| @chat.messages << create_message(:user, "message #{i}") }
 
-      windowed = @compactor.send(:apply_sliding_window, messages)
+      # Compact
+      @compactor.compact
 
-      # Should keep only sliding window size
-      assert_equal(20, windowed.size)
+      # Should keep only sliding window size (default 20)
+      assert_operator(@chat.messages.size, :<=, 20)
       # Should keep the most recent messages
-      assert_includes(windowed.last.content, "message 49")
+      assert_includes(@chat.messages.last.content, "message 49")
     end
 
-    def test_apply_sliding_window_preserves_system_messages
-      # Create system message + many user messages
-      messages = [create_message(:system, "You are an assistant")]
-      messages += 50.times.map { |i| create_message(:user, "message #{i}") }
+    def test_compact_preserves_system_messages
+      # Add system message + many user messages
+      @chat.messages << create_message(:system, "You are an assistant")
+      50.times { |i| @chat.messages << create_message(:user, "message #{i}") }
 
-      windowed = @compactor.send(:apply_sliding_window, messages)
+      # Compact
+      @compactor.compact
 
-      # Should keep system message + sliding window
-      assert(windowed.any? { |m| m.role == :system })
-      assert_includes(windowed.first.content, "You are an assistant")
+      # Should preserve system message even with sliding window
+      assert(@chat.messages.any? { |m| m.role == :system })
+      assert_includes(@chat.messages.first.content, "You are an assistant")
     end
 
     def test_compact_emits_events

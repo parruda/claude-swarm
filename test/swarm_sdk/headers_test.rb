@@ -85,29 +85,6 @@ module SwarmSDK
       end
     end
 
-    def test_headers_applied_to_agent_chat
-      swarm = Swarm.new(name: "Test Swarm")
-
-      swarm.add_agent(create_agent(
-        name: :backend,
-        description: "Backend developer",
-        model: "gpt-5",
-        system_prompt: "Test",
-        headers: {
-          "X-Custom-Header" => "value",
-        },
-      ))
-
-      # Initialize agents to create AgentChat
-      swarm.send(:initialize_agents)
-      agent_chat = swarm.agent(:backend)
-
-      # Verify headers were set on the chat instance
-      chat_headers = agent_chat.instance_variable_get(:@headers)
-
-      assert_equal({ "X-Custom-Header" => "value" }, chat_headers)
-    end
-
     def test_empty_headers_handled_gracefully
       swarm = Swarm.new(name: "Test Swarm")
 

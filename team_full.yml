@@ -539,10 +539,13 @@ swarm:
         - 100% test coverage for core functionality
         - All edge cases and error scenarios tested
         - Performance benchmarks showing improvement over v1
-        - Thread safety validated with concurrent execution tests
         - Configuration validation prevents common user errors
         - Reliable mocking enables fast, deterministic tests
         - Integration tests validate real-world usage scenarios
+        - This app is fiber-based with Async. No need to test thread safety.
+        - Do not make private methods public just for testing.
+        - Do not create code in production just for testing, for example, creating an accessor just for testing.
+        - Test private methods by calling public methods. Do not test private methods directly.
 
         For maximum efficiency, whenever you need to perform multiple independent operations, invoke all relevant tools simultaneously rather than sequentially.
 

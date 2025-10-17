@@ -132,7 +132,7 @@ module SwarmSDK
         end
       end
 
-      agent_def = swarm.instance_variable_get(:@agent_definitions)[:custom_agent]
+      agent_def = swarm.agent_definition(:custom_agent)
 
       refute(agent_def.coding_agent)
       refute(agent_def.include_default_tools)
@@ -154,7 +154,7 @@ module SwarmSDK
         end
       end
 
-      agent_def = swarm.instance_variable_get(:@agent_definitions)[:coding_agent]
+      agent_def = swarm.agent_definition(:coding_agent)
 
       assert(agent_def.coding_agent)
       # Should have base + custom
@@ -188,7 +188,7 @@ module SwarmSDK
         config = Configuration.load(file.path)
         swarm = config.to_swarm
 
-        agent_def = swarm.instance_variable_get(:@agent_definitions)[:custom_agent]
+        agent_def = swarm.agent_definition(:custom_agent)
 
         refute(agent_def.coding_agent)
         refute(agent_def.include_default_tools)
@@ -224,7 +224,7 @@ module SwarmSDK
         config = Configuration.load(file.path)
         swarm = config.to_swarm
 
-        agent_def = swarm.instance_variable_get(:@agent_definitions)[:coding_agent]
+        agent_def = swarm.agent_definition(:coding_agent)
 
         assert(agent_def.coding_agent)
         # Should have base + custom

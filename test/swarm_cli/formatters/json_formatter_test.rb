@@ -111,13 +111,4 @@ class JsonFormatterTest < Minitest::Test
     assert_equal({ "nested" => "value" }, parsed["data"])
     assert_equal([1, 2, 3], parsed["array"])
   end
-
-  def test_default_output_to_stdout
-    formatter = SwarmCLI::Formatters::JsonFormatter.new
-
-    # Access the instance variable to check default
-    output = formatter.instance_variable_get(:@output)
-
-    assert_equal($stdout, output)
-  end
 end

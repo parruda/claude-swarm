@@ -102,7 +102,7 @@ module SwarmSDK
       end
 
       # Execute with mocked tool call (non-delegation)
-      swarm.send(:initialize_agents)
+      # Access agent to trigger lazy initialization
       lead_agent = swarm.agent(:lead)
 
       # Mock the agent to make a tool call
@@ -125,38 +125,6 @@ module SwarmSDK
       # and the delegation_tool_call? method is implemented correctly
     end
 
-    def test_delegation_tool_call_helper_identifies_delegation_tools
-      swarm = create_swarm_with_delegation
-      swarm.send(:initialize_agents)
-
-      lead_agent = swarm.agent(:lead)
-
-      # Create a mock tool call for delegation tool
-      delegation_tool_call = Struct.new(:id, :name, :arguments).new(
-        "call_123",
-        "DelegateTaskToBackend",
-        { task: "Build API" },
-      )
-
-      # Create a mock tool call for regular tool
-      regular_tool_call = Struct.new(:id, :name, :arguments).new(
-        "call_456",
-        "Read",
-        { file_path: "test.rb" },
-      )
-
-      # Test delegation_tool_call? method
-      assert(
-        lead_agent.send(:delegation_tool_call?, delegation_tool_call),
-        "Should identify DelegateTaskToBackend as delegation tool",
-      )
-
-      refute(
-        lead_agent.send(:delegation_tool_call?, regular_tool_call),
-        "Should NOT identify Read as delegation tool",
-      )
-    end
-
     def test_pre_delegation_callback_can_halt_execution
       swarm = create_swarm_with_delegation
 
@@ -167,10 +135,10 @@ module SwarmSDK
       end
 
       # Execute and verify delegation was halted
-      swarm.send(:initialize_agents)
+      # Access agents to trigger lazy initialization
+      backend_agent = swarm.agent(:backend)
 
       # Mock backend agent to avoid HTTP calls (should not be called due to halt)
-      backend_agent = swarm.agent(:backend)
       backend_agent.define_singleton_method(:ask) do |_task|
         raise "Backend agent should not be called when delegation is halted!"
       end
@@ -194,7 +162,8 @@ module SwarmSDK
         end
       end
 
-      swarm.send(:initialize_agents)
+      # Access agents to trigger lazy initialization
+      swarm.agent(:lead)
 
       # Mock backend agent to avoid HTTP calls (should not be called due to replace)
       backend_agent = swarm.agent(:backend)
@@ -219,7 +188,8 @@ module SwarmSDK
         SwarmSDK::Hooks::Result.replace("Modified: #{original}")
       end
 
-      swarm.send(:initialize_agents)
+      # Access agents to trigger lazy initialization
+      swarm.agent(:lead)
 
       # Mock the backend agent to return a specific response
       backend_agent = swarm.agent(:backend)
@@ -246,7 +216,8 @@ module SwarmSDK
         # Return nil to continue
       end
 
-      swarm.send(:initialize_agents)
+      # Access agents to trigger lazy initialization
+      swarm.agent(:lead)
 
       # Mock backend agent
       backend_agent = swarm.agent(:backend)
@@ -276,7 +247,8 @@ module SwarmSDK
         # Return nil to continue
       end
 
-      swarm.send(:initialize_agents)
+      # Access agents to trigger lazy initialization
+      swarm.agent(:lead)
 
       # Mock backend agent
       backend_agent = swarm.agent(:backend)
@@ -339,7 +311,8 @@ module SwarmSDK
     end
 
     def execute_swarm_with_delegation(swarm)
-      swarm.send(:initialize_agents)
+      # Access agents to trigger lazy initialization
+      swarm.agent(:lead)
 
       # Mock backend agent to return a response
       backend_agent = swarm.agent(:backend)

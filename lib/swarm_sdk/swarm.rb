@@ -254,9 +254,6 @@ module SwarmSDK
       # Lazy initialization of agents (with optional logging)
       initialize_agents unless @agents_initialized
 
-      # Freeze log collector to make it fiber-safe before Async execution
-      LogCollector.freeze! if block_given?
-
       # Execution loop (supports reprompting)
       result = nil
       swarm_stop_triggered = false
@@ -360,25 +357,22 @@ module SwarmSDK
       # Cleanup MCP clients after execution
       cleanup
 
-      # Reset logging state for next execution
+      # Reset logging state for next execution if we set it up
       #
-      # IMPORTANT: When this swarm is a mini-swarm within a NodeOrchestrator workflow,
-      # LogCollector is frozen by the orchestrator to indicate external management.
-      # In this case, we must NOT reset the logging state, as it would break logging
-      # for subsequent nodes in the workflow.
+      # IMPORTANT: Only reset if we set up logging (block_given? == true).
+      # When this swarm is a mini-swarm within a NodeOrchestrator workflow,
+      # the orchestrator manages LogCollector and we don't set up logging.
       #
       # Flow in NodeOrchestrator:
-      # 1. NodeOrchestrator sets up LogCollector + LogStream
-      # 2. NodeOrchestrator freezes LogCollector (signals: "externally managed")
-      # 3. Each mini-swarm executes in sequence
-      # 4. Each mini-swarm skips reset (frozen = external management)
-      # 5. NodeOrchestrator resets once at the very end
+      # 1. NodeOrchestrator sets up LogCollector + LogStream (no block given to mini-swarms)
+      # 2. Each mini-swarm executes without logging block (block_given? == false)
+      # 3. Each mini-swarm skips reset (didn't set up logging)
+      # 4. NodeOrchestrator resets once at the very end
       #
-      # Flow in standalone swarm:
-      # 1. Swarm.execute sets up LogCollector + LogStream
-      # 2. Swarm.execute does NOT freeze (internal management)
-      # 3. Swarm.execute resets in ensure block (cleanup after execution)
-      unless LogCollector.frozen?
+      # Flow in standalone swarm / interactive REPL:
+      # 1. Swarm.execute sets up LogCollector + LogStream (block given)
+      # 2. Swarm.execute resets in ensure block (cleanup for next call)
+      if block_given?
         LogCollector.reset!
         LogStream.reset!
       end

@@ -12,7 +12,7 @@ require_relative "../../../swarm_sdk/swarm_builder"
 require_relative "../../../swarm_sdk/agent_builder"
 require_relative "../../../swarm_sdk/all_agents_builder"
 
-ENV["OPENAI_API_KEY"] = ENV["VAULT_TOKEN"]
+ENV["OPENAI_API_KEY"] = "test-key"
 
 swarm = SwarmSDK.build do
   name("All-Agents Hooks Test")

@@ -11,7 +11,7 @@ require "swarm_sdk"
 require_relative "../../../swarm_sdk/swarm_builder"
 require_relative "../../../swarm_sdk/agent_builder"
 
-ENV["OPENAI_API_KEY"] = ENV["VAULT_TOKEN"] || "test-key"
+ENV["OPENAI_API_KEY"] = "test-key"
 
 swarm = SwarmSDK.build do
   name("Basic Test Swarm")
@@ -25,7 +25,7 @@ swarm = SwarmSDK.build do
     tools(:Read)
   end
 end
-swarm.instance_variable_get(:@agents)
+
 puts "✅ Swarm built successfully!"
 puts "Name: #{swarm.name}"
 puts "Lead: #{swarm.lead_agent}"

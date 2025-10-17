@@ -44,85 +44,18 @@ module SwarmSDK
       assert_empty(result)
     end
 
-    def test_emit_with_nil_callbacks
-      # Explicitly test the nil case
-      LogCollector.instance_variable_set(:@callbacks, nil)
-
-      # Should not raise error
-      result = LogCollector.emit(type: "test")
-
-      assert_empty(result)
-    end
-
-    def test_freeze_prevents_new_callbacks
-      LogCollector.freeze!
-
-      error = assert_raises(StateError) do
-        LogCollector.on_log { |_event| }
-      end
-
-      assert_match(/frozen/i, error.message)
-    end
-
-    def test_freeze_makes_callbacks_immutable
+    def test_reset_clears_callbacks
       events = []
       LogCollector.on_log { |event| events << event }
-
-      LogCollector.freeze!
-
-      # Should still work with existing callbacks
-      LogCollector.emit(type: "test")
-
-      assert_equal(1, events.size)
-    end
-
-    def test_frozen_returns_true_after_freeze
-      refute_predicate(LogCollector, :frozen?)
-
-      LogCollector.freeze!
-
-      assert_predicate(LogCollector, :frozen?)
-    end
-
-    def test_freeze_with_nil_callbacks
-      # Ensure @callbacks is nil
-      LogCollector.instance_variable_set(:@callbacks, nil)
-
-      # Should not raise error
-      LogCollector.freeze!
-
-      assert_predicate(LogCollector, :frozen?)
-    end
-
-    def test_reset_unfreezes_collector
-      LogCollector.freeze!
-
-      assert_predicate(LogCollector, :frozen?)
 
       LogCollector.reset!
 
-      refute_predicate(LogCollector, :frozen?)
-
-      # Should be able to register callbacks again
-      events = []
+      # After reset, should be able to register new callbacks
       LogCollector.on_log { |event| events << event }
       LogCollector.emit(type: "test")
 
+      # Only new callback should be called
       assert_equal(1, events.size)
-    end
-
-    def test_emit_uses_defensive_copy
-      events = []
-      LogCollector.on_log { |event| events << event }
-
-      # Freeze callbacks
-      LogCollector.freeze!
-
-      # Emit should work even with frozen array
-      LogCollector.emit(type: "test1")
-      LogCollector.emit(type: "test2")
-
-      assert_equal(2, events.size)
     end
 
     def test_callbacks_receive_exact_entry

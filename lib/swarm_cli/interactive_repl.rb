@@ -569,15 +569,13 @@ module SwarmCLI
 
           # Get current line editor state
           le = @line_editor
-          line_index = le.instance_variable_get(:@line_index)
-          buffer = le.instance_variable_get(:@buffer_of_lines)
 
           new_line = stored_pre + selected + stored_post
           new_cursor = stored_pre.length + selected.bytesize
 
-          # Update buffer
-          buffer[line_index] = new_line
-          le.instance_variable_set(:@byte_pointer, new_cursor)
+          # Update buffer using public APIs
+          le.set_current_line(new_line)
+          le.byte_pointer = new_cursor
 
           # Update state - mark as navigating so we don't recalculate
           context[4] = pointer

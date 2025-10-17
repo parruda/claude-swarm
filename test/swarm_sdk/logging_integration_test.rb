@@ -98,9 +98,6 @@ module SwarmSDK
       # Set collector as emitter
       LogStream.emitter = LogCollector
 
-      # Freeze for safety
-      LogCollector.freeze!
-
       # Emit events
       LogStream.emit(type: "test1", data: "value1")
       LogStream.emit(type: "test2", data: "value2")

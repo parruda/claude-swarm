@@ -91,28 +91,6 @@ module SwarmSDK
         assert_equal(0, tokens)
       end
 
-      def test_detect_code_ratio_for_code
-        code = "function test() { return [1, 2, 3]; }"
-        ratio = TokenCounter.send(:detect_code_ratio, code)
-
-        # Code has many brackets/braces/parens
-        assert_operator(ratio, :>, 0.1)
-      end
-
-      def test_detect_code_ratio_for_prose
-        prose = "This is a normal English sentence without code."
-        ratio = TokenCounter.send(:detect_code_ratio, prose)
-
-        # Prose has few code indicators
-        assert_operator(ratio, :<, 0.1)
-      end
-
-      def test_detect_code_ratio_for_empty_string
-        ratio = TokenCounter.send(:detect_code_ratio, "")
-
-        assert_in_delta(0.0, ratio)
-      end
-
       private
 
       # Create a mock message

@@ -13,7 +13,7 @@ require_relative "../../../swarm_sdk/agent_builder"
 require_relative "../../../swarm_sdk/all_agents_builder"
 require_relative "../../../swarm_sdk/permissions_builder"
 
-ENV["OPENAI_API_KEY"] = ENV["VAULT_TOKEN"]
+ENV["OPENAI_API_KEY"] = "test-key"
 
 # Track execution
 @swarm_started = false
@@ -69,7 +69,7 @@ swarm = SwarmSDK.build do
       command: "/opt/homebrew/bin/uvx",
       args: ["shopify-mcp-bridge"],
       env: {
-        MCP_API_TOKEN: ENV["VAULT_TOKEN"],
+        MCP_API_TOKEN: "test-key",
         MCP_TARGET_URL: "https://vault.shopify.io/mcp",
       },
     )

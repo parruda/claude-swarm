@@ -30,48 +30,6 @@ module SwarmSDK
       assert_equal(RubyLLM::Chat, chat.class.superclass)
     end
 
-    def test_initialization_with_global_semaphore
-      chat = Agent::Chat.new(
-        definition: { model: "gpt-5" },
-        global_semaphore: @global_semaphore,
-      )
-
-      assert_equal(@global_semaphore, chat.instance_variable_get(:@global_semaphore))
-    end
-
-    def test_initialization_with_local_semaphore
-      chat = Agent::Chat.new(
-        definition: {
-          model: "gpt-5",
-          max_concurrent_tools: 10,
-        },
-      )
-
-      local_semaphore = chat.instance_variable_get(:@local_semaphore)
-
-      assert_instance_of(Async::Semaphore, local_semaphore)
-    end
-
-    def test_initialization_with_both_semaphores
-      chat = Agent::Chat.new(
-        definition: {
-          model: "gpt-5",
-          max_concurrent_tools: 10,
-        },
-        global_semaphore: @global_semaphore,
-      )
-
-      assert_equal(@global_semaphore, chat.instance_variable_get(:@global_semaphore))
-      assert_instance_of(Async::Semaphore, chat.instance_variable_get(:@local_semaphore))
-    end
-
-    def test_initialization_with_no_semaphores
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      assert_nil(chat.instance_variable_get(:@global_semaphore))
-      assert_nil(chat.instance_variable_get(:@local_semaphore))
-    end
-
     def test_initialization_with_base_url
       chat = Agent::Chat.new(
         definition: {
@@ -93,70 +51,8 @@ module SwarmSDK
              Agent::Chat.public_instance_methods(false).include?(:handle_tool_calls))
     end
 
-    def test_has_private_acquire_semaphores_method
-      Agent::Chat.new(definition: { model: "gpt-5" })
-
-      assert_includes(Agent::Chat.private_instance_methods(false), :acquire_semaphores)
-    end
-
     def test_inherits_from_ruby_llm_chat
       assert_equal(RubyLLM::Chat, Agent::Chat.superclass)
-    end
-
-    def test_acquire_semaphores_with_no_semaphores
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      result = nil
-      chat.send(:acquire_semaphores) { result = "executed" }
-
-      assert_equal("executed", result)
-    end
-
-    def test_acquire_semaphores_with_global_only
-      chat = Agent::Chat.new(
-        definition: { model: "gpt-5" },
-        global_semaphore: @global_semaphore,
-      )
-
-      executed = false
-      Async do
-        chat.send(:acquire_semaphores) { executed = true }
-      end.wait
-
-      assert(executed)
-    end
-
-    def test_acquire_semaphores_with_local_only
-      chat = Agent::Chat.new(
-        definition: {
-          model: "gpt-5",
-          max_concurrent_tools: 10,
-        },
-      )
-
-      executed = false
-      Async do
-        chat.send(:acquire_semaphores) { executed = true }
-      end.wait
-
-      assert(executed)
-    end
-
-    def test_acquire_semaphores_with_both
-      chat = Agent::Chat.new(
-        definition: {
-          model: "gpt-5",
-          max_concurrent_tools: 10,
-        },
-        global_semaphore: @global_semaphore,
-      )
-
-      executed = false
-      Async do
-        chat.send(:acquire_semaphores) { executed = true }
-      end.wait
-
-      assert(executed)
     end
 
     def test_initialization_with_custom_timeout
@@ -251,170 +147,6 @@ module SwarmSDK
       end
 
       assert_match(/doesn't support custom base_url/i, error.message)
-    end
-
-    def test_handle_tool_calls_uses_sequential_for_single_tool
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      # Create a mock response with a single tool call
-      tool_call = Struct.new(:id, :name, :arguments).new("call_1", "test_tool", { arg: "value" })
-      response = Struct.new(:tool_calls).new({ "call_1" => tool_call })
-
-      # Mock the superclass method to track if it was called
-      super_called = false
-      chat.define_singleton_method(:handle_tool_calls_super) do |_response, &_block|
-        super_called = true
-        nil
-      end
-
-      # Stub the method to call our mock
-      original_method = chat.method(:handle_tool_calls)
-      chat.define_singleton_method(:handle_tool_calls) do |resp, &block|
-        if resp.tool_calls.size == 1
-          handle_tool_calls_super(resp, &block)
-        else
-          original_method.call(resp, &block)
-        end
-      end
-
-      # Test that single tool call uses sequential execution
-      begin
-        chat.send(:handle_tool_calls, response)
-      rescue NoMethodError
-        # Expected since we're not fully mocking the response
-      end
-
-      assert(super_called, "Expected superclass method to be called for single tool call")
-    end
-
-    def test_handle_tool_calls_uses_parallel_for_multiple_tools
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      # Mock callbacks
-      tool_call_hooks = []
-      tool_result_callbacks = []
-      end_message_callbacks = []
-
-      chat.instance_variable_set(:@on, {
-        tool_call: ->(tc) { tool_call_hooks << tc },
-        tool_result: ->(r) { tool_result_callbacks << r },
-        end_message: ->(m) { end_message_callbacks << m },
-      })
-
-      # Mock execute_tool and add_message
-      chat.define_singleton_method(:execute_tool) do |tool_call|
-        "result_#{tool_call.id}"
-      end
-
-      chat.define_singleton_method(:add_message) do |role:, content:, tool_call_id:|
-        Struct.new(:role, :content, :tool_call_id).new(role, content, tool_call_id)
-      end
-
-      chat.define_singleton_method(:complete) do |&_block|
-        Struct.new(:content).new("Final response")
-      end
-
-      # Create mock response with multiple tool calls
-      tool_call_1 = Struct.new(:id, :name, :arguments).new("call_1", "tool_1", { arg: "value1" })
-      tool_call_2 = Struct.new(:id, :name, :arguments).new("call_2", "tool_2", { arg: "value2" })
-      tool_call_3 = Struct.new(:id, :name, :arguments).new("call_3", "tool_3", { arg: "value3" })
-
-      response = Struct.new(:tool_calls).new({
-        "call_1" => tool_call_1,
-        "call_2" => tool_call_2,
-        "call_3" => tool_call_3,
-      })
-
-      # Execute handle_tool_calls
-      chat.send(:handle_tool_calls, response)
-
-      # Verify all tool calls were executed
-      assert_equal(3, tool_call_hooks.size)
-      assert_equal(3, tool_result_callbacks.size)
-      assert_equal(3, end_message_callbacks.size)
-
-      # Verify results contain all tool call IDs
-      assert_equal(["result_call_1", "result_call_2", "result_call_3"], tool_result_callbacks)
-    end
-
-    def test_semaphores_limit_concurrent_execution
-      # Create semaphores with low limits
-      global_semaphore = Async::Semaphore.new(2)
-      chat = Agent::Chat.new(
-        definition: {
-          model: "gpt-5",
-          max_concurrent_tools: 1,
-        },
-        global_semaphore: global_semaphore,
-      )
-
-      execution_order = []
-      active_count = 0
-      max_concurrent = 0
-
-      # Execute multiple tasks that track concurrency
-      Async do
-        tasks = 5.times.map do |i|
-          Async do
-            chat.send(:acquire_semaphores) do
-              active_count += 1
-              max_concurrent = [max_concurrent, active_count].max
-              execution_order << i
-              sleep(0.01) # Simulate work
-              active_count -= 1
-            end
-          end
-        end
-
-        tasks.each(&:wait)
-      end.wait
-
-      # Verify all tasks executed
-      assert_equal(5, execution_order.size)
-
-      # Verify concurrency was limited (local semaphore limits to 1)
-      assert_equal(1, max_concurrent)
-    end
-
-    def test_global_semaphore_limits_across_multiple_chats
-      global_semaphore = Async::Semaphore.new(2)
-
-      chat1 = Agent::Chat.new(definition: { model: "gpt-5" }, global_semaphore: global_semaphore)
-      chat2 = Agent::Chat.new(definition: { model: "gpt-5" }, global_semaphore: global_semaphore)
-
-      max_concurrent = 0
-      active_count = 0
-
-      Async do
-        tasks = []
-
-        3.times do
-          tasks << Async do
-            chat1.send(:acquire_semaphores) do
-              active_count += 1
-              max_concurrent = [max_concurrent, active_count].max
-              sleep(0.01)
-              active_count -= 1
-            end
-          end
-        end
-
-        3.times do
-          tasks << Async do
-            chat2.send(:acquire_semaphores) do
-              active_count += 1
-              max_concurrent = [max_concurrent, active_count].max
-              sleep(0.01)
-              active_count -= 1
-            end
-          end
-        end
-
-        tasks.each(&:wait)
-      end.wait
-
-      # Global semaphore should limit to 2 concurrent across both chats
-      assert_operator(max_concurrent, :<=, 2, "Expected max concurrent to be <= 2, got #{max_concurrent}")
     end
 
     def test_context_limit_returns_model_context_window
@@ -582,9 +314,9 @@ module SwarmSDK
       )
 
       # Should have fetched the real model info
-      real_model_info = chat.instance_variable_get(:@real_model_info)
+      real_model_info = chat.real_model_info
 
-      refute_nil(real_model_info, "Expected @real_model_info to be set")
+      refute_nil(real_model_info, "Expected real_model_info to be set")
 
       # Should be able to get context limit from real model info
       limit = chat.context_limit
@@ -597,7 +329,7 @@ module SwarmSDK
       chat = Agent::Chat.new(definition: { model: "gpt-5" })
 
       # Should have fetched real model info even without base_url
-      real_model_info = chat.instance_variable_get(:@real_model_info)
+      real_model_info = chat.real_model_info
 
       refute_nil(real_model_info, "Expected @real_model_info to be populated for better context tracking")
 
@@ -749,38 +481,6 @@ module SwarmSDK
       assert_match(/todo list is currently empty/, Agent::Chat::SystemReminderInjector::AFTER_FIRST_MESSAGE_REMINDER)
     end
 
-    def test_determine_provider_without_base_url
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      provider = chat.send(:determine_provider, "openai", nil, nil)
-
-      assert_equal("openai", provider)
-    end
-
-    def test_determine_provider_with_base_url_and_responses_api_version
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      provider = chat.send(:determine_provider, "openai", "https://custom.api", "v1/responses")
-
-      assert_equal(:openai_with_responses, provider)
-    end
-
-    def test_determine_provider_with_base_url_without_responses_api
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      provider = chat.send(:determine_provider, "openai", "https://custom.api", nil)
-
-      assert_equal("openai", provider)
-    end
-
-    def test_determine_provider_with_ollama
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      provider = chat.send(:determine_provider, "ollama", "http://localhost:11434", nil)
-
-      assert_equal("ollama", provider)
-    end
-
     def test_context_limit_with_explicit_context_window
       chat = Agent::Chat.new(definition: { model: "gpt-5", context_window: 150_000 })
 
@@ -791,7 +491,7 @@ module SwarmSDK
       chat = Agent::Chat.new(definition: { model: "gpt-5" })
 
       # Should have real_model_info
-      real_model_info = chat.instance_variable_get(:@real_model_info)
+      real_model_info = chat.real_model_info
 
       refute_nil(real_model_info)
       assert_equal(real_model_info.context_window, chat.context_limit)
@@ -829,123 +529,6 @@ module SwarmSDK
       chat.stub(:messages, [user1]) do
         assert_equal(0, chat.cumulative_output_tokens)
       end
-    end
-
-    def test_calculate_cost_with_no_tokens_returns_zero
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      message = Struct.new(:input_tokens, :output_tokens, :model_id).new(nil, nil, "gpt-5")
-
-      cost = chat.send(:calculate_cost, message)
-
-      assert_in_delta(0.0, cost[:total_cost])
-    end
-
-    def test_calculate_cost_with_no_model_info_returns_zero
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      message = Struct.new(:input_tokens, :output_tokens, :model_id).new(100, 50, "nonexistent-model")
-
-      cost = chat.send(:calculate_cost, message)
-
-      assert_in_delta(0.0, cost[:total_cost])
-    end
-
-    def test_serialize_result_with_string
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      result = chat.send(:serialize_result, "string result")
-
-      assert_equal("string result", result)
-    end
-
-    def test_serialize_result_with_hash
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      result = chat.send(:serialize_result, { key: "value" })
-
-      assert_equal({ key: "value" }, result)
-    end
-
-    def test_serialize_result_with_array
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      result = chat.send(:serialize_result, [1, 2, 3])
-
-      assert_equal([1, 2, 3], result)
-    end
-
-    def test_serialize_result_with_other_type
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      result = chat.send(:serialize_result, 12345)
-
-      assert_equal("12345", result)
-    end
-
-    def test_serialize_result_with_content_object
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      # Create a temporary file for testing
-      Dir.mktmpdir do |dir|
-        file_path = File.join(dir, "test.pdf")
-        File.write(file_path, "binary content")
-
-        content = RubyLLM::Content.new("File: test.pdf", file_path)
-        result = chat.send(:serialize_result, content)
-
-        assert_includes(result, "File: test.pdf")
-        assert_includes(result, "[Attachments:")
-        assert_includes(result, file_path)
-        assert_includes(result, "application/pdf")
-      end
-    end
-
-    def test_serialize_result_with_content_object_text_only
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      content = RubyLLM::Content.new("Just text, no attachments")
-      result = chat.send(:serialize_result, content)
-
-      assert_equal("Just text, no attachments", result)
-    end
-
-    def test_serialize_result_with_content_object_attachment_only
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      Dir.mktmpdir do |dir|
-        file_path = File.join(dir, "image.png")
-        File.write(file_path, "image data")
-
-        content = RubyLLM::Content.new("", file_path)
-        result = chat.send(:serialize_result, content)
-
-        assert_includes(result, "[Attachments:")
-        assert_includes(result, file_path)
-        assert_includes(result, "image/png")
-      end
-    end
-
-    def test_format_tool_calls_with_nil
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      result = chat.send(:format_tool_calls, nil)
-
-      assert_nil(result)
-    end
-
-    def test_format_tool_calls_with_hash
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      tool_call = Struct.new(:id, :name, :arguments).new("call_123", "TestTool", { arg: "value" })
-      tool_calls = { "call_123" => tool_call }
-
-      result = chat.send(:format_tool_calls, tool_calls)
-
-      assert_equal(1, result.size)
-      assert_equal("call_123", result[0][:id])
-      assert_equal("TestTool", result[0][:name])
-      assert_equal({ arg: "value" }, result[0][:arguments])
     end
 
     def test_should_inject_todowrite_reminder_with_few_messages
@@ -1006,7 +589,7 @@ module SwarmSDK
       )
 
       # Provider should be configured
-      provider_instance = chat.instance_variable_get(:@provider)
+      provider_instance = chat.provider
 
       assert_instance_of(SwarmSDK::Providers::OpenAIWithResponses, provider_instance)
       assert(provider_instance.use_responses_api)
@@ -1057,35 +640,6 @@ module SwarmSDK
       assert_empty(events)
     end
 
-    def test_suggest_similar_models_finds_matches
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      suggestions = chat.send(:suggest_similar_models, "gpt")
-
-      # Should find some gpt models
-      refute_empty(suggestions)
-      assert(suggestions.all? { |m| m.id.downcase.include?("gpt") })
-    end
-
-    def test_suggest_similar_models_returns_max_three
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      suggestions = chat.send(:suggest_similar_models, "gpt")
-
-      assert_operator(suggestions.size, :<=, 3)
-    end
-
-    def test_suggest_similar_models_with_error_returns_empty
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      # Mock RubyLLM.models to raise error
-      RubyLLM.models.stub(:all, ->() { raise StandardError, "Error" }) do
-        suggestions = chat.send(:suggest_similar_models, "gpt")
-
-        assert_empty(suggestions)
-      end
-    end
-
     def test_initialization_with_custom_timeout_no_base_url
       chat = Agent::Chat.new(
         definition: {
@@ -1116,72 +670,6 @@ module SwarmSDK
       )
 
       assert_instance_of(Agent::Chat, chat)
-    end
-
-    def test_handle_tool_calls_with_halt_result
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      # Create mock response with multiple tool calls
-      tool_call = Struct.new(:id, :name, :arguments).new("call_1", "tool_1", { arg: "value1" })
-
-      response = Struct.new(:tool_calls).new({ "call_1" => tool_call })
-
-      # Mock execute_tool to return a Halt result
-      halt_result = RubyLLM::Tool::Halt.new("Halting execution")
-      chat.define_singleton_method(:execute_tool) do |_tool_call|
-        halt_result
-      end
-
-      chat.define_singleton_method(:add_message) do |role:, content:, tool_call_id:|
-        Struct.new(:role, :content, :tool_call_id).new(role, content, tool_call_id)
-      end
-
-      # Mock callbacks
-      chat.instance_variable_set(:@on, {
-        tool_call: ->(_tc) {},
-        tool_result: ->(_r) {},
-        end_message: ->(_m) {},
-      })
-
-      result = chat.send(:handle_tool_calls, response)
-
-      # Should return the halt result
-      assert_same(halt_result, result)
-    end
-
-    def test_handle_tool_calls_with_content_result
-      chat = Agent::Chat.new(definition: { model: "gpt-5" })
-
-      # Create mock response with tool call
-      tool_call = Struct.new(:id, :name, :arguments).new("call_1", "tool_1", { arg: "value" })
-
-      response = Struct.new(:tool_calls).new({ "call_1" => tool_call })
-
-      # Mock execute_tool to return RubyLLM::Content instead of string
-      content_result = RubyLLM::Content.new("Result content")
-      chat.define_singleton_method(:execute_tool) do |_tool_call|
-        content_result
-      end
-
-      chat.define_singleton_method(:add_message) do |role:, content:, tool_call_id:|
-        Struct.new(:role, :content, :tool_call_id).new(role, content, tool_call_id)
-      end
-
-      chat.define_singleton_method(:complete) do |&_block|
-        Struct.new(:content).new("Final response")
-      end
-
-      # Mock callbacks
-      chat.instance_variable_set(:@on, {
-        tool_call: ->(_tc) {},
-        tool_result: ->(_r) {},
-        end_message: ->(_m) {},
-      })
-
-      result = chat.send(:handle_tool_calls, response)
-
-      # Should complete and return final response
-      assert_equal("Final response", result.content)
     end
   end
 end

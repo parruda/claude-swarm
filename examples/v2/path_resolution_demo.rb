@@ -19,7 +19,7 @@ require "swarm_sdk"
 require "fileutils"
 require "tmpdir"
 
-ENV["OPENAI_API_KEY"] = ENV["VAULT_TOKEN"] || "test-key"
+ENV["OPENAI_API_KEY"] = "test-key"
 
 # Create a test directory structure for demonstration
 demo_root = File.join(Dir.tmpdir, "swarm_path_demo_#{Process.pid}")

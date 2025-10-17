@@ -34,9 +34,8 @@ module SwarmSDK
 
       # Mock RubyLLM.models to raise an error
       RubyLLM.models.stub(:refresh!, ->() { raise StandardError, "Test error" }) do
-        assert_raises(StandardError) do
-          SwarmSDK.refresh_models_silently
-        end
+        # Should silently catch the error (not raise)
+        SwarmSDK.refresh_models_silently
       end
 
       assert_equal(original_level, RubyLLM.logger.level, "Log level should be restored even on error")

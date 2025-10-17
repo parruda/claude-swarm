@@ -54,7 +54,6 @@ module SwarmSDK
 
         # Set LogStream to use LogCollector as emitter
         LogStream.emitter = LogCollector
-        LogCollector.freeze!
       end
 
       @execution_order.each do |node_name|
@@ -128,7 +127,6 @@ module SwarmSDK
         else
           # Normal node: build mini-swarm and execute with LLM
           # NOTE: Don't pass block to mini-swarm - LogCollector already captures all logs
-          # Passing the block would cause "Cannot register callbacks after frozen" error
           mini_swarm = build_swarm_for_node(node)
           result = mini_swarm.execute(current_input)
 
