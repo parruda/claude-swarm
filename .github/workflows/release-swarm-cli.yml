@@ -52,6 +52,9 @@ jobs:
         ruby-version: '3.4'
         bundler-cache: true
 
+    - name: Install ripgrep
+      run: sudo apt-get update && sudo apt-get install -y ripgrep
+
     - name: Run SwarmCLI tests
       run: bundle exec rake swarm_cli:test
 
