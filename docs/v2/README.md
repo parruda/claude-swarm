@@ -1,6 +1,6 @@
 # SwarmSDK & SwarmCLI Documentation
 
-**Version 2.0** | **Last Updated**: January 2025
+**Version 2.0**
 
 Welcome to the official documentation for SwarmSDK and SwarmCLI - a Ruby framework for orchestrating multiple AI agents as a collaborative team.
 
