@@ -25,3 +25,6 @@ Security/NoReflectionMethods:
   Exclude:
   - lib/claude_swarm/**/*
   - lib/claude_swarm.rb
+  - test/*.rb
+  - test/commands/**/*
+  - test/fixtures/**/*
