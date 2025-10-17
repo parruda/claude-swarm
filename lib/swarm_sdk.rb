@@ -124,3 +124,19 @@ RubyLLM.configure do |config|
   config.gpustack_api_base ||= ENV["GPUSTACK_API_BASE"]
   config.gpustack_api_key ||= ENV["GPUSTACK_API_KEY"]
 end
+
+# monkey patch ruby_llm/mcp to add `id` when sending "notifications/initialized" message
+# https://github.com/patvice/ruby_llm-mcp/issues/65
+require "ruby_llm/mcp/notifications/initialize"
+
+module RubyLLM
+  module MCP
+    module Notifications
+      class Initialize
+        def call
+          @coordinator.request(notification_body, add_id: true, wait_for_response: false)
+        end
+      end
+    end
+  end
+end
