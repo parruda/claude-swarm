@@ -8,6 +8,7 @@ class OrchestratorWorktreeErrorCleanupTest < Minitest::Test
   include TestHelpers
 
   def setup
+    @original_dir = Dir.pwd
     @temp_dir = Dir.mktmpdir("claude_swarm_test")
     @repo_dir = File.join(@temp_dir, "test_repo")
     @config_file = File.join(@repo_dir, "claude-swarm.yml")
@@ -39,7 +40,7 @@ class OrchestratorWorktreeErrorCleanupTest < Minitest::Test
   end
 
   def teardown
-    Dir.chdir("/") # Change out of temp dir before deleting
+    Dir.chdir(@original_dir) # Restore original directory
     FileUtils.rm_rf(@temp_dir)
   end
 

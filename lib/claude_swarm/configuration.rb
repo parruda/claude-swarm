@@ -11,7 +11,7 @@ module ClaudeSwarm
     # Regex patterns
     ENV_VAR_PATTERN = /\$\{([^}]+)\}/
     ENV_VAR_WITH_DEFAULT_PATTERN = /\$\{([^:}]+)(:=([^}]*))?\}/
-    O_SERIES_MODEL_PATTERN = /^o\d+(\s+(Preview|preview))?(-pro|-mini|-deep-research|-mini-deep-research)?$/
+    O_SERIES_MODEL_PATTERN = /^(o\d+(\s+(Preview|preview))?(-pro|-mini|-deep-research|-mini-deep-research)?|gpt-5(-mini|-nano)?)$/
 
     attr_reader :config, :config_path, :swarm, :swarm_name, :main_instance, :instances
 
@@ -160,16 +160,16 @@ module ClaudeSwarm
           raise Error, "Instance '#{name}' has invalid reasoning_effort '#{config["reasoning_effort"]}'. Must be 'low', 'medium', or 'high'"
         end
 
-        # Validate it's only used with o-series models
-        # Support patterns like: o1, o1-mini, o1-pro, o1 Preview, o3-deep-research, o4-mini-deep-research, etc.
+        # Validate it's only used with o-series or gpt-5 models
+        # Support patterns like: o1, o1-mini, o1-pro, o1 Preview, o3-deep-research, o4-mini-deep-research, gpt-5, gpt-5-mini, gpt-5-nano, etc.
         unless model&.match?(O_SERIES_MODEL_PATTERN)
-          raise Error, "Instance '#{name}' has reasoning_effort but model '#{model}' is not an o-series model (o1, o1 Preview, o1-mini, o1-pro, o3, o3-mini, o3-pro, o3-deep-research, o4-mini, o4-mini-deep-research, etc.)"
+          raise Error, "Instance '#{name}' has reasoning_effort but model '#{model}' is not an o-series or gpt-5 model (o1, o1 Preview, o1-mini, o1-pro, o3, o3-mini, o3-pro, o3-deep-research, o4-mini, o4-mini-deep-research, gpt-5, gpt-5-mini, gpt-5-nano, etc.)"
         end
       end
 
-      # Validate temperature is not used with o-series models when provider is openai
+      # Validate temperature is not used with o-series or gpt-5 models when provider is openai
       if provider == "openai" && config["temperature"] && model&.match?(O_SERIES_MODEL_PATTERN)
-        raise Error, "Instance '#{name}' has temperature parameter but model '#{model}' is an o-series model. O-series models use deterministic reasoning and don't accept temperature settings"
+        raise Error, "Instance '#{name}' has temperature parameter but model '#{model}' is an o-series or gpt-5 model. O-series and gpt-5 models use deterministic reasoning and don't accept temperature settings"
       end
 
       # Validate OpenAI-specific fields only when provider is not "openai"

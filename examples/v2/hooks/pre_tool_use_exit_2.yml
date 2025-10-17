@@ -1,0 +1,24 @@
+# Test: pre_tool_use with exit 2
+# Expected: Blocks tool execution, stderr sent to agent
+# Run: bundle exec exe/swarm run lib/swarm_sdk/examples/hooks/pre_tool_use_exit_2.yml -p "Run 'ls' command"
+
+version: 2
+swarm:
+  name: "pre_tool_use Exit 2 Test"
+  lead: agent
+
+  agents:
+    agent:
+      description: "Test agent"
+      model: gpt-5
+      provider: openai
+      system_prompt: "You are a test agent."
+      tools:
+        - Bash
+
+      hooks:
+        pre_tool_use:
+          - matcher: "Bash"
+            type: command
+            command: "echo 'Bash tool is disabled by policy. Please use alternative methods.' >&2 && exit 2"
+            timeout: 5

@@ -118,7 +118,7 @@ swarm:
     
     fast_mcp_expert:
       description: "Expert in fast-mcp library for MCP server development, tools, and resource management"
-      directory: ~/src/github.com/parruda/fast-mcp
+      directory: ~/src/github.com/yjacquin/fast-mcp
       model: opus
       vibe: true
       prompt: |

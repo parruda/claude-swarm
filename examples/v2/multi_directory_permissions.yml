@@ -1,0 +1,221 @@
+# Multi-Directory Access via Permissions
+#
+# This example demonstrates the new v1.0 approach to multi-directory access.
+#
+# BREAKING CHANGE (v0.x → v1.0):
+# - OLD: directories: ['.', 'lib/', 'test/']  # Multiple directories
+# - NEW: directory: 'lib/'                    # Single directory + permissions
+#
+# WHY THE CHANGE?
+# 1. Correctness: Tools now operate where agents expect (not in Dir.pwd)
+# 2. Fiber-safe: No reliance on process-global Dir.pwd
+# 3. Security: Explicit permission model for cross-directory access
+# 4. Simplicity: One directory = clear mental model
+#
+# MIGRATION GUIDE:
+# If your agent needs access to multiple directories:
+# 1. Choose ONE primary directory (where agent "lives")
+# 2. Use permissions to grant access to other directories
+# 3. Use relative paths like '../other_dir/file.txt'
+#
+# Run: VAULT_TOKEN=xxx swarm-cli run -f lib/swarm_sdk/examples/multi_directory_permissions.yml
+
+version: 2
+
+swarm:
+  name: "Multi-Directory Access Demo"
+  lead: backend_dev
+
+  # Global permissions example (optional)
+  # Uncomment to apply permissions to ALL agents
+  # all_agents:
+  #   permissions:
+  #     Read:
+  #       denied_paths: [".env", "**/.env", "**/secrets/**"]
+  #     Bash:
+  #       denied_commands: ["^rm -rf /", "^sudo .*"]
+
+  agents:
+    # Backend developer works primarily in backend/ directory
+    # but needs access to shared configuration and utilities
+    backend_dev:
+      description: "Backend developer with cross-directory access"
+      model: gpt-5-nano
+      provider: openai
+
+      # Primary working directory (singular!)
+      directory: backend/
+
+      tools:
+        - Read
+        - Write
+        - Edit
+        - Grep
+        - Glob
+        - Bash
+
+      # Permissions grant access beyond the primary directory
+      permissions:
+        # File operations: allow access to shared utilities and config
+        Read:
+          # Relative paths are resolved against agent's directory (backend/)
+          # So '../shared/**' means 'shared/' from project root
+          allowed_paths:
+            - "**/*"              # All files in backend/ (agent's directory)
+            - "../shared/**"      # Shared utilities (project_root/shared/)
+            - "../config/**"      # Configuration files (project_root/config/)
+            - "../README.md"      # Project README at root
+          denied_paths:
+            - "../frontend/**"    # Cannot read frontend code
+            - "**/.env"           # Cannot read environment secrets
+            - "**/secrets/**"     # Cannot read secrets directory
+
+        Write:
+          # More restrictive for writes
+          allowed_paths:
+            - "**/*"              # Can write anywhere in backend/
+            - "../shared/utils/**" # Can write shared utilities
+          denied_paths:
+            - "../config/**"      # Cannot modify config files
+            - "**/*.env"          # Cannot write .env files
+
+        Edit:
+          # Same as Write (Edit is just a different operation)
+          allowed_paths:
+            - "**/*"
+            - "../shared/utils/**"
+          denied_paths:
+            - "../config/**"
+
+        # Bash commands: restrict dangerous operations
+        Bash:
+          allowed_commands:
+            - "^git .*"           # All git commands
+            - "^npm (install|test|run).*" # Safe npm commands
+            - "^ruby .*"          # Ruby scripts
+            - "^bundle .*"        # Bundler commands
+          denied_commands:
+            - "^rm -rf /.*"       # No recursive root deletion
+            - "^sudo .*"          # No sudo
+            - "^curl.*\\|.*sh.*"  # No piping curl to shell
+
+      system_prompt: |
+        You are a backend developer working in the backend/ directory.
+
+        Your working directory is: backend/
+        - Relative paths like "server.rb" resolve to: backend/server.rb
+        - Relative paths like "../shared/utils.rb" resolve to: shared/utils.rb (project root)
+
+        You have permission to:
+        ✅ Read/write all files in backend/
+        ✅ Read shared utilities (../shared/**)
+        ✅ Read configuration (../config/**)
+        ✅ Read project README (../README.md)
+        ✅ Write to shared utilities (../shared/utils/**)
+
+        You do NOT have permission to:
+        ❌ Access frontend code (../frontend/**)
+        ❌ Modify configuration files (../config/**)
+        ❌ Read/write .env or secrets files
+        ❌ Run dangerous bash commands (rm -rf /, sudo, etc.)
+
+        When file operations fail with "Permission denied", check if:
+        1. The file is outside your allowed paths
+        2. The file is explicitly denied
+        3. You're trying to Write/Edit where you only have Read access
+
+    # Frontend developer: similar pattern, different directory
+    frontend_dev:
+      description: "Frontend developer with limited backend access"
+      model: gpt-5-nano
+      provider: openai
+
+      # Primary working directory
+      directory: frontend/
+
+      tools: [Read, Write, Edit, Grep, Glob, Bash]
+
+      permissions:
+        Read:
+          allowed_paths:
+            - "**/*"              # All files in frontend/
+            - "../shared/**"      # Shared utilities
+            - "../backend/api/**" # Can read API documentation
+          denied_paths:
+            - "../backend/secrets/**"
+            - "**/.env"
+
+        Write:
+          allowed_paths:
+            - "**/*"              # Can write anywhere in frontend/
+            - "../shared/ui/**"   # Can write shared UI components
+
+        Edit:
+          allowed_paths:
+            - "**/*"
+            - "../shared/ui/**"
+
+        Bash:
+          allowed_commands:
+            - "^git .*"
+            - "^npm .*"
+            - "^yarn .*"
+            - "^node .*"
+
+      system_prompt: |
+        You are a frontend developer working in the frontend/ directory.
+
+        Your working directory is: frontend/
+        - Relative paths like "index.html" resolve to: frontend/index.html
+        - Relative paths like "../shared/ui.css" resolve to: shared/ui.css
+
+        You have permission to:
+        ✅ Read/write all files in frontend/
+        ✅ Read shared utilities and UI components
+        ✅ Read backend API documentation (../backend/api/**)
+        ✅ Write to shared UI components (../shared/ui/**)
+
+        You do NOT have permission to:
+        ❌ Modify backend code
+        ❌ Read backend secrets
+        ❌ Read/write .env files
+
+    # Coordinator: works in project root, can delegate to specialists
+    coordinator:
+      description: "Coordinator with read-only access to entire project"
+      model: gpt-5-nano
+      provider: openai
+
+      # Works in project root
+      directory: .
+
+      tools: [Read, Grep, Glob, TodoWrite]
+      delegates_to: [backend_dev, frontend_dev]
+
+      # Read-only access to everything except secrets
+      permissions:
+        Read:
+          allowed_paths: ["**/*"]
+          denied_paths: ["**/.env", "**/secrets/**"]
+
+      system_prompt: |
+        You are a project coordinator with read-only access to the entire codebase.
+
+        Your working directory is the project root.
+        - Relative path "README.md" → ./README.md (root)
+        - Relative path "backend/server.rb" → ./backend/server.rb
+        - Relative path "frontend/index.html" → ./frontend/index.html
+
+        You can:
+        ✅ Read any file in the project (except secrets)
+        ✅ Search across all directories
+        ✅ Delegate work to backend_dev and frontend_dev
+
+        You cannot:
+        ❌ Write or edit files (delegate to specialists)
+        ❌ Read .env or secrets files
+
+        When delegating:
+        - Backend work → backend_dev
+        - Frontend work → frontend_dev
+        - Complex tasks → use TodoWrite to track progress

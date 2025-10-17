@@ -17,3 +17,4 @@ build/
 .react-router/
 .vite/
 .DS_Store
+test/coverage/

@@ -1,0 +1,21 @@
+# Test: agent_stop with exit 1
+# Expected: stderr added to log stream, agent stops normally (non-blocking error)
+# Run: bundle exec exe/swarm run lib/swarm_sdk/examples/hooks/agent_stop_exit_1.yml -p "What is 2+2?"
+
+version: 2
+swarm:
+  name: "agent_stop Exit 1 Test"
+  lead: agent
+
+  agents:
+    agent:
+      description: "Test agent"
+      model: gpt-5
+      provider: openai
+      system_prompt: "You are a test agent."
+
+      hooks:
+        agent_stop:
+          - type: command
+            command: "echo 'Warning: Failed to save agent metrics to database' >&2 && exit 1"
+            timeout: 5

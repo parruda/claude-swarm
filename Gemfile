@@ -3,7 +3,9 @@
 source "https://rubygems.org"
 
 # Specify your gem's dependencies in claude_swarm.gemspec
-gemspec
+gemspec name: "claude_swarm"
+gemspec name: "swarm_sdk"
+gemspec name: "swarm_cli"
 
 gem "irb", require: false
 gem "rake", "~> 13.0", require: false
@@ -18,3 +20,4 @@ gem "rubocop-minitest", require: false
 gem "rubocop-rake", require: false
 
 gem "headless_browser_tool", require: false
+gem "vcr"

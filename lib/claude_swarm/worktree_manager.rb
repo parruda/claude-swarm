@@ -3,6 +3,7 @@
 module ClaudeSwarm
   class WorktreeManager
     include SystemUtils
+
     attr_reader :shared_worktree_name, :created_worktrees
 
     def initialize(cli_worktree_option = nil, session_id: nil)

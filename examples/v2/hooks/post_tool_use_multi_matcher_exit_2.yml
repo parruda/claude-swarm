@@ -1,0 +1,26 @@
+# Test: post_tool_use with multiple tool matcher (Read|Grep|Glob) and exit 2
+# Expected: Tools already ran, stderr sent to agent to review output
+# Run: bundle exec exe/swarm run lib/swarm_sdk/examples/hooks/post_tool_use_multi_matcher_exit_2.yml -p "Search README.md for 'swarm'"
+
+version: 2
+swarm:
+  name: "post_tool_use Multi-Matcher Exit 2"
+  lead: agent
+
+  agents:
+    agent:
+      description: "Test agent"
+      model: gpt-5
+      provider: openai
+      system_prompt: "You are a test agent."
+      tools:
+        - Read
+        - Grep
+        - Glob
+
+      hooks:
+        post_tool_use:
+          - matcher: "Read|Grep|Glob"
+            type: command
+            command: "echo 'SECURITY WARNING: File access tool detected potential sensitive data exposure. Review the output carefully before proceeding.' >&2 && exit 2"
+            timeout: 5

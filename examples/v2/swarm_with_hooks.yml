@@ -1,0 +1,61 @@
+# SwarmSDK Example: YAML Hooks Feature
+#
+# This example demonstrates YAML hooks that execute shell commands at various
+# lifecycle points. Both YAML and Ruby DSL support hooks using the same terminology.
+#
+# YAML hooks: Shell commands defined in YAML files
+# DSL hooks: Ruby blocks defined in code
+#
+# Setup: export OPENAI_API_KEY=your-api-key
+# Run: swarm run lib/swarm_sdk/examples/swarm_with_hooks.yml -p "your prompt"
+#
+# Or programmatically:
+#   swarm = SwarmSDK::Swarm.load("lib/swarm_sdk/examples/swarm_with_hooks.yml")
+#   result = swarm.execute("your prompt")
+
+version: 2
+
+swarm:
+  name: "Development Team with Hooks"
+  lead: backend
+
+  # Swarm-level hooks (only swarm_start and swarm_stop)
+  # These run at swarm lifecycle events
+  hooks:
+    swarm_start:
+      - type: command
+        command: "echo 'Swarm starting: Development Team' > tmp/log.txt"
+        timeout: 5
+
+    swarm_stop:
+      - type: command
+        command: "echo 'Swarm completed successfully' >> tmp/log.txt"
+        timeout: 5
+
+  agents:
+    backend:
+      description: "Backend developer with custom hooks"
+      model: gpt-5
+      provider: openai
+      system_prompt: "You are a backend developer. Build APIs and databases."
+      tools:
+        - Read
+        - Glob
+      hooks:
+        user_prompt:
+          - type: command
+            command: "echo 'Cannot proceed with this prompt' >&2;exit 2"
+            timeout: 10
+        pre_tool_use:
+          - matcher: "Read"
+            type: command
+            command: "echo \"you can't read files\" >&2; echo \"Can't read files!\" >> tmp/log.txt; exit 2"
+            timeout: 10
+          - matcher: "Glob"
+            type: command
+            command: "echo \"you can't use Glob, not authorized\" >&2; echo cannot use Glob, not authorized >> tmp/log.txt; exit 2"
+            timeout: 10
+          - matcher: "Grep"
+            type: command
+            command: "echo \"you can't use Grep, not authorized\" >&2; echo cannot use Grep, not authorized >> tmp/log.txt; exit 2"
+            timeout: 10
