@@ -342,6 +342,27 @@ module TestHelpers
       end
     end
   end
+
+  module SwarmSDKHelpers
+    # Helper to create agent definitions with sensible defaults for testing
+    #
+    # @param name [Symbol, String] Agent name
+    # @param config [Hash] Agent configuration (optional fields)
+    # @return [SwarmSDK::Agent::Definition] Fully configured agent definition
+    #
+    # @example
+    #   swarm.add_agent(create_agent(name: :test))
+    #   swarm.add_agent(create_agent(name: :backend, tools: [:Read, :Write]))
+    def create_agent(name:, **config)
+      # Provide sensible defaults for testing
+      config[:description] ||= "Test agent #{name}"
+      config[:model] ||= "gpt-5"
+      config[:system_prompt] ||= "Test"
+      config[:directory] ||= "."
+
+      SwarmSDK::Agent::Definition.new(name, config)
+    end
+  end
 end
 
 # Include all helpers in test classes
@@ -355,5 +376,6 @@ module Minitest
     include TestHelpers::LogHelpers
     include TestHelpers::McpHelpers
     include TestHelpers::SystemUtilsHelpers
+    include TestHelpers::SwarmSDKHelpers
   end
 end

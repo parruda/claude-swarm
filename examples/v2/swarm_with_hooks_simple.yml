@@ -1,0 +1,25 @@
+version: 2
+
+swarm:
+  name: "Simple Hooks Test"
+  lead: backend
+
+  hooks:
+    swarm_start:
+      - type: command
+        command: "echo 'Swarm starting' >&2"
+
+  agents:
+    backend:
+      description: "Backend developer"
+      model: gpt-5
+      system_prompt: "You are a backend developer."
+      tools:
+        - Read
+        - Bash
+
+      hooks:
+        pre_tool_use:
+          - matcher: "Bash"
+            type: command
+            command: "python3 lib/swarm_sdk/examples/hooks/validate_bash.py"

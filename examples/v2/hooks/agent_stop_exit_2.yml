@@ -1,0 +1,26 @@
+# Test: agent_stop with exit 2
+# Expected: Blocks stoppage ONCE, sends stderr to agent, agent continues
+# Note: This uses a Ruby callback (not shell hook) to implement "block once" behavior
+# Run: bundle exec exe/swarm run lib/swarm_sdk/examples/hooks/agent_stop_exit_2.yml -p "What is 2+2?"
+
+version: 2
+swarm:
+  name: "agent_stop Exit 2 Test"
+  lead: agent
+
+  agents:
+    agent:
+      description: "Test agent"
+      model: gpt-5
+      provider: openai
+      system_prompt: "You are a test agent."
+
+      # NOTE: agent_stop exit 2 behavior requires stateful "block once" logic
+      # This is better implemented via Ruby callbacks, not shell hooks
+      # See docs/hooks.md for agent_stop reprompting examples with callbacks
+
+      hooks:
+        agent_stop:
+          - type: command
+            command: "echo 'Response quality check: Please provide more detail in your answer' >&2 && exit 2"
+            timeout: 5

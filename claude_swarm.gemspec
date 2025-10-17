@@ -20,7 +20,6 @@ Gem::Specification.new do |spec|
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.2.0"
 
-  spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = "https://github.com/parruda/claude-swarm"
   spec.metadata["changelog_uri"] = "https://github.com/parruda/claude-swarm/blob/main/CHANGELOG.md"
 
@@ -30,11 +29,12 @@ Gem::Specification.new do |spec|
   spec.files = IO.popen(["git", "ls-files", "-z"], chdir: __dir__, err: IO::NULL) do |ls|
     ls.readlines("\x0", chomp: true).reject do |f|
       (f == gemspec) ||
-        f.start_with?("bin/", "test/", "spec/", "features/", ".git", "appveyor", "Gemfile")
+        f.start_with?("bin/", "test/", "spec/", "features/", ".git", "appveyor", "Gemfile") ||
+        (f == "exe/claude-swarm")
     end
   end
   spec.bindir = "exe"
-  spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
+  spec.executables = ["claude-swarm"]
   spec.require_paths = ["lib"]
 
   spec.add_dependency("thor", "~> 1.3")

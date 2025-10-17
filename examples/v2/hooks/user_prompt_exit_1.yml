@@ -1,0 +1,21 @@
+# Test: user_prompt with exit 1
+# Expected: stderr added to log stream, execution continues (non-blocking error)
+# Run: bundle exec exe/swarm run lib/swarm_sdk/examples/hooks/user_prompt_exit_1.yml -p "What is 2+2?"
+
+version: 2
+swarm:
+  name: "user_prompt Exit 1 Test"
+  lead: agent
+
+  agents:
+    agent:
+      description: "Test agent"
+      model: gpt-5
+      provider: openai
+      system_prompt: "You are a test agent."
+
+      hooks:
+        user_prompt:
+          - type: command
+            command: "echo 'Warning: Unable to fetch additional context for this prompt' >&2 && exit 1"
+            timeout: 5

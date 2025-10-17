@@ -8,6 +8,7 @@ class OrchestratorBeforeCommandsCreateDirectoryTest < Minitest::Test
   include TestHelpers
 
   def setup
+    @original_dir = Dir.pwd
     @tmpdir = Dir.mktmpdir("claude_swarm_test")
     @config_path = File.join(@tmpdir, "claude-swarm.yml")
     Dir.chdir(@tmpdir)
@@ -18,7 +19,7 @@ class OrchestratorBeforeCommandsCreateDirectoryTest < Minitest::Test
   end
 
   def teardown
-    Dir.chdir("/")
+    Dir.chdir(@original_dir) # Restore original directory
     FileUtils.rm_rf(@tmpdir)
     ENV.delete("CLAUDE_SWARM_SESSION_PATH")
     ENV.delete("CLAUDE_SWARM_ROOT_DIR")

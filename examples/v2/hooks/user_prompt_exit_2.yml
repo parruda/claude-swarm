@@ -1,0 +1,21 @@
+# Test: user_prompt with exit 2
+# Expected: Blocks prompt processing, prompt erased, stderr to logs only (NOT to agent)
+# Run: bundle exec exe/swarm run lib/swarm_sdk/examples/hooks/user_prompt_exit_2.yml -p "Any dangerous prompt"
+
+version: 2
+swarm:
+  name: "user_prompt Exit 2 Test"
+  lead: agent
+
+  agents:
+    agent:
+      description: "Test agent"
+      model: gpt-5
+      provider: openai
+      system_prompt: "You are a test agent."
+
+      hooks:
+        user_prompt:
+          - type: command
+            command: "echo 'This prompt violates content policy and has been blocked' >&2 && exit 2"
+            timeout: 5

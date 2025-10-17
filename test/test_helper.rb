@@ -14,9 +14,25 @@ end
 $LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
 
 require "claude_swarm"
+require "swarm_sdk"
 require "minitest/autorun"
+
+# WebMock for mocking HTTP requests in tests
+require "webmock/minitest"
+
 require_relative "fixtures/swarm_configs"
 require_relative "helpers/test_helpers"
+require_relative "helpers/llm_mock_helper"
+
+# Configure WebMock to block all external HTTP requests except localhost
+WebMock.disable_net_connect!(allow_localhost: true)
+
+# Include LLM mocking helpers in all tests
+module Minitest
+  class Test
+    include LLMMockHelper
+  end
+end
 
 # Set up a temporary home directory for all tests
 require "tmpdir"

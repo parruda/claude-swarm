@@ -3,6 +3,7 @@
 module ClaudeSwarm
   class CLI < Thor
     include SystemUtils
+
     class << self
       def exit_on_failure?
         true

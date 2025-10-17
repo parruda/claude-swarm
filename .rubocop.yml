@@ -1,5 +1,7 @@
-inherit_from: .rubocop_todo.yml
+require:
+  - ./rubocop/cop/security/no_reflection_methods.rb
 
+inherit_from: .rubocop_todo.yml
 inherit_gem:
   rubocop-shopify: rubocop.yml
 
@@ -12,3 +14,17 @@ AllCops:
   NewCops: enable
   Exclude:
     - '.ruby-lsp/**/*'
+
+# Allow flexible naming in examples directory
+Naming/FileName:
+  Exclude:
+    - 'examples/**/*'
+
+Security/NoReflectionMethods:
+  Enabled: true
+  Exclude:
+  - lib/claude_swarm/**/*
+  - lib/claude_swarm.rb
+  - test/*.rb
+  - test/commands/**/*
+  - test/fixtures/**/*

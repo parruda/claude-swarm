@@ -1,0 +1,24 @@
+# Test: pre_tool_use with exit 1
+# Expected: stderr added to log stream, execution continues (non-blocking error)
+# Run: bundle exec exe/swarm run lib/swarm_sdk/examples/hooks/pre_tool_use_exit_1.yml -p "Run 'ls' command"
+
+version: 2
+swarm:
+  name: "pre_tool_use Exit 1 Test"
+  lead: agent
+
+  agents:
+    agent:
+      description: "Test agent"
+      model: gpt-5
+      provider: openai
+      system_prompt: "You are a test agent."
+      tools:
+        - Bash
+
+      hooks:
+        pre_tool_use:
+          - matcher: "Bash"
+            type: command
+            command: "echo 'Warning: unusual Bash usage detected' >&2 && exit 1"
+            timeout: 5
