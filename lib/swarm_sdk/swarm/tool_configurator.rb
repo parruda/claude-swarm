@@ -20,7 +20,8 @@ module SwarmSDK
         :TodoWrite,
         :ScratchpadWrite,
         :ScratchpadRead,
-        :ScratchpadList,
+        :ScratchpadGlob,
+        :ScratchpadGrep,
         :Think,
       ].freeze
 
@@ -74,8 +75,10 @@ module SwarmSDK
           Tools::ScratchpadWrite.create_for_scratchpad(@scratchpad)
         when :ScratchpadRead
           Tools::ScratchpadRead.create_for_scratchpad(@scratchpad)
-        when :ScratchpadList
-          Tools::ScratchpadList.create_for_scratchpad(@scratchpad)
+        when :ScratchpadGlob
+          Tools::ScratchpadGlob.create_for_scratchpad(@scratchpad)
+        when :ScratchpadGrep
+          Tools::ScratchpadGrep.create_for_scratchpad(@scratchpad)
         when :Think
           Tools::Think.new
         else

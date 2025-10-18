@@ -257,5 +257,187 @@ module SwarmSDK
       # Empty prefix should match all entries
       assert_equal(2, entries.size)
     end
+
+    # Glob tests
+
+    def test_glob_matches_wildcard_patterns
+      @scratchpad.write(file_path: "parallel/batch1/task_0", content: "T0", title: "Task 0")
+      @scratchpad.write(file_path: "parallel/batch1/task_1", content: "T1", title: "Task 1")
+      @scratchpad.write(file_path: "parallel/batch2/task_0", content: "T2", title: "Task 2")
+      @scratchpad.write(file_path: "analysis/report", content: "R", title: "Report")
+
+      # Test * wildcard
+      entries = @scratchpad.glob(pattern: "parallel/*/task_0")
+
+      assert_equal(2, entries.size)
+      assert_equal(["parallel/batch1/task_0", "parallel/batch2/task_0"], entries.map { |e| e[:path] })
+    end
+
+    def test_glob_matches_recursive_patterns
+      @scratchpad.write(file_path: "parallel/batch1/task_0", content: "T0", title: "Task 0")
+      @scratchpad.write(file_path: "parallel/batch1/sub/task_1", content: "T1", title: "Task 1")
+      @scratchpad.write(file_path: "parallel/batch2/task_2", content: "T2", title: "Task 2")
+      @scratchpad.write(file_path: "analysis/report", content: "R", title: "Report")
+
+      # Test ** recursive wildcard
+      entries = @scratchpad.glob(pattern: "parallel/**")
+
+      assert_equal(3, entries.size)
+      assert_equal(
+        ["parallel/batch1/sub/task_1", "parallel/batch1/task_0", "parallel/batch2/task_2"],
+        entries.map { |e| e[:path] },
+      )
+    end
+
+    def test_glob_matches_question_mark
+      @scratchpad.write(file_path: "task_1", content: "T1", title: "Task 1")
+      @scratchpad.write(file_path: "task_2", content: "T2", title: "Task 2")
+      @scratchpad.write(file_path: "task_10", content: "T10", title: "Task 10")
+
+      entries = @scratchpad.glob(pattern: "task_?")
+
+      assert_equal(2, entries.size)
+      assert_equal(["task_1", "task_2"], entries.map { |e| e[:path] })
+    end
+
+    def test_glob_returns_metadata
+      @scratchpad.write(file_path: "test/foo", content: "x" * 100, title: "Foo")
+
+      entries = @scratchpad.glob(pattern: "test/*")
+
+      assert_equal(1, entries.size)
+      entry = entries.first
+
+      assert_equal("test/foo", entry[:path])
+      assert_equal("Foo", entry[:title])
+      assert_equal(100, entry[:size])
+      assert_instance_of(Time, entry[:created_at])
+    end
+
+    def test_glob_returns_empty_for_no_matches
+      @scratchpad.write(file_path: "a/1", content: "A1", title: "Entry A1")
+
+      entries = @scratchpad.glob(pattern: "b/*")
+
+      assert_equal(0, entries.size)
+    end
+
+    def test_glob_requires_pattern
+      error = assert_raises(ArgumentError) do
+        @scratchpad.glob(pattern: "")
+      end
+      assert_match(/pattern is required/, error.message)
+
+      error = assert_raises(ArgumentError) do
+        @scratchpad.glob(pattern: nil)
+      end
+      assert_match(/pattern is required/, error.message)
+    end
+
+    def test_glob_sorts_by_path
+      @scratchpad.write(file_path: "z/1", content: "Z", title: "Z")
+      @scratchpad.write(file_path: "a/1", content: "A", title: "A")
+      @scratchpad.write(file_path: "m/1", content: "M", title: "M")
+
+      entries = @scratchpad.glob(pattern: "*/*")
+
+      assert_equal(["a/1", "m/1", "z/1"], entries.map { |e| e[:path] })
+    end
+
+    # Grep tests
+
+    def test_grep_files_with_matches_mode
+      @scratchpad.write(file_path: "a", content: "Hello world", title: "A")
+      @scratchpad.write(file_path: "b", content: "Goodbye world", title: "B")
+      @scratchpad.write(file_path: "c", content: "Nothing here", title: "C")
+
+      paths = @scratchpad.grep(pattern: "world")
+
+      assert_equal(["a", "b"], paths)
+    end
+
+    def test_grep_case_insensitive
+      @scratchpad.write(file_path: "a", content: "Hello World", title: "A")
+      @scratchpad.write(file_path: "b", content: "hello world", title: "B")
+
+      # Case sensitive (default)
+      paths = @scratchpad.grep(pattern: "hello")
+
+      assert_equal(["b"], paths)
+
+      # Case insensitive
+      paths = @scratchpad.grep(pattern: "hello", case_insensitive: true)
+
+      assert_equal(["a", "b"], paths)
+    end
+
+    def test_grep_content_mode
+      @scratchpad.write(file_path: "test", content: "Line 1: error\nLine 2: ok\nLine 3: error", title: "Test")
+
+      results = @scratchpad.grep(pattern: "error", output_mode: "content")
+
+      assert_equal(1, results.size)
+      result = results.first
+
+      assert_equal("test", result[:path])
+      assert_equal(2, result[:matches].size)
+      assert_equal(1, result[:matches][0][:line_number])
+      assert_equal("Line 1: error", result[:matches][0][:content])
+      assert_equal(3, result[:matches][1][:line_number])
+      assert_equal("Line 3: error", result[:matches][1][:content])
+    end
+
+    def test_grep_count_mode
+      @scratchpad.write(file_path: "a", content: "foo bar foo", title: "A")
+      @scratchpad.write(file_path: "b", content: "foo", title: "B")
+      @scratchpad.write(file_path: "c", content: "bar", title: "C")
+
+      results = @scratchpad.grep(pattern: "foo", output_mode: "count")
+
+      assert_equal(2, results.size)
+      assert_equal("a", results[0][:path])
+      assert_equal(2, results[0][:count])
+      assert_equal("b", results[1][:path])
+      assert_equal(1, results[1][:count])
+    end
+
+    def test_grep_requires_pattern
+      error = assert_raises(ArgumentError) do
+        @scratchpad.grep(pattern: "")
+      end
+      assert_match(/pattern is required/, error.message)
+
+      error = assert_raises(ArgumentError) do
+        @scratchpad.grep(pattern: nil)
+      end
+      assert_match(/pattern is required/, error.message)
+    end
+
+    def test_grep_invalid_output_mode
+      @scratchpad.write(file_path: "test", content: "test", title: "Test")
+
+      error = assert_raises(ArgumentError) do
+        @scratchpad.grep(pattern: "test", output_mode: "invalid")
+      end
+      assert_match(/Invalid output_mode/, error.message)
+    end
+
+    def test_grep_returns_empty_for_no_matches
+      @scratchpad.write(file_path: "test", content: "hello", title: "Test")
+
+      paths = @scratchpad.grep(pattern: "goodbye")
+
+      assert_equal(0, paths.size)
+    end
+
+    def test_grep_sorts_by_path
+      @scratchpad.write(file_path: "z", content: "match", title: "Z")
+      @scratchpad.write(file_path: "a", content: "match", title: "A")
+      @scratchpad.write(file_path: "m", content: "match", title: "M")
+
+      paths = @scratchpad.grep(pattern: "match")
+
+      assert_equal(["a", "m", "z"], paths)
+    end
   end
 end

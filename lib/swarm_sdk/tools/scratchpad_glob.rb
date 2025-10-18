@@ -2,28 +2,34 @@
 
 module SwarmSDK
   module Tools
-    # Tool for listing scratchpad entries with metadata
+    # Tool for searching scratchpad entries by glob pattern
     #
-    # Lists available scratchpad entries with titles and sizes.
-    # Supports filtering by path prefix.
-    class ScratchpadList < RubyLLM::Tool
-      define_method(:name) { "ScratchpadList" }
+    # Finds scratchpad entries matching a glob pattern (like filesystem glob).
+    # All agents in the swarm share the same scratchpad.
+    class ScratchpadGlob < RubyLLM::Tool
+      define_method(:name) { "ScratchpadGlob" }
 
       description <<~DESC
-        List available scratchpad entries with titles and metadata.
-        Use this to discover what content is available in scratchpad memory.
-        Optionally filter by path prefix.
+        Search scratchpad entries by glob pattern.
+        Works like filesystem glob - use * for wildcards, ** for recursive matching.
+        Use this to discover entries matching specific patterns.
+
+        Examples:
+        - "parallel/*" - all entries directly under parallel/
+        - "parallel/**" - all entries under parallel/ (recursive)
+        - "*/report" - all entries named "report" in any top-level directory
+        - "analysis/*/result_*" - entries like "analysis/foo/result_1"
       DESC
 
-      param :prefix,
-        desc: "Filter by path prefix (e.g., 'parallel/', 'analysis/'). Leave empty to list all entries.",
-        required: false
+      param :pattern,
+        desc: "Glob pattern to match (e.g., '**/*.txt', 'parallel/*/task_*')",
+        required: true
 
       class << self
-        # Create a ScratchpadList tool for a specific scratchpad instance
+        # Create a ScratchpadGlob tool for a specific scratchpad instance
         #
         # @param scratchpad [Stores::Scratchpad] Shared scratchpad instance
-        # @return [ScratchpadList] Tool instance
+        # @return [ScratchpadGlob] Tool instance
         def create_for_scratchpad(scratchpad)
           new(scratchpad)
         end
@@ -39,19 +45,17 @@ module SwarmSDK
 
       # Execute the tool
       #
-      # @param prefix [String, nil] Optional path prefix filter
-      # @return [String] Formatted list of entries
-      def execute(prefix: nil)
-        entries = scratchpad.list(prefix: prefix)
+      # @param pattern [String] Glob pattern to match
+      # @return [String] Formatted list of matching entries
+      def execute(pattern:)
+        entries = scratchpad.glob(pattern: pattern)
 
         if entries.empty?
-          return "Scratchpad is empty" if prefix.nil? || prefix.empty?
-
-          return "No entries found with prefix '#{prefix}'"
+          return "No entries found matching pattern '#{pattern}'"
         end
 
         result = []
-        result << "Scratchpad contents (#{entries.size} #{entries.size == 1 ? "entry" : "entries"}):"
+        result << "Scratchpad entries matching '#{pattern}' (#{entries.size} #{entries.size == 1 ? "entry" : "entries"}):"
 
         entries.each do |entry|
           result << "  scratchpad://#{entry[:path]} - \"#{entry[:title]}\" (#{format_bytes(entry[:size])})"

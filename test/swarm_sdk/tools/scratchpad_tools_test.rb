@@ -9,7 +9,8 @@ module SwarmSDK
         @scratchpad = Tools::Stores::Scratchpad.new
         @write_tool = ScratchpadWrite.create_for_scratchpad(@scratchpad)
         @read_tool = ScratchpadRead.create_for_scratchpad(@scratchpad)
-        @list_tool = ScratchpadList.create_for_scratchpad(@scratchpad)
+        @glob_tool = ScratchpadGlob.create_for_scratchpad(@scratchpad)
+        @grep_tool = ScratchpadGrep.create_for_scratchpad(@scratchpad)
       end
 
       # ScratchpadWrite tests
@@ -97,89 +98,6 @@ module SwarmSDK
         assert_match(/file_path is required/, result)
       end
 
-      # ScratchpadList tests
-
-      def test_scratchpad_list_returns_all_entries
-        @scratchpad.write(file_path: "a/1", content: "A1", title: "Entry A1")
-        @scratchpad.write(file_path: "a/2", content: "A2", title: "Entry A2")
-        @scratchpad.write(file_path: "b/1", content: "B1", title: "Entry B1")
-
-        result = @list_tool.execute
-
-        assert_match(/Scratchpad contents \(3 entries\):/, result)
-        assert_match(%r{scratchpad://a/1 - "Entry A1"}, result)
-        assert_match(%r{scratchpad://a/2 - "Entry A2"}, result)
-        assert_match(%r{scratchpad://b/1 - "Entry B1"}, result)
-      end
-
-      def test_scratchpad_list_filters_by_prefix
-        @scratchpad.write(file_path: "parallel/batch1/task_0", content: "T0", title: "Task 0")
-        @scratchpad.write(file_path: "parallel/batch1/task_1", content: "T1", title: "Task 1")
-        @scratchpad.write(file_path: "analysis/report", content: "R", title: "Report")
-
-        result = @list_tool.execute(prefix: "parallel/batch1/")
-
-        assert_match(/Scratchpad contents \(2 entries\):/, result)
-        assert_match(%r{scratchpad://parallel/batch1/task_0 - "Task 0"}, result)
-        assert_match(%r{scratchpad://parallel/batch1/task_1 - "Task 1"}, result)
-        refute_match(%r{analysis/report}, result)
-      end
-
-      def test_scratchpad_list_shows_sizes
-        @scratchpad.write(file_path: "small", content: "x" * 100, title: "Small")
-        @scratchpad.write(file_path: "large", content: "x" * 50_000, title: "Large")
-
-        result = @list_tool.execute
-
-        assert_match(%r{scratchpad://small.*\(100B\)}, result)
-        assert_match(%r{scratchpad://large.*\(50.0KB\)}, result)
-      end
-
-      def test_scratchpad_list_returns_empty_message
-        result = @list_tool.execute
-
-        assert_equal("Scratchpad is empty", result)
-      end
-
-      def test_scratchpad_list_returns_no_matches_message
-        @scratchpad.write(file_path: "a/1", content: "A1", title: "Entry A1")
-
-        result = @list_tool.execute(prefix: "b/")
-
-        assert_equal("No entries found with prefix 'b/'", result)
-      end
-
-      def test_scratchpad_list_shows_singular_entry
-        @scratchpad.write(file_path: "test", content: "x", title: "Test")
-
-        result = @list_tool.execute
-
-        assert_match(/Scratchpad contents \(1 entry\):/, result)
-      end
-
-      def test_scratchpad_list_with_nil_prefix
-        @scratchpad.write(file_path: "a/1", content: "A1", title: "Entry A1")
-        @scratchpad.write(file_path: "b/1", content: "B1", title: "Entry B1")
-
-        result = @list_tool.execute(prefix: nil)
-
-        assert_match(/Scratchpad contents \(2 entries\):/, result)
-        assert_match(%r{scratchpad://a/1}, result)
-        assert_match(%r{scratchpad://b/1}, result)
-      end
-
-      def test_scratchpad_list_with_empty_prefix
-        @scratchpad.write(file_path: "a/1", content: "A1", title: "Entry A1")
-        @scratchpad.write(file_path: "b/1", content: "B1", title: "Entry B1")
-
-        result = @list_tool.execute(prefix: "")
-
-        # Empty prefix should list all entries
-        assert_match(/Scratchpad contents \(2 entries\):/, result)
-        assert_match(%r{scratchpad://a/1}, result)
-        assert_match(%r{scratchpad://b/1}, result)
-      end
-
       # Integration tests
 
       def test_scratchpad_tools_share_same_storage
@@ -191,10 +109,10 @@ module SwarmSDK
 
         assert_equal("Shared content", result)
 
-        # List using list tool
-        list_result = @list_tool.execute
+        # Glob using glob tool
+        glob_result = @glob_tool.execute(pattern: "shared")
 
-        assert_match(%r{scratchpad://shared - "Shared"}, list_result)
+        assert_match(%r{scratchpad://shared - "Shared"}, glob_result)
       end
 
       def test_scratchpad_tools_work_with_complex_paths
@@ -208,7 +126,7 @@ module SwarmSDK
           @write_tool.execute(file_path: path, content: "Content #{i}", title: "Title #{i}")
         end
 
-        result = @list_tool.execute
+        result = @glob_tool.execute(pattern: "**")
 
         paths.each do |path|
           assert_match(%r{scratchpad://#{Regexp.escape(path)}}, result)
@@ -281,6 +199,144 @@ module SwarmSDK
         result = @read_tool.execute(file_path: "")
 
         assert_includes(result, "Error: file_path is required")
+      end
+
+      # ScratchpadGlob tests
+
+      def test_scratchpad_glob_returns_matching_entries
+        @scratchpad.write(file_path: "parallel/batch1/task_0", content: "T0", title: "Task 0")
+        @scratchpad.write(file_path: "parallel/batch1/task_1", content: "T1", title: "Task 1")
+        @scratchpad.write(file_path: "parallel/batch2/task_0", content: "T2", title: "Task 2")
+        @scratchpad.write(file_path: "analysis/report", content: "R", title: "Report")
+
+        result = @glob_tool.execute(pattern: "parallel/*/task_0")
+
+        assert_match(%r{Scratchpad entries matching 'parallel/\*/task_0' \(2 entries\):}, result)
+        assert_match(%r{scratchpad://parallel/batch1/task_0 - "Task 0"}, result)
+        assert_match(%r{scratchpad://parallel/batch2/task_0 - "Task 2"}, result)
+        refute_match(/analysis/, result)
+      end
+
+      def test_scratchpad_glob_with_recursive_pattern
+        @scratchpad.write(file_path: "parallel/batch1/task_0", content: "T0", title: "Task 0")
+        @scratchpad.write(file_path: "parallel/batch1/sub/task_1", content: "T1", title: "Task 1")
+        @scratchpad.write(file_path: "analysis/report", content: "R", title: "Report")
+
+        result = @glob_tool.execute(pattern: "parallel/**")
+
+        assert_match(%r{Scratchpad entries matching 'parallel/\*\*' \(2 entries\):}, result)
+        assert_match(%r{scratchpad://parallel/batch1/task_0}, result)
+        assert_match(%r{scratchpad://parallel/batch1/sub/task_1}, result)
+      end
+
+      def test_scratchpad_glob_no_matches
+        @scratchpad.write(file_path: "a/1", content: "A1", title: "Entry A1")
+
+        result = @glob_tool.execute(pattern: "b/*")
+
+        assert_equal("No entries found matching pattern 'b/*'", result)
+      end
+
+      def test_scratchpad_glob_shows_sizes
+        @scratchpad.write(file_path: "test/small", content: "x" * 100, title: "Small")
+        @scratchpad.write(file_path: "test/large", content: "x" * 50_000, title: "Large")
+
+        result = @glob_tool.execute(pattern: "test/*")
+
+        assert_match(%r{scratchpad://test/small.*\(100B\)}, result)
+        assert_match(%r{scratchpad://test/large.*\(50.0KB\)}, result)
+      end
+
+      def test_scratchpad_glob_handles_errors
+        result = @glob_tool.execute(pattern: "")
+
+        assert_match(/Error: pattern is required/, result)
+      end
+
+      # ScratchpadGrep tests
+
+      def test_scratchpad_grep_files_with_matches
+        @scratchpad.write(file_path: "a", content: "Hello world", title: "A")
+        @scratchpad.write(file_path: "b", content: "Goodbye world", title: "B")
+        @scratchpad.write(file_path: "c", content: "Nothing here", title: "C")
+
+        result = @grep_tool.execute(pattern: "world")
+
+        assert_match(/Scratchpad entries matching 'world' \(2 entries\):/, result)
+        assert_match(%r{scratchpad://a}, result)
+        assert_match(%r{scratchpad://b}, result)
+        refute_match(%r{scratchpad://c}, result)
+      end
+
+      def test_scratchpad_grep_case_insensitive
+        @scratchpad.write(file_path: "a", content: "Hello World", title: "A")
+        @scratchpad.write(file_path: "b", content: "hello world", title: "B")
+
+        # Case sensitive (default)
+        result = @grep_tool.execute(pattern: "hello")
+
+        assert_match(/Scratchpad entries matching 'hello' \(1 entry\):/, result)
+        assert_match(%r{scratchpad://b}, result)
+        refute_match(%r{scratchpad://a}, result)
+
+        # Case insensitive
+        result = @grep_tool.execute(pattern: "hello", case_insensitive: true)
+
+        assert_match(/Scratchpad entries matching 'hello' \(2 entries\):/, result)
+        assert_match(%r{scratchpad://a}, result)
+        assert_match(%r{scratchpad://b}, result)
+      end
+
+      def test_scratchpad_grep_content_mode
+        @scratchpad.write(file_path: "test", content: "Line 1: error\nLine 2: ok\nLine 3: error", title: "Test")
+
+        result = @grep_tool.execute(pattern: "error", output_mode: "content")
+
+        assert_match(/Scratchpad entries matching 'error' \(1 entry, 2 matches\):/, result)
+        assert_match(%r{scratchpad://test:}, result)
+        assert_match(/1: Line 1: error/, result)
+        assert_match(/3: Line 3: error/, result)
+      end
+
+      def test_scratchpad_grep_count_mode
+        @scratchpad.write(file_path: "a", content: "foo bar foo", title: "A")
+        @scratchpad.write(file_path: "b", content: "foo", title: "B")
+
+        result = @grep_tool.execute(pattern: "foo", output_mode: "count")
+
+        assert_match(/Scratchpad entries matching 'foo' \(2 entries, 3 total matches\):/, result)
+        assert_match(%r{scratchpad://a: 2 matches}, result)
+        assert_match(%r{scratchpad://b: 1 match}, result)
+      end
+
+      def test_scratchpad_grep_no_matches
+        @scratchpad.write(file_path: "test", content: "hello", title: "Test")
+
+        result = @grep_tool.execute(pattern: "goodbye")
+
+        assert_equal("No matches found for pattern 'goodbye'", result)
+      end
+
+      def test_scratchpad_grep_handles_errors
+        result = @grep_tool.execute(pattern: "")
+
+        assert_match(/Error: pattern is required/, result)
+      end
+
+      def test_scratchpad_grep_invalid_regex
+        @scratchpad.write(file_path: "test", content: "test", title: "Test")
+
+        result = @grep_tool.execute(pattern: "[invalid")
+
+        assert_match(/Error: Invalid regex pattern/, result)
+      end
+
+      def test_scratchpad_grep_invalid_output_mode
+        @scratchpad.write(file_path: "test", content: "test", title: "Test")
+
+        result = @grep_tool.execute(pattern: "test", output_mode: "invalid")
+
+        assert_match(/Error: Invalid output_mode/, result)
       end
     end
   end

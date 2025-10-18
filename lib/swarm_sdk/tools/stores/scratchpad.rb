@@ -112,6 +112,74 @@ module SwarmSDK
           end.sort_by { |e| e[:path] }
         end
 
+        # Search entries by glob pattern (like filesystem glob)
+        #
+        # @param pattern [String] Glob pattern (e.g., "**/*.txt", "parallel/*/task_*")
+        # @return [Array<Hash>] Array of matching entry metadata (path, title, size, created_at)
+        def glob(pattern:)
+          raise ArgumentError, "pattern is required" if pattern.nil? || pattern.to_s.strip.empty?
+
+          # Convert glob pattern to regex
+          regex = glob_to_regex(pattern)
+
+          # Filter entries by pattern
+          matching_entries = @entries.select { |path, _| regex.match?(path) }
+
+          # Return metadata sorted by path
+          matching_entries.map do |path, entry|
+            {
+              path: path,
+              title: entry.title,
+              size: entry.size,
+              created_at: entry.created_at,
+            }
+          end.sort_by { |e| e[:path] }
+        end
+
+        # Search entry content by pattern (like grep)
+        #
+        # @param pattern [String] Regular expression pattern to search for
+        # @param case_insensitive [Boolean] Whether to perform case-insensitive search
+        # @param output_mode [String] Output mode: "files_with_matches" (default), "content", or "count"
+        # @return [Array<Hash>, String] Results based on output_mode
+        def grep(pattern:, case_insensitive: false, output_mode: "files_with_matches")
+          raise ArgumentError, "pattern is required" if pattern.nil? || pattern.to_s.strip.empty?
+
+          # Create regex from pattern
+          flags = case_insensitive ? Regexp::IGNORECASE : 0
+          regex = Regexp.new(pattern, flags)
+
+          case output_mode
+          when "files_with_matches"
+            # Return just the paths that match
+            matching_paths = @entries.select { |_path, entry| regex.match?(entry.content) }
+              .map { |path, _| path }
+              .sort
+            matching_paths
+          when "content"
+            # Return paths with matching lines
+            results = []
+            @entries.each do |path, entry|
+              matching_lines = []
+              entry.content.each_line.with_index(1) do |line, line_num|
+                matching_lines << { line_number: line_num, content: line.chomp } if regex.match?(line)
+              end
+              results << { path: path, matches: matching_lines } unless matching_lines.empty?
+            end
+            results.sort_by { |r| r[:path] }
+          when "count"
+            # Return paths with match counts
+            results = []
+            @entries.each do |path, entry|
+              count = entry.content.scan(regex).size
+              results << { path: path, count: count } if count > 0
+            end
+            results.sort_by { |r| r[:path] }
+          else
+            raise ArgumentError, "Invalid output_mode: #{output_mode}. Must be 'files_with_matches', 'content', or 'count'"
+          end
+        end
+
         # Clear all entries
         #
         # @return [void]
@@ -133,6 +201,26 @@ module SwarmSDK
         end
 
         private
+
+        # Convert glob pattern to regex
+        #
+        # @param pattern [String] Glob pattern
+        # @return [Regexp] Regular expression
+        def glob_to_regex(pattern)
+          # Escape special regex characters except glob wildcards
+          escaped = Regexp.escape(pattern)
+
+          # Convert glob wildcards to regex
+          # ** matches any number of directories (including zero)
+          escaped = escaped.gsub('\*\*', ".*")
+          # * matches anything except directory separator
+          escaped = escaped.gsub('\*', "[^/]*")
+          # ? matches single character except directory separator
+          escaped = escaped.gsub('\?', "[^/]")
+
+          # Anchor to start and end
+          Regexp.new("\\A#{escaped}\\z")
+        end
 
         # Format bytes to human-readable size
         #

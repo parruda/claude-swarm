@@ -19,7 +19,8 @@ module SwarmSDK
         TodoWrite: :special, # Requires agent context for todo tracking
         ScratchpadWrite: :special, # Requires scratchpad instance
         ScratchpadRead: :special, # Requires scratchpad instance
-        ScratchpadList: :special, # Requires scratchpad instance
+        ScratchpadGlob: :special, # Requires scratchpad instance
+        ScratchpadGrep: :special, # Requires scratchpad instance
         Think: SwarmSDK::Tools::Think,
       }.freeze
 

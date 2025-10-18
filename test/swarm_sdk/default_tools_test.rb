@@ -39,7 +39,8 @@ module SwarmSDK
         :TodoWrite,
         :ScratchpadWrite,
         :ScratchpadRead,
-        :ScratchpadList,
+        :ScratchpadGlob,
+        :ScratchpadGrep,
         :Think,
       ]
 
@@ -69,7 +70,8 @@ module SwarmSDK
       assert(agent.tools.key?(:TodoWrite), "Should have default TodoWrite")
       assert(agent.tools.key?(:ScratchpadWrite), "Should have default ScratchpadWrite")
       assert(agent.tools.key?(:ScratchpadRead), "Should have default ScratchpadRead")
-      assert(agent.tools.key?(:ScratchpadList), "Should have default ScratchpadList")
+      assert(agent.tools.key?(:ScratchpadGlob), "Should have default ScratchpadGlob")
+      assert(agent.tools.key?(:ScratchpadGrep), "Should have default ScratchpadGrep")
       assert(agent.tools.key?(:Think), "Should have default Think")
     end
 

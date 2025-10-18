@@ -69,14 +69,16 @@ module SwarmSDK
       # Scratchpad tools use simple names without module namespacing
       assert(writer.tools.key?(:ScratchpadWrite), "Writer should have scratchpad_write")
       assert(writer.tools.key?(:ScratchpadRead), "Writer should have scratchpad_read")
-      assert(writer.tools.key?(:ScratchpadList), "Writer should have scratchpad_list")
+      assert(writer.tools.key?(:ScratchpadGlob), "Writer should have scratchpad_glob")
+      assert(writer.tools.key?(:ScratchpadGrep), "Writer should have scratchpad_grep")
 
       # Reader has Read tool configured, but should also have scratchpad tools
       # Read tool has custom naming, so it's just :Read
       assert(reader.tools.key?(:Read), "Reader should have read tool")
       assert(reader.tools.key?(:ScratchpadWrite), "Reader should have scratchpad_write")
       assert(reader.tools.key?(:ScratchpadRead), "Reader should have scratchpad_read")
-      assert(reader.tools.key?(:ScratchpadList), "Reader should have scratchpad_list")
+      assert(reader.tools.key?(:ScratchpadGlob), "Reader should have scratchpad_glob")
+      assert(reader.tools.key?(:ScratchpadGrep), "Reader should have scratchpad_grep")
     end
 
     def test_default_tools_are_always_available
@@ -89,7 +91,8 @@ module SwarmSDK
         # Scratchpad tools
         assert(agent.tools.key?(:ScratchpadWrite), "#{agent} should have scratchpad_write")
         assert(agent.tools.key?(:ScratchpadRead), "#{agent} should have scratchpad_read")
-        assert(agent.tools.key?(:ScratchpadList), "#{agent} should have scratchpad_list")
+        assert(agent.tools.key?(:ScratchpadGlob), "#{agent} should have scratchpad_glob")
+        assert(agent.tools.key?(:ScratchpadGrep), "#{agent} should have scratchpad_grep")
 
         # File system tools
         assert(agent.tools.key?(:Read), "#{agent} should have read")
