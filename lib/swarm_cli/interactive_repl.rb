@@ -127,6 +127,7 @@ module SwarmCLI
       puts @colors[:system].call("Lead Agent: #{@swarm.lead_agent}")
       puts ""
       puts @colors[:system].call("Type your message and press Enter to submit")
+      puts @colors[:system].call("Press Option+Enter (or ESC then Enter) for multi-line input")
       puts @colors[:system].call("Type #{@colors[:code].call("/help")} for commands or #{@colors[:code].call("/exit")} to quit")
       puts ""
       puts divider
@@ -159,14 +160,17 @@ module SwarmCLI
       # Build the prompt indicator with colors
       prompt_indicator = build_prompt_indicator
 
-      # Use Reline for flicker-free input (same as IRB)
+      # Use Reline.readmultiline for multi-line input support
+      # - Option+ENTER (or ESC+ENTER): Adds a newline, continues editing
+      # - Regular ENTER: Always submits immediately
       # Second parameter true = add to history for arrow up/down
-      line = Reline.readline(prompt_indicator, true)
+      # Block always returns true = ENTER always submits
+      input = Reline.readmultiline(prompt_indicator, true) { |_lines| true }
 
-      return if line.nil? # Ctrl+D returns nil
+      return if input.nil? # Ctrl+D returns nil
 
-      # Reline doesn't include newline, just strip whitespace
-      line.strip
+      # Strip whitespace from the complete input
+      input.strip
     end
 
     def display_prompt_stats
@@ -353,7 +357,8 @@ module SwarmCLI
         end,
         "",
         @colors[:system].call("Input Tips:"),
-        @colors[:system].call("  • Type your message and press Enter to submit"),
+        @colors[:system].call("  • Press Enter to submit your message"),
+        @colors[:system].call("  • Press Option+Enter (or ESC then Enter) for multi-line input"),
         @colors[:system].call("  • Press Ctrl+D to exit"),
         @colors[:system].call("  • Use arrow keys for history and editing"),
         @colors[:system].call("  • Type / for commands or @ for file paths"),
