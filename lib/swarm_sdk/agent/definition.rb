@@ -258,9 +258,27 @@ module SwarmSDK
 
       def render_non_coding_base_prompt
         # Simplified base prompt for non-coding agents
-        # Only includes TODO and Scratchpad tool information
+        # Includes environment info, TODO, and Scratchpad tool information
         # Does not steer towards coding tasks
+        cwd = @directory || Dir.pwd
+        platform = RUBY_PLATFORM
+        os_version = begin
+          %x(uname -sr 2>/dev/null).strip
+        rescue
+          RUBY_PLATFORM
+        end
+        date = Time.now.strftime("%Y-%m-%d")
+
         <<~PROMPT.strip
+          # Environment
+
+          <env>
+          Working directory: #{cwd}
+          Platform: #{platform}
+          OS Version: #{os_version}
+          Today's date: #{date}
+          </env>
+
           # Task Management
 
           You have access to the TodoWrite tool to help you manage and plan tasks. Use this tool to track your progress and give visibility into your work.

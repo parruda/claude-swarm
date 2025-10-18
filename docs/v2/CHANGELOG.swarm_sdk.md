@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Model validation now uses SwarmSDK's static registry instead of RubyLLM's dynamic registry
 - All agents now use `assume_model_exists: true` by default (SwarmSDK validates separately)
 - Model suggestions properly handle provider-prefixed queries (e.g., `anthropic:claude-sonnet-4-5`)
+- Environment block (`<env>`) now included in ALL agent system prompts (previously only `coding_agent: true`)
 
 ## [2.0.1] - Fri, Oct 17 2025
 

@@ -26,7 +26,7 @@ PATH
       tty-spinner
       tty-tree
       zeitwerk
-    swarm_sdk (2.0.1)
+    swarm_sdk (2.0.2)
       async (~> 2.0)
       ruby_llm (~> 1.8)
       ruby_llm-mcp
