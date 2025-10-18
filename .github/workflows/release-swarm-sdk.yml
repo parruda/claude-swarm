@@ -76,20 +76,20 @@ jobs:
         fi
         echo "✓ No claude_swarm code found"
 
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: swarm_sdk-v${{ needs.detect-version-change.outputs.new_version }}
-        name: SwarmSDK v${{ needs.detect-version-change.outputs.new_version }}
-        body: |
-          SwarmSDK v${{ needs.detect-version-change.outputs.new_version }}
+    # - name: Create GitHub Release
+    #   uses: softprops/action-gh-release@v1
+    #   with:
+    #     tag_name: swarm_sdk-v${{ needs.detect-version-change.outputs.new_version }}
+    #     name: SwarmSDK v${{ needs.detect-version-change.outputs.new_version }}
+    #     body: |
+    #       SwarmSDK v${{ needs.detect-version-change.outputs.new_version }}
 
-          Single-process multi-agent AI orchestration with async/fiber execution.
+    #       Single-process multi-agent AI orchestration with async/fiber execution.
 
-          See [CHANGELOG.md](https://github.com/parruda/claude-swarm/blob/main/CHANGELOG.md) for details.
-        files: swarm_sdk-*.gem
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    #       See [CHANGELOG.md](https://github.com/parruda/claude-swarm/blob/main/CHANGELOG.md) for details.
+    #     files: swarm_sdk-*.gem
+    #   env:
+    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Push to RubyGems
       run: |

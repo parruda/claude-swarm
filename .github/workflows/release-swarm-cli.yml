@@ -83,20 +83,20 @@ jobs:
         fi
         echo "✓ No swarm_sdk code found (dependency only)"
 
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: swarm_cli-v${{ needs.detect-version-change.outputs.new_version }}
-        name: SwarmCLI v${{ needs.detect-version-change.outputs.new_version }}
-        body: |
-          SwarmCLI v${{ needs.detect-version-change.outputs.new_version }}
+    # - name: Create GitHub Release
+    #   uses: softprops/action-gh-release@v1
+    #   with:
+    #     tag_name: swarm_cli-v${{ needs.detect-version-change.outputs.new_version }}
+    #     name: SwarmCLI v${{ needs.detect-version-change.outputs.new_version }}
+    #     body: |
+    #       SwarmCLI v${{ needs.detect-version-change.outputs.new_version }}
 
-          Beautiful command-line interface for SwarmSDK with TTY toolkit integration.
+    #       Beautiful command-line interface for SwarmSDK with TTY toolkit integration.
 
-          See [CHANGELOG.md](https://github.com/parruda/claude-swarm/blob/main/CHANGELOG.md) for details.
-        files: swarm_cli-*.gem
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    #       See [CHANGELOG.md](https://github.com/parruda/claude-swarm/blob/main/CHANGELOG.md) for details.
+    #     files: swarm_cli-*.gem
+    #   env:
+    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Push to RubyGems
       run: |
