@@ -1,12 +1,41 @@
 # frozen_string_literal: true
 
 module SwarmSDK
+  # Parser for agent markdown files with YAML frontmatter
+  #
+  # Supports two formats:
+  # 1. SwarmSDK format - YAML frontmatter with array-based tools
+  # 2. Claude Code format - Detected and converted via ClaudeCodeAgentAdapter
+  #
+  # Format detection is automatic based on frontmatter structure.
   class MarkdownParser
     FRONTMATTER_PATTERN = /\A---\s*\n(.*?)\n---\s*\n(.*)\z/m
 
     class << self
+      # Parse markdown content into an Agent::Definition
+      #
+      # Automatically detects format (SwarmSDK or Claude Code) and routes
+      # to appropriate parser.
+      #
+      # @param content [String] Markdown content with YAML frontmatter
+      # @param agent_name [Symbol, String, nil] Name of the agent
+      # @return [Agent::Definition] Parsed agent definition
+      # @raise [ConfigurationError] if format is invalid
       def parse(content, agent_name = nil)
-        new(content, agent_name).parse
+        # Detect Claude Code format and route to adapter
+        if ClaudeCodeAgentAdapter.claude_code_format?(content)
+          config = ClaudeCodeAgentAdapter.parse(content, agent_name)
+          # For Claude Code format, agent_name parameter is required since
+          # the 'name' field in frontmatter is Claude Code specific and not used
+          unless agent_name
+            raise ConfigurationError, "Agent name must be provided when parsing Claude Code format"
+          end
+
+          Agent::Definition.new(agent_name.to_sym, config)
+        else
+          # Use standard SwarmSDK format parsing
+          new(content, agent_name).parse
+        end
       end
     end
 

@@ -238,8 +238,10 @@ module SwarmSDK
       # Parse markdown and merge with YAML config
       agent_def_from_file = MarkdownParser.parse(content, name)
 
-      # Merge: markdown file overrides merged_config for fields it defines
-      final_config = merged_config.merge(agent_def_from_file.to_h.compact)
+      # Merge: YAML config overrides markdown file (YAML takes precedence)
+      # This allows YAML to override any settings from the markdown file
+      final_config = agent_def_from_file.to_h.compact.merge(merged_config.compact)
+
       Agent::Definition.new(name, final_config)
     rescue StandardError => e
       raise ConfigurationError, "Error loading agent '#{name}' from file '#{file_path}': #{e.message}"

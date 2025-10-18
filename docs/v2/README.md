@@ -69,6 +69,14 @@ Welcome to the official documentation for SwarmSDK and SwarmCLI - a Ruby framewo
   - Security considerations
   - Deployment (Docker, monitoring, health checks)
 
+### Claude Code Compatibility
+- **[Using Claude Code Agent Files](guides/claude-code-agents.md)**
+  Reuse your existing `.claude/agents/*.md` files with SwarmSDK:
+  - Automatic format detection and conversion
+  - Model shortcut support (`sonnet`, `opus`, `haiku`)
+  - Override settings in YAML/DSL
+  - Handle tool permissions and hooks differences
+
 ---
 
 ## 🎯 Documentation by Feature

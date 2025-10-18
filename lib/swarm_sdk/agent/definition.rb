@@ -73,12 +73,9 @@ module SwarmSDK
         @timeout = config[:timeout] || DEFAULT_TIMEOUT
         @bypass_permissions = config[:bypass_permissions] || false
         @max_concurrent_tools = config[:max_concurrent_tools]
-        # Default to true when base_url is set, false otherwise (unless explicitly specified)
-        @assume_model_exists = if config.key?(:assume_model_exists)
-          config[:assume_model_exists]
-        else
-          (base_url ? true : false)
-        end
+        # Always assume model exists - SwarmSDK validates models separately using models.json
+        # This prevents RubyLLM from trying to validate models in its registry
+        @assume_model_exists = true
 
         # include_default_tools defaults to true if not specified
         @include_default_tools = config.key?(:include_default_tools) ? config[:include_default_tools] : true
@@ -168,43 +165,51 @@ module SwarmSDK
 
       private
 
-      # Validate that model exists in RubyLLM registry
+      # Validate that model exists in SwarmSDK's model registry
+      #
+      # Uses SwarmSDK's static models.json instead of RubyLLM's dynamic registry.
+      # This provides stable, offline model validation without network calls.
+      #
+      # Process:
+      # 1. Try to find model directly in models.json
+      # 2. If not found, try to resolve as alias and find again
+      # 3. If still not found, return warning with suggestions
       #
       # @return [Hash, nil] Warning hash if model not found, nil otherwise
       def validate_model
-        # Try to find model in registry (searches all providers)
-        RubyLLM.models.find(@model)
-        nil # Model exists
+        # Try direct lookup first
+        model_data = SwarmSDK::Models.all.find { |m| (m["id"] || m[:id]) == @model }
+
+        # If not found, try alias resolution
+        unless model_data
+          resolved_id = SwarmSDK::Models.resolve_alias(@model)
+          # Only search again if alias was different
+          if resolved_id != @model
+            model_data = SwarmSDK::Models.all.find { |m| (m["id"] || m[:id]) == resolved_id }
+          end
+        end
+
+        if model_data
+          nil # Model exists (either directly or via alias)
+        else
+          # Model not found - return warning with suggestions
+          {
+            type: :model_not_found,
+            agent: @name,
+            model: @model,
+            error_message: "Unknown model: #{@model}",
+            suggestions: SwarmSDK::Models.suggest_similar(@model),
+          }
+        end
       rescue StandardError => e
-        # Model not found - return warning with suggestions
+        # Return warning on error
         {
           type: :model_not_found,
           agent: @name,
           model: @model,
           error_message: e.message,
-          suggestions: suggest_similar_models,
+          suggestions: [],
         }
-      end
-
-      # Suggest similar models when a model is not found
-      #
-      # @return [Array<Hash>] Up to 3 similar models with their info
-      def suggest_similar_models
-        normalized_query = @model.to_s.downcase.gsub(/[.\-_]/, "")
-
-        RubyLLM.models.all.select do |model_info|
-          normalized_id = model_info.id.downcase.gsub(/[.\-_]/, "")
-          normalized_id.include?(normalized_query) ||
-            model_info.name&.downcase&.gsub(/[.\-_]/, "")&.include?(normalized_query)
-        end.first(3).map do |model_info|
-          {
-            id: model_info.id,
-            name: model_info.name,
-            context_window: model_info.context_window,
-          }
-        end
-      rescue StandardError
-        []
       end
 
       def build_full_system_prompt(custom_prompt)
@@ -253,9 +258,27 @@ module SwarmSDK
 
       def render_non_coding_base_prompt
         # Simplified base prompt for non-coding agents
-        # Only includes TODO and Scratchpad tool information
+        # Includes environment info, TODO, and Scratchpad tool information
         # Does not steer towards coding tasks
+        cwd = @directory || Dir.pwd
+        platform = RUBY_PLATFORM
+        os_version = begin
+          %x(uname -sr 2>/dev/null).strip
+        rescue
+          RUBY_PLATFORM
+        end
+        date = Time.now.strftime("%Y-%m-%d")
+
         <<~PROMPT.strip
+          # Environment
+
+          <env>
+          Working directory: #{cwd}
+          Platform: #{platform}
+          OS Version: #{os_version}
+          Today's date: #{date}
+          </env>
+
           # Task Management
 
           You have access to the TodoWrite tool to help you manage and plan tasks. Use this tool to track your progress and give visibility into your work.

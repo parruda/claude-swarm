@@ -1,5 +1,6 @@
 require:
   - ./rubocop/cop/security/no_reflection_methods.rb
+  - ./rubocop/cop/security/no_ruby_llm_logger.rb
 
 inherit_from: .rubocop_todo.yml
 inherit_gem:
@@ -28,3 +29,6 @@ Security/NoReflectionMethods:
   - test/*.rb
   - test/commands/**/*
   - test/fixtures/**/*
+
+# Security/NoRubyLlmLogger:
+#   Enabled: true

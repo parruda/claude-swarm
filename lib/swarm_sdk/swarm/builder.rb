@@ -94,16 +94,19 @@ module SwarmSDK
       #     You build APIs.
       #   MD
       def agent(name, content = nil, &block)
-        # Case 1: agent :name, <<~MD (name + markdown content)
-        if content.is_a?(String) && !block_given? && markdown_content?(content)
+        # Case 1: agent :name, <<~MD do ... end (markdown + overrides)
+        if content.is_a?(String) && block_given? && markdown_content?(content)
+          load_agent_from_markdown_with_overrides(content, name, &block)
+        # Case 2: agent :name, <<~MD (markdown only)
+        elsif content.is_a?(String) && !block_given? && markdown_content?(content)
           load_agent_from_markdown(content, name)
-        # Case 2: agent :name do ... end (inline DSL)
+        # Case 3: agent :name do ... end (inline DSL)
         elsif block_given?
           builder = Agent::Builder.new(name)
           builder.instance_eval(&block)
           @agents[name] = builder
         else
-          raise ArgumentError, "Invalid agent definition. Use: agent :name { ... } OR agent :name, <<~MD ... MD"
+          raise ArgumentError, "Invalid agent definition. Use: agent :name { ... } OR agent :name, <<~MD ... MD OR agent :name, <<~MD do ... end"
         end
       end
 
@@ -223,6 +226,76 @@ module SwarmSDK
         # Store the config hash (not Definition) so all_agents can be applied
         # We'll wrap this in a special marker so we know it came from markdown
         @agents[definition.name] = { __file_config__: definition.to_h }
+      end
+
+      # Load an agent from markdown content with DSL overrides
+      #
+      # This allows loading from a file and then overriding specific settings:
+      #   agent :reviewer, File.read("reviewer.md") do
+      #     provider :openai
+      #     model "gpt-4o"
+      #   end
+      #
+      # @param content [String] Markdown content with frontmatter
+      # @param name_override [Symbol, nil] Optional name to override frontmatter name
+      # @yield Block with DSL overrides
+      # @return [void]
+      def load_agent_from_markdown_with_overrides(content, name_override = nil, &block)
+        # Parse markdown content first
+        definition = MarkdownParser.parse(content, name_override)
+
+        # Create a builder with the markdown config
+        builder = Agent::Builder.new(definition.name)
+
+        # Apply markdown settings to builder (these become the base)
+        apply_definition_to_builder(builder, definition.to_h)
+
+        # Apply DSL overrides (these override the markdown settings)
+        builder.instance_eval(&block)
+
+        # Store the builder (not file config) so overrides are preserved
+        @agents[definition.name] = builder
+      end
+
+      # Apply agent definition hash to a builder
+      #
+      # @param builder [Agent::Builder] Builder to configure
+      # @param config [Hash] Configuration hash from definition
+      # @return [void]
+      def apply_definition_to_builder(builder, config)
+        builder.description(config[:description]) if config[:description]
+        builder.model(config[:model]) if config[:model]
+        builder.provider(config[:provider]) if config[:provider]
+        builder.base_url(config[:base_url]) if config[:base_url]
+        builder.api_version(config[:api_version]) if config[:api_version]
+        builder.context_window(config[:context_window]) if config[:context_window]
+        builder.system_prompt(config[:system_prompt]) if config[:system_prompt]
+        builder.directory(config[:directory]) if config[:directory]
+        builder.timeout(config[:timeout]) if config[:timeout]
+        builder.parameters(config[:parameters]) if config[:parameters]
+        builder.headers(config[:headers]) if config[:headers]
+        builder.coding_agent(config[:coding_agent]) unless config[:coding_agent].nil?
+        # Don't apply assume_model_exists from markdown - let DSL overrides or auto-enable handle it
+        # builder.assume_model_exists(config[:assume_model_exists]) unless config[:assume_model_exists].nil?
+        builder.bypass_permissions(config[:bypass_permissions]) if config[:bypass_permissions]
+        builder.include_default_tools(config[:include_default_tools]) unless config[:include_default_tools].nil?
+
+        # Add tools from markdown
+        if config[:tools]&.any?
+          # Extract tool names from the tools array (which may be hashes with permissions)
+          tool_names = config[:tools].map do |tool|
+            tool.is_a?(Hash) ? tool[:name] : tool
+          end
+          builder.tools(*tool_names)
+        end
+
+        # Add delegates_to
+        builder.delegates_to(*config[:delegates_to]) if config[:delegates_to]&.any?
+
+        # Add MCP servers
+        config[:mcp_servers]&.each do |server|
+          builder.mcp_server(server[:name], **server.except(:name))
+        end
       end
 
       # Build a traditional single-swarm execution
