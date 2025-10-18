@@ -45,6 +45,7 @@ module SwarmSDK
         @timeout = nil
         @mcp_servers = []
         @include_default_tools = true
+        @enable_think_tool = true
         @bypass_permissions = false
         @coding_agent = nil # nil = not set (will default to false in Definition)
         @assume_model_exists = nil
@@ -127,6 +128,11 @@ module SwarmSDK
       # Set include_default_tools flag (deprecated - use tools method with include_default parameter)
       def include_default_tools(enabled)
         @include_default_tools = enabled
+      end
+
+      # Set enable_think_tool flag
+      def enable_think_tool(enabled)
+        @enable_think_tool = enabled
       end
 
       # Set bypass_permissions flag
@@ -343,6 +349,7 @@ module SwarmSDK
         agent_config[:timeout] = @timeout if @timeout
         agent_config[:mcp_servers] = @mcp_servers if @mcp_servers.any?
         agent_config[:include_default_tools] = @include_default_tools
+        agent_config[:enable_think_tool] = @enable_think_tool
         agent_config[:bypass_permissions] = @bypass_permissions
         agent_config[:coding_agent] = @coding_agent
         agent_config[:assume_model_exists] = @assume_model_exists unless @assume_model_exists.nil?

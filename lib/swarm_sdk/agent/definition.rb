@@ -39,6 +39,7 @@ module SwarmSDK
         :headers,
         :timeout,
         :include_default_tools,
+        :enable_think_tool,
         :coding_agent,
         :default_permissions,
         :agent_permissions,
@@ -79,6 +80,11 @@ module SwarmSDK
 
         # include_default_tools defaults to true if not specified
         @include_default_tools = config.key?(:include_default_tools) ? config[:include_default_tools] : true
+
+        # enable_think_tool defaults to true if not specified
+        # When true, includes the Think tool (for explicit reasoning)
+        # When false, excludes the Think tool even if default tools are enabled
+        @enable_think_tool = config.key?(:enable_think_tool) ? config[:enable_think_tool] : true
 
         # coding_agent defaults to false if not specified
         # When true, includes the base system prompt for coding tasks
@@ -131,6 +137,7 @@ module SwarmSDK
           timeout: @timeout,
           bypass_permissions: @bypass_permissions,
           include_default_tools: @include_default_tools,
+          enable_think_tool: @enable_think_tool,
           coding_agent: @coding_agent,
           assume_model_exists: @assume_model_exists,
           max_concurrent_tools: @max_concurrent_tools,

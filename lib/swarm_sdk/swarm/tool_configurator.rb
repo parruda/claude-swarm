@@ -151,6 +151,9 @@ module SwarmSDK
           # Skip if already registered explicitly
           next if explicit_tool_names.include?(tool_name)
 
+          # Skip Think tool if disabled via enable_think_tool flag
+          next if tool_name == :Think && !agent_definition.enable_think_tool
+
           tool_instance = create_tool_instance(tool_name, agent_name, agent_definition.directory)
 
           # Resolve permissions for default tool (same logic as AgentDefinition)

@@ -492,6 +492,22 @@ Think(thoughts: "If we have 150 requests/sec and each takes 20ms, that's 150 * 0
 7. Think: "Tests pass. Task complete."
 ```
 
+**Disable Think tool** (if needed):
+```ruby
+agent :agent_name do
+  description "..."
+  model "gpt-4"
+  enable_think_tool false  # Disable Think tool
+end
+```
+
+```yaml
+agent_name:
+  description: "..."
+  model: "gpt-4"
+  enable_think_tool: false  # Disable Think tool
+```
+
 ### 2.2 Default Tools
 
 Some tools are included automatically:
