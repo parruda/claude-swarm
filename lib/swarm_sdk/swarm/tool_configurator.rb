@@ -12,7 +12,7 @@ module SwarmSDK
     #
     # This encapsulates all tool-related logic that was previously in Swarm.
     class ToolConfigurator
-      # Default tools available to all agents (unless include_default_tools: false)
+      # Default tools available to all agents (unless disable_default_tools is set)
       DEFAULT_TOOLS = [
         :Read,
         :Grep,

@@ -379,10 +379,10 @@ agents:
 ### tools
 
 **Type:** Array (optional)
-**Default:** Default tools if `include_default_tools: true`
+**Default:** Default tools if `default tools enabled`
 **Description:** List of tools available to the agent.
 
-**Default tools (when `include_default_tools: true`):**
+**Default tools (when `default tools enabled`):**
 - `Read`, `Glob`, `Grep`, `TodoWrite`, `ScratchpadWrite`, `ScratchpadRead`, `ScratchpadList`
 
 **Additional tools:**
@@ -412,7 +412,7 @@ agents:
 agents:
   minimal:
     tools: [Read, Write]
-    include_default_tools: false
+    disable_default_tools: true
 ```
 
 ---
@@ -660,7 +660,7 @@ agents:
 
 ---
 
-### include_default_tools
+### disable_default_tools
 
 **Type:** Boolean (optional)
 **Default:** `true`
@@ -670,7 +670,7 @@ agents:
 agents:
   minimal:
     tools: [Bash]
-    include_default_tools: false  # No default tools
+    disable_default_tools: true  # No default tools
 ```
 
 ---

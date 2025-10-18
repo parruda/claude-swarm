@@ -94,7 +94,7 @@ module SwarmSDK
           description: "Test agent",
           directory: ".",
           coding_agent: false,
-          # include_default_tools defaults to true
+          # disable_default_tools defaults to nil (all tools enabled)
         },
       )
 

@@ -18,7 +18,7 @@ module SwarmSDK
         system_prompt: "Custom prompt",
       )
 
-      # Default: coding_agent=false, include_default_tools=true
+      # Default: coding_agent=false, default tools enabled
       refute(agent_def.coding_agent)
       assert_nil(agent_def.disable_default_tools)
 
@@ -31,7 +31,7 @@ module SwarmSDK
     end
 
     def test_coding_agent_false_without_default_tools
-      # coding_agent=false, include_default_tools=false
+      # coding_agent=false, disable_default_tools: true
       agent_def = Agent::Definition.new(
         :test_agent,
         description: "Test agent",
@@ -95,7 +95,7 @@ module SwarmSDK
         coding_agent: false,
       )
 
-      # With coding_agent=false, include_default_tools=true, and nil custom_prompt
+      # With coding_agent=false, default tools enabled, and nil custom_prompt
       # Should get TODO/Scratchpad info only
       refute_empty(agent_def.system_prompt)
       assert_includes(agent_def.system_prompt, "TodoWrite")
@@ -113,7 +113,7 @@ module SwarmSDK
         disable_default_tools: true,
       )
 
-      # With coding_agent=false, include_default_tools=false, and nil custom_prompt
+      # With coding_agent=false, disable_default_tools: true, and nil custom_prompt
       # Should get empty string
       assert_equal("", agent_def.system_prompt)
     end

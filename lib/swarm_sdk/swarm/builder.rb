@@ -278,7 +278,7 @@ module SwarmSDK
         # Don't apply assume_model_exists from markdown - let DSL overrides or auto-enable handle it
         # builder.assume_model_exists(config[:assume_model_exists]) unless config[:assume_model_exists].nil?
         builder.bypass_permissions(config[:bypass_permissions]) if config[:bypass_permissions]
-        builder.include_default_tools(config[:include_default_tools]) unless config[:include_default_tools].nil?
+        builder.disable_default_tools(config[:disable_default_tools]) unless config[:disable_default_tools].nil?
 
         # Add tools from markdown
         if config[:tools]&.any?
