@@ -39,7 +39,7 @@ module SwarmSDK
         :headers,
         :timeout,
         :include_default_tools,
-        :enable_think_tool,
+        :disable_default_tools,
         :coding_agent,
         :default_permissions,
         :agent_permissions,
@@ -78,13 +78,22 @@ module SwarmSDK
         # This prevents RubyLLM from trying to validate models in its registry
         @assume_model_exists = true
 
-        # include_default_tools defaults to true if not specified
-        @include_default_tools = config.key?(:include_default_tools) ? config[:include_default_tools] : true
+        # disable_default_tools can be:
+        # - nil/not set: include all default tools (default behavior)
+        # - true: disable ALL default tools
+        # - Array of symbols: disable specific tools (e.g., [:Think, :TodoWrite])
+        @disable_default_tools = config[:disable_default_tools]
 
-        # enable_think_tool defaults to true if not specified
-        # When true, includes the Think tool (for explicit reasoning)
-        # When false, excludes the Think tool even if default tools are enabled
-        @enable_think_tool = config.key?(:enable_think_tool) ? config[:enable_think_tool] : true
+        # include_default_tools is legacy (kept for backward compatibility)
+        # When disable_default_tools is set, it takes precedence
+        # When neither is set, defaults to including all default tools
+        @include_default_tools = if !@disable_default_tools.nil?
+          # disable_default_tools takes precedence
+          !(@disable_default_tools == true)
+        else
+          # Fall back to include_default_tools (legacy)
+          config.key?(:include_default_tools) ? config[:include_default_tools] : true
+        end
 
         # coding_agent defaults to false if not specified
         # When true, includes the base system prompt for coding tasks
@@ -137,7 +146,7 @@ module SwarmSDK
           timeout: @timeout,
           bypass_permissions: @bypass_permissions,
           include_default_tools: @include_default_tools,
-          enable_think_tool: @enable_think_tool,
+          disable_default_tools: @disable_default_tools,
           coding_agent: @coding_agent,
           assume_model_exists: @assume_model_exists,
           max_concurrent_tools: @max_concurrent_tools,

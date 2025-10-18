@@ -492,12 +492,13 @@ Think(thoughts: "If we have 150 requests/sec and each takes 20ms, that's 150 * 0
 7. Think: "Tests pass. Task complete."
 ```
 
-**Disable Think tool** (if needed):
+**Disable specific default tools** (if needed):
 ```ruby
 agent :agent_name do
   description "..."
   model "gpt-4"
-  enable_think_tool false  # Disable Think tool
+  disable_default_tools [:Think]  # Disable just Think
+  # Or disable multiple: [:Think, :TodoWrite, :Grep]
 end
 ```
 
@@ -505,7 +506,9 @@ end
 agent_name:
   description: "..."
   model: "gpt-4"
-  enable_think_tool: false  # Disable Think tool
+  disable_default_tools:  # Disable specific tools
+    - Think
+    - TodoWrite
 ```
 
 ### 2.2 Default Tools
@@ -528,13 +531,48 @@ end
 ```
 
 **Disable default tools**:
+```ruby
+# Disable ALL default tools
+agent :minimal_agent do
+  description "Minimal agent"
+  model "gpt-4"
+  disable_default_tools true
+  tools :Read  # Only Read available
+end
+
+# Disable SPECIFIC default tools
+agent :selective_agent do
+  description "Selective agent"
+  model "gpt-4"
+  disable_default_tools [:Think, :TodoWrite]  # Disable these
+  # Still has: Read, Grep, Glob, Scratchpad tools
+end
+```
+
+```yaml
+# Disable ALL default tools
+minimal_agent:
+  description: "Minimal agent"
+  model: "gpt-4"
+  disable_default_tools: true
+  tools:
+    - Read       # Only Read available
+
+# Disable SPECIFIC default tools
+selective_agent:
+  description: "Selective agent"
+  model: "gpt-4"
+  disable_default_tools:
+    - Think
+    - TodoWrite
+```
+
+**Legacy (still supported)**:
 ```yaml
 minimal_agent:
   description: "Minimal agent"
   model: "gpt-4"
-  include_default_tools: false
-  tools:
-    - Read       # Only Read available
+  include_default_tools: false  # Old way - disables all
 ```
 
 **When to disable**: When you want precise control over agent capabilities.

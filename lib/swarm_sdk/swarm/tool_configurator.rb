@@ -151,8 +151,8 @@ module SwarmSDK
           # Skip if already registered explicitly
           next if explicit_tool_names.include?(tool_name)
 
-          # Skip Think tool if disabled via enable_think_tool flag
-          next if tool_name == :Think && !agent_definition.enable_think_tool
+          # Skip if tool is in the disable list
+          next if tool_disabled?(tool_name, agent_definition.disable_default_tools)
 
           tool_instance = create_tool_instance(tool_name, agent_name, agent_definition.directory)
 
@@ -169,6 +169,25 @@ module SwarmSDK
           )
 
           chat.with_tool(tool_instance)
+        end
+      end
+
+      # Check if a tool should be disabled based on disable_default_tools config
+      #
+      # @param tool_name [Symbol] Tool name to check
+      # @param disable_config [nil, Boolean, Array<Symbol>] Disable configuration
+      # @return [Boolean] True if tool should be disabled
+      def tool_disabled?(tool_name, disable_config)
+        return false if disable_config.nil?
+
+        if disable_config == true
+          # Disable all default tools
+          true
+        elsif disable_config.is_a?(Array)
+          # Disable only tools in the array
+          disable_config.include?(tool_name)
+        else
+          false
         end
       end
 
