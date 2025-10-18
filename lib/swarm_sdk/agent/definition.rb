@@ -117,7 +117,7 @@ module SwarmSDK
         {
           name: @name,
           description: @description,
-          model: @model,
+          model: SwarmSDK::Models.resolve_alias(@model), # Resolve model aliases
           directory: @directory,
           tools: @tools,
           delegates_to: @delegates_to,

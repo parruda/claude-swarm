@@ -21,6 +21,7 @@ module SwarmSDK
         :ScratchpadWrite,
         :ScratchpadRead,
         :ScratchpadList,
+        :Think,
       ].freeze
 
       def initialize(swarm, scratchpad)
@@ -75,6 +76,8 @@ module SwarmSDK
           Tools::ScratchpadRead.create_for_scratchpad(@scratchpad)
         when :ScratchpadList
           Tools::ScratchpadList.create_for_scratchpad(@scratchpad)
+        when :Think
+          Tools::Think.new
         else
           # Regular tools - get class from registry and instantiate
           tool_class = Tools::Registry.get(tool_name_sym)

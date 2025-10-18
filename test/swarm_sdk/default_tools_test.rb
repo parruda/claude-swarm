@@ -40,6 +40,7 @@ module SwarmSDK
         :ScratchpadWrite,
         :ScratchpadRead,
         :ScratchpadList,
+        :Think,
       ]
 
       assert_equal(expected_tools, Swarm::DEFAULT_TOOLS)
@@ -69,6 +70,7 @@ module SwarmSDK
       assert(agent.tools.key?(:ScratchpadWrite), "Should have default ScratchpadWrite")
       assert(agent.tools.key?(:ScratchpadRead), "Should have default ScratchpadRead")
       assert(agent.tools.key?(:ScratchpadList), "Should have default ScratchpadList")
+      assert(agent.tools.key?(:Think), "Should have default Think")
     end
 
     def test_agent_can_exclude_default_tools
