@@ -383,7 +383,8 @@ agents:
 **Description:** List of tools available to the agent.
 
 **Default tools (when `default tools enabled`):**
-- `Read`, `Glob`, `Grep`, `TodoWrite`, `ScratchpadWrite`, `ScratchpadRead`, `ScratchpadGlob`, `ScratchpadGrep`, `Think`
+- `Read`, `Glob`, `Grep`, `TodoWrite`, `Think`
+- `ScratchpadWrite`, `ScratchpadRead`, `ScratchpadEdit`, `ScratchpadMultiEdit`, `ScratchpadGlob`, `ScratchpadGrep`
 
 **Additional tools:**
 - `Write`, `Edit`, `MultiEdit`, `Bash`

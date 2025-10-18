@@ -541,7 +541,8 @@ tools(*tool_names, include_default: true) → void
 - `include_default` (Boolean, keyword): Include default tools
 
 **Default tools (when `include_default: true`):**
-- `Read`, `Glob`, `Grep`, `TodoWrite`, `ScratchpadWrite`, `ScratchpadRead`, `ScratchpadGlob`, `ScratchpadGrep`, `Think`
+- `Read`, `Glob`, `Grep`, `TodoWrite`, `Think`
+- `ScratchpadWrite`, `ScratchpadRead`, `ScratchpadEdit`, `ScratchpadMultiEdit`, `ScratchpadGlob`, `ScratchpadGrep`
 
 **Additional tools:**
 - `Write`, `Edit`, `MultiEdit`, `Bash`

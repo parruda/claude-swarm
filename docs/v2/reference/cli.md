@@ -395,7 +395,9 @@ Starts an MCP server that exposes SwarmSDK tools (Read, Write, Edit, Bash, Grep,
 - `TodoWrite`: Manage task lists
 - `Think`: Extended reasoning
 - `ScratchpadWrite`: Write to scratchpad
-- `ScratchpadRead`: Read from scratchpad
+- `ScratchpadRead`: Read from scratchpad (with line numbers)
+- `ScratchpadEdit`: Edit scratchpad entries
+- `ScratchpadMultiEdit`: Apply multiple edits to scratchpad entry
 - `ScratchpadGlob`: Search scratchpad by glob pattern
 - `ScratchpadGrep`: Search scratchpad content by regex
 
@@ -431,7 +433,7 @@ swarm mcp tools Read Write Edit
 swarm mcp tools Grep Glob
 
 # Expose scratchpad tools
-swarm mcp tools ScratchpadWrite ScratchpadRead ScratchpadGlob ScratchpadGrep
+swarm mcp tools ScratchpadWrite ScratchpadRead ScratchpadEdit ScratchpadMultiEdit ScratchpadGlob ScratchpadGrep
 
 # Use in Claude Desktop configuration
 {

@@ -414,7 +414,7 @@ TodoWrite(
 
 #### Scratchpad Tools
 
-Share data between agents using temporary storage:
+Share and persist data between agents using the scratchpad. Data is automatically saved to `.swarm/scratchpad.json` and survives swarm restarts.
 
 ```ruby
 agent :processor do
@@ -425,31 +425,58 @@ agent :processor do
 end
 ```
 
-**ScratchpadWrite**:
+**ScratchpadWrite** - Store content with metadata:
 ```
 ScratchpadWrite(file_path: "analysis_result", content: "...", title: "Analysis Result")
 ```
 
-**ScratchpadRead**:
+**ScratchpadRead** - Read content with line numbers:
 ```
 ScratchpadRead(file_path: "analysis_result")
+# Returns:
+#      1→First line of content
+#      2→Second line of content
 ```
 
-**ScratchpadGlob**:
+**ScratchpadEdit** - Edit existing entries:
+```
+ScratchpadEdit(file_path: "report", old_string: "draft", new_string: "final")
+ScratchpadEdit(file_path: "doc", old_string: "foo", new_string: "bar", replace_all: true)
+```
+
+**ScratchpadMultiEdit** - Apply multiple edits sequentially:
+```
+ScratchpadMultiEdit(
+  file_path: "doc",
+  edits_json: '[{"old_string":"foo","new_string":"bar"},{"old_string":"baz","new_string":"qux"}]'
+)
+```
+
+**ScratchpadGlob** - Search by file pattern:
 ```
 ScratchpadGlob(pattern: "**")  # Lists all entries
-ScratchpadGlob(pattern: "analysis/*")  # List entries in analysis/
+ScratchpadGlob(pattern: "analysis/*")  # Direct children of analysis/
+ScratchpadGlob(pattern: "analysis/**")  # All entries under analysis/ (recursive)
 ```
 
-**ScratchpadGrep**:
+**ScratchpadGrep** - Search content by regex:
 ```
-ScratchpadGrep(pattern: "error", output_mode: "content")  # Search content
+ScratchpadGrep(pattern: "error", output_mode: "content")  # Show matching lines
+ScratchpadGrep(pattern: "error", output_mode: "count")    # Count matches
 ```
+
+**Features**:
+- **Persistent**: Data saved to `.swarm/scratchpad.json`
+- **Thread-safe**: Concurrent access protected
+- **Atomic writes**: Data integrity guaranteed
+- **Shared**: All agents access the same scratchpad
+- **Hierarchical**: Use paths like `"analysis/performance/report"`
 
 **Use cases**:
 - Passing large data between agents
 - Storing intermediate analysis
 - Caching expensive computations
+- Persisting results across swarm restarts
 
 #### Think Tool
 
@@ -528,7 +555,7 @@ agent :agent_name do
   # These are included by default:
   # - Read, Grep, Glob (file operations)
   # - TodoWrite (task tracking)
-  # - ScratchpadWrite, ScratchpadRead, ScratchpadGlob, ScratchpadGrep (shared storage)
+  # - ScratchpadWrite, ScratchpadRead, ScratchpadEdit, ScratchpadMultiEdit, ScratchpadGlob, ScratchpadGrep (shared persistent storage)
   # - Think (explicit reasoning)
 
   # Add additional tools:
