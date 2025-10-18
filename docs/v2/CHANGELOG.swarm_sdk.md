@@ -5,7 +5,7 @@ All notable changes to SwarmSDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.0.2] - 2025-10-17
 
 ### Added
 - **Claude Code Agent File Compatibility** (#141)
@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Model suggestions properly handle provider-prefixed queries (e.g., `anthropic:claude-sonnet-4-5`)
 - Environment block (`<env>`) now included in ALL agent system prompts (previously only `coding_agent: true`)
 
-## [2.0.1] - Fri, Oct 17 2025
+## [2.0.1] - 2025-10-17
 
 ### Fixed
 - Add id to MCP notifications/initialized message (#140)
@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - Removed outdated example files (examples/v2/README-formats.md and examples/v2/mcp.json)
 
-## [2.0.0] - Fri, Oct 17 2025
+## [2.0.0] - 2025-10-17
 
 Initial release of SwarmSDK.
 

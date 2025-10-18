@@ -2,7 +2,7 @@
 description: Bump version, update changelog, and prepare for release
 allowed-tools: [Read, Edit, Bash]
 ---
-
+CRITICAL: Only use this for Claude Swarm. Not for SwarmSDK or SwarmCLI
 Prepare a new release for Claude Swarm by:
 
 1. Read the current version from @lib/claude_swarm/version.rb
