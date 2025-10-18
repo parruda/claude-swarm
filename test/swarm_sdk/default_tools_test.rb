@@ -82,7 +82,7 @@ module SwarmSDK
         model: "gpt-5",
         system_prompt: "You are a developer.",
         tools: [:Write, :Edit],
-        include_default_tools: false, # Disable defaults
+        disable_default_tools: true, # Disable defaults
       ))
 
       agent = swarm.agent(:developer)
@@ -125,7 +125,7 @@ module SwarmSDK
         model: "gpt-5",
         system_prompt: "You are a developer.",
         tools: [],
-        include_default_tools: false,
+        disable_default_tools: true,
       ))
 
       agent = swarm.agent(:developer)

@@ -71,7 +71,7 @@ module SwarmSDK
           name: "Test Swarm"
           lead: developer
           all_agents:
-            include_default_tools: false
+            disable_default_tools: true
             tools:
               - Write
           agents:
@@ -97,14 +97,14 @@ module SwarmSDK
       end
     end
 
-    def test_agent_overrides_all_agents_include_default_tools
+    def test_agent_overrides_all_agents_disable_default_tools
       yaml_content = <<~YAML
         version: 2
         swarm:
           name: "Test Swarm"
           lead: developer
           all_agents:
-            include_default_tools: false  # Disable for all
+            disable_default_tools: true  # Disable for all
             tools: [Write]
           agents:
             developer:
@@ -112,13 +112,14 @@ module SwarmSDK
               model: gpt-5
               system_prompt: "You are a developer"
               tools: [Bash]
-              include_default_tools: true  # Override: enable for this agent
+              disable_default_tools:  # Override: only disable Think
+                - Think
             minimal:
               description: "Developer 2"
               model: gpt-5
               system_prompt: "You are minimal"
               tools: [Edit]
-              # Inherits include_default_tools: false from all_agents
+              # Inherits disable_default_tools: true from all_agents
       YAML
 
       with_temp_config(yaml_content) do |config_path|
@@ -127,9 +128,10 @@ module SwarmSDK
         developer = swarm.agent(:developer)
         minimal = swarm.agent(:minimal)
 
-        # Developer should have defaults (overrode all_agents)
+        # Developer should have defaults except Think (overrode all_agents)
         assert(developer.tools.key?(:Read), "Developer should have Read")
         assert(developer.tools.key?(:Grep), "Developer should have Grep")
+        refute(developer.tools.key?(:Think), "Developer should NOT have Think")
         assert(developer.tools.key?(:Write), "Developer should have all_agents Write")
         assert(developer.tools.key?(:Bash), "Developer should have agent Bash")
 

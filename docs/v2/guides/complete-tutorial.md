@@ -567,14 +567,6 @@ selective_agent:
     - TodoWrite
 ```
 
-**Legacy (still supported)**:
-```yaml
-minimal_agent:
-  description: "Minimal agent"
-  model: "gpt-4"
-  include_default_tools: false  # Old way - disables all
-```
-
 **When to disable**: When you want precise control over agent capabilities.
 
 ### 2.3 Path Permissions

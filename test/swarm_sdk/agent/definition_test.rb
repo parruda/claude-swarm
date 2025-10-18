@@ -16,7 +16,7 @@ module SwarmSDK
 
       assert_equal(:test_agent, agent_def.name)
       assert_equal("Test agent", agent_def.description)
-      # Default is coding_agent: false, include_default_tools: true
+      # Default is coding_agent: false, # All default tools enabled
       # So it includes TODO/Scratchpad + custom prompt
       assert_includes(agent_def.system_prompt, "You are a test agent")
       assert_includes(agent_def.system_prompt, "TodoWrite")
@@ -98,7 +98,7 @@ module SwarmSDK
         },
       )
 
-      # With coding_agent: false, include_default_tools: true, and no custom prompt
+      # With coding_agent: false, # All default tools enabled, and no custom prompt
       # Should get TODO/Scratchpad info only
       refute_empty(agent_def.system_prompt)
       assert_includes(agent_def.system_prompt, "TodoWrite")
@@ -112,11 +112,11 @@ module SwarmSDK
           description: "Test agent",
           directory: ".",
           coding_agent: false,
-          include_default_tools: false,
+          disable_default_tools: true,
         },
       )
 
-      # With coding_agent: false, include_default_tools: false, and no custom prompt
+      # With coding_agent: false, disable_default_tools: true, and no custom prompt
       # Should be empty
       assert_equal("", agent_def.system_prompt)
     end
@@ -223,7 +223,7 @@ module SwarmSDK
           delegates_to: [:backend],
           mcp_servers: [{ type: :stdio }],
           coding_agent: false, # Explicit default
-          include_default_tools: false, # No default tools for exact prompt
+          disable_default_tools: true, # No default tools for exact prompt
         },
       )
 
@@ -232,7 +232,7 @@ module SwarmSDK
       assert_equal(:test_agent, hash[:name])
       assert_equal("Test agent", hash[:description])
       assert_equal("gpt-5", hash[:model])
-      # With coding_agent: false, include_default_tools: false → only custom prompt
+      # With coding_agent: false, disable_default_tools: true → only custom prompt
       assert_equal("Test prompt", hash[:system_prompt])
       assert_equal("openai", hash[:provider])
       assert_in_delta(0.8, hash[:parameters][:temperature])

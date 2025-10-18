@@ -136,13 +136,14 @@ module SwarmSDK
         end
       end
 
-      # Register default tools for agents that have include_default_tools enabled
+      # Register default tools for agents (unless disabled)
       #
       # @param chat [AgentChat] The chat instance
       # @param agent_name [Symbol] Agent name
       # @param agent_definition [AgentDefinition] Agent definition
       def register_default_tools(chat, agent_name:, agent_definition:)
-        return unless agent_definition.include_default_tools
+        # If disable_default_tools is true, skip all default tools
+        return if agent_definition.disable_default_tools == true
 
         # Get explicit tool names to avoid duplicates
         explicit_tool_names = agent_definition.tools.map { |t| t[:name] }.to_set

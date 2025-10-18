@@ -149,47 +149,5 @@ module SwarmSDK
       assert(agent_chat.tools.key?(:Read), "Should have Read")
       assert(agent_chat.tools.key?(:Glob), "Should have Glob")
     end
-
-    def test_backward_compatibility_include_default_tools_false
-      swarm = Swarm.new(name: "Test Swarm")
-
-      swarm.add_agent(create_agent(
-        name: :developer,
-        description: "Developer agent",
-        model: "gpt-5",
-        system_prompt: "You are a developer.",
-        tools: [:Write],
-        include_default_tools: false, # Legacy way to disable
-      ))
-
-      agent = swarm.agent(:developer)
-
-      # Should NOT have any default tools
-      refute(agent.tools.key?(:Think), "Should NOT have Think")
-      refute(agent.tools.key?(:Read), "Should NOT have Read")
-
-      # Should have explicit tool
-      assert(agent.tools.key?(:Write), "Should have Write")
-    end
-
-    def test_disable_default_tools_takes_precedence_over_include
-      swarm = Swarm.new(name: "Test Swarm")
-
-      swarm.add_agent(create_agent(
-        name: :developer,
-        description: "Developer agent",
-        model: "gpt-5",
-        system_prompt: "You are a developer.",
-        tools: [:Write],
-        include_default_tools: true, # Legacy: enable all
-        disable_default_tools: [:Think], # New: disable Think
-      ))
-
-      agent = swarm.agent(:developer)
-
-      # disable_default_tools should win
-      refute(agent.tools.key?(:Think), "Should NOT have Think (disable wins)")
-      assert(agent.tools.key?(:Read), "Should have Read")
-    end
   end
 end

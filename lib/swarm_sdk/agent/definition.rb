@@ -38,7 +38,6 @@ module SwarmSDK
         :parameters,
         :headers,
         :timeout,
-        :include_default_tools,
         :disable_default_tools,
         :coding_agent,
         :default_permissions,
@@ -83,17 +82,6 @@ module SwarmSDK
         # - true: disable ALL default tools
         # - Array of symbols: disable specific tools (e.g., [:Think, :TodoWrite])
         @disable_default_tools = config[:disable_default_tools]
-
-        # include_default_tools is legacy (kept for backward compatibility)
-        # When disable_default_tools is set, it takes precedence
-        # When neither is set, defaults to including all default tools
-        @include_default_tools = if !@disable_default_tools.nil?
-          # disable_default_tools takes precedence
-          !(@disable_default_tools == true)
-        else
-          # Fall back to include_default_tools (legacy)
-          config.key?(:include_default_tools) ? config[:include_default_tools] : true
-        end
 
         # coding_agent defaults to false if not specified
         # When true, includes the base system prompt for coding tasks
@@ -145,7 +133,6 @@ module SwarmSDK
           headers: @headers,
           timeout: @timeout,
           bypass_permissions: @bypass_permissions,
-          include_default_tools: @include_default_tools,
           disable_default_tools: @disable_default_tools,
           coding_agent: @coding_agent,
           assume_model_exists: @assume_model_exists,
@@ -240,7 +227,7 @@ module SwarmSDK
           else
             rendered_base
           end
-        elsif @include_default_tools
+        elsif default_tools_enabled?
           # Non-coding agent: optionally include TODO/Scratchpad sections if default tools available
           non_coding_base = render_non_coding_base_prompt
 
@@ -256,6 +243,13 @@ module SwarmSDK
           # No default tools: return only custom prompt
           (custom_prompt || "").to_s
         end
+      end
+
+      # Check if default tools are enabled (i.e., not disabled)
+      #
+      # @return [Boolean] True if default tools should be included
+      def default_tools_enabled?
+        @disable_default_tools != true
       end
 
       def render_base_system_prompt
