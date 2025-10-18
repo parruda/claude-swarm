@@ -1,8 +1,9 @@
 name: Release SwarmCLI Gem
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'swarm_cli-v*.*.*'
 
 jobs:
   # detect-version-change:

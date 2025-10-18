@@ -1,8 +1,9 @@
 name: Release SwarmSDK Gem
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'swarm_sdk-v*.*.*'
 
 jobs:
   # detect-version-change:
