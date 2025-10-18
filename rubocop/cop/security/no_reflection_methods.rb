@@ -19,7 +19,8 @@ module RuboCop
         MSG = "Do not use `%<method>s`; it uses reflection and can break encapsulation."
         TEST_MSG = "Do not use `%<method>s`; it uses reflection and can break encapsulation. " \
           "You must test behaviour through calling public methods. " \
-          "Private methods must be tested through calls done to public methods."
+          "Private methods must be tested through calls done to public methods." \
+          "CRITICAL: DO NOT disable this cop."
 
         # Match method calls
         def on_send(node)
