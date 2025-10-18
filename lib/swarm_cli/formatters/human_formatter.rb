@@ -10,6 +10,8 @@ module SwarmCLI
     # - :non_interactive - Full headers, task prompt, complete summary (for single execution)
     # - :interactive - Minimal output for REPL (headers shown in welcome screen)
     class HumanFormatter
+      attr_reader :spinner_manager
+
       def initialize(output: $stdout, quiet: false, truncate: false, verbose: false, mode: :non_interactive)
         @output = output
         @quiet = quiet

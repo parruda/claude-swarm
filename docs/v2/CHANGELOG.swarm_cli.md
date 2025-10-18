@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Press Option+Enter (or ESC then Enter) to add newlines without submitting
   - Press Enter to submit your message
   - Updated help documentation with input tips
+- **Request Cancellation** - Press Ctrl+C to cancel an ongoing LLM request
+  - Cancels the current request and returns to the prompt
+  - Ctrl+C at the prompt still exits the REPL (existing behavior preserved)
+  - Uses Async task cancellation for clean interruption
 
 ## [2.0.1] - Fri, Oct 17 2025
 

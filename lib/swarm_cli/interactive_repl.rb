@@ -5,6 +5,8 @@ require "tty-spinner"
 require "tty-markdown"
 require "tty-box"
 require "pastel"
+require "async"
+require "async/condition"
 
 module SwarmCLI
   # InteractiveREPL provides a professional, interactive terminal interface
@@ -283,17 +285,69 @@ module SwarmCLI
 
       puts ""
 
-      # Execute swarm with logging through formatter
-      result = @swarm.execute(input) do |log_entry|
-        # Skip model warnings - already emitted before first prompt
-        next if log_entry[:type] == "model_lookup_warning"
+      cancelled = false
+      result = nil
 
-        @formatter.on_log(log_entry)
+      # Execute in Async block to enable Ctrl+C cancellation
+      Async do |task|
+        # Use Async::Condition for trap-safe cancellation
+        # (Condition#signal uses Thread::Queue which is safe from trap context)
+        cancel_condition = Async::Condition.new
 
-        # Track context percentage from usage info
-        if log_entry[:usage] && log_entry[:usage][:tokens_used_percentage]
-          @last_context_percentage = log_entry[:usage][:tokens_used_percentage]
+        # Install trap ONLY during execution
+        # When Ctrl+C is pressed, signal the condition instead of calling task.stop
+        old_trap = trap("INT") do
+          cancel_condition.signal(:cancel)
         end
+
+        begin
+          # Execute swarm in async task
+          llm_task = task.async do
+            @swarm.execute(input) do |log_entry|
+              # Skip model warnings - already emitted before first prompt
+              next if log_entry[:type] == "model_lookup_warning"
+
+              @formatter.on_log(log_entry)
+
+              # Track context percentage from usage info
+              if log_entry[:usage] && log_entry[:usage][:tokens_used_percentage]
+                @last_context_percentage = log_entry[:usage][:tokens_used_percentage]
+              end
+            end
+          end
+
+          # Monitor task - watches for cancellation signal
+          # Must be created AFTER llm_task so it can reference it
+          monitor_task = task.async do
+            if cancel_condition.wait == :cancel
+              cancelled = true
+              llm_task.stop
+            end
+          end
+
+          result = llm_task.wait
+        rescue Async::Stop
+          # Task was stopped by Ctrl+C
+          cancelled = true
+        ensure
+          # Clean up monitor task
+          monitor_task&.stop if monitor_task&.alive?
+
+          # CRITICAL: Restore old trap when done
+          # This ensures Ctrl+C at the prompt still exits the REPL
+          trap("INT", old_trap)
+        end
+      end.wait
+
+      # Handle cancellation
+      if cancelled
+        # Stop all active spinners
+        @formatter.spinner_manager.stop_all
+
+        puts ""
+        puts @colors[:warning].call("✗ Request cancelled by user")
+        puts ""
+        return
       end
 
       # Check for errors
@@ -359,6 +413,7 @@ module SwarmCLI
         @colors[:system].call("Input Tips:"),
         @colors[:system].call("  • Press Enter to submit your message"),
         @colors[:system].call("  • Press Option+Enter (or ESC then Enter) for multi-line input"),
+        @colors[:system].call("  • Press Ctrl+C to cancel an ongoing request"),
         @colors[:system].call("  • Press Ctrl+D to exit"),
         @colors[:system].call("  • Use arrow keys for history and editing"),
         @colors[:system].call("  • Type / for commands or @ for file paths"),
