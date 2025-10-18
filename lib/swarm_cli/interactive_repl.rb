@@ -496,12 +496,43 @@ module SwarmCLI
       # Capture COMMANDS for use in lambda
       commands = COMMANDS
 
+      # Capture file completion logic for use in lambda (since lambda runs in different context)
+      file_completions = lambda do |target|
+        has_at_prefix = target.start_with?("@")
+        query = has_at_prefix ? target[1..] : target
+
+        next Dir.glob("*").sort.first(20) if query.empty?
+
+        # Find files matching query anywhere in path
+        pattern = "**/*#{query}*"
+        found = Dir.glob(pattern, File::FNM_CASEFOLD).reject do |path|
+          path.split("/").any? { |part| part.start_with?(".") }
+        end.sort.first(20)
+
+        # Add @ prefix if needed
+        has_at_prefix ? found.map { |p| "@#{p}" } : found
+      end
+
       # Custom dialog proc for fuzzy file/command completion
       fuzzy_proc = lambda do
         # State: [pre, target, post, matches, pointer, navigating]
 
         # Check if this is a navigation key press
         is_nav_key = key&.match?(dialog.name)
+
+        # If we were in navigation mode and user typed a regular key (not Tab), exit nav mode
+        if !context.empty? && context.size >= 6 && context[5] && !is_nav_key
+          context[5] = false # Exit navigation mode
+        end
+
+        # Early check: if user typed and current target has spaces, close dialog
+        unless is_nav_key || context.empty?
+          _, target_check, = retrieve_completion_block
+          if target_check.include?(" ")
+            context.clear
+            return
+          end
+        end
 
         # Detect if we should recalculate matches
         should_recalculate = if context.empty?
@@ -529,8 +560,8 @@ module SwarmCLI
               query.empty? || cmd.downcase.include?(query.downcase)
             end.sort
           elsif target.start_with?("@") || target.include?("/")
-            # File path completions - extract to reduce nesting
-            get_file_completions(target)
+            # File path completions - use captured lambda
+            file_completions.call(target)
           end
 
           return if matches.nil? || matches.empty?
@@ -604,24 +635,6 @@ module SwarmCLI
 
       # Register the custom fuzzy dialog
       Reline.add_dialog_proc(:fuzzy_complete, fuzzy_proc, [])
-    end
-
-    # Get file path completions with fuzzy matching
-    # Extracted to reduce block nesting in the dialog lambda
-    def get_file_completions(target)
-      has_at_prefix = target.start_with?("@")
-      query = has_at_prefix ? target[1..] : target
-
-      return Dir.glob("*").sort.first(20) if query.empty?
-
-      # Find files matching query anywhere in path
-      pattern = "**/*#{query}*"
-      found = Dir.glob(pattern, File::FNM_CASEFOLD).reject do |path|
-        path.split("/").any? { |part| part.start_with?(".") }
-      end.sort.first(20)
-
-      # Add @ prefix if needed
-      has_at_prefix ? found.map { |p| "@#{p}" } : found
     end
   end
 end
