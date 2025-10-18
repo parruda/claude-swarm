@@ -427,7 +427,7 @@ end
 
 **ScratchpadWrite**:
 ```
-ScratchpadWrite(file_path: "analysis_result", content: "...")
+ScratchpadWrite(file_path: "analysis_result", content: "...", title: "Analysis Result")
 ```
 
 **ScratchpadRead**:
@@ -435,9 +435,15 @@ ScratchpadWrite(file_path: "analysis_result", content: "...")
 ScratchpadRead(file_path: "analysis_result")
 ```
 
-**ScratchpadList**:
+**ScratchpadGlob**:
 ```
-ScratchpadList()  # Lists all scratchpad entries
+ScratchpadGlob(pattern: "**")  # Lists all entries
+ScratchpadGlob(pattern: "analysis/*")  # List entries in analysis/
+```
+
+**ScratchpadGrep**:
+```
+ScratchpadGrep(pattern: "error", output_mode: "content")  # Search content
 ```
 
 **Use cases**:
@@ -522,7 +528,7 @@ agent :agent_name do
   # These are included by default:
   # - Read, Grep, Glob (file operations)
   # - TodoWrite (task tracking)
-  # - ScratchpadWrite, ScratchpadRead, ScratchpadList (shared storage)
+  # - ScratchpadWrite, ScratchpadRead, ScratchpadGlob, ScratchpadGrep (shared storage)
   # - Think (explicit reasoning)
 
   # Add additional tools:

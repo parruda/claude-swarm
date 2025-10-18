@@ -541,7 +541,7 @@ tools(*tool_names, include_default: true) → void
 - `include_default` (Boolean, keyword): Include default tools
 
 **Default tools (when `include_default: true`):**
-- `Read`, `Glob`, `Grep`, `TodoWrite`, `ScratchpadWrite`, `ScratchpadRead`, `ScratchpadList`
+- `Read`, `Glob`, `Grep`, `TodoWrite`, `ScratchpadWrite`, `ScratchpadRead`, `ScratchpadGlob`, `ScratchpadGrep`, `Think`
 
 **Additional tools:**
 - `Write`, `Edit`, `MultiEdit`, `Bash`
@@ -855,7 +855,7 @@ max_concurrent_tools 20  # Allow more parallelism
 
 ### disable_default_tools
 
-Include default tools (Read, Grep, Glob, TodoWrite, Scratchpad).
+Include default tools (Read, Grep, Glob, TodoWrite, Think, and scratchpad tools).
 
 **Signature:**
 ```ruby

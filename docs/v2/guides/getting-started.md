@@ -149,9 +149,10 @@ Tools are functions agents call to interact with the world. SwarmSDK provides:
 | **Search** | Grep, Glob | Find content and files |
 | **Execution** | Bash | Run shell commands |
 | **Task Management** | TodoWrite | Track progress on multi-step tasks |
-| **Shared Memory** | ScratchpadWrite, ScratchpadRead, ScratchpadList | Share data between agents |
+| **Shared Memory** | ScratchpadWrite, ScratchpadRead, ScratchpadGlob, ScratchpadGrep | Share data between agents |
+| **Reasoning** | Think | Extended reasoning for complex problems |
 
-**Default tools**: Every agent automatically gets Read, Grep, Glob, TodoWrite, and Scratchpad tools unless you explicitly disable them with `disable_default_tools: true`.
+**Default tools**: Every agent automatically gets Read, Grep, Glob, TodoWrite, Think, and scratchpad tools unless you explicitly disable them with `disable_default_tools: true`.
 
 ## Configuration Formats: YAML vs Ruby DSL vs Markdown
 
@@ -836,13 +837,13 @@ swarm:
       description: "Gathers raw data"
       model: "gpt-4"
       system_prompt: |
-        Research topics and write findings to scratchpad with key "research_data".
+        Research topics and write findings to scratchpad using file path "research/data".
 
     analyst:
       description: "Analyzes research data"
       model: "claude-sonnet-4"
       system_prompt: |
-        Read "research_data" from scratchpad and provide analysis.
+        Read "research/data" from scratchpad and provide analysis.
 ```
 
 **Ruby DSL**:
@@ -861,13 +862,13 @@ swarm = SwarmSDK.build do
   agent :researcher do
     description "Gathers raw data"
     model "gpt-4"
-    system_prompt 'Research topics and write findings to scratchpad with key "research_data".'
+    system_prompt 'Research topics and write findings to scratchpad using file path "research/data".'
   end
 
   agent :analyst do
     description "Analyzes research data"
     model "claude-sonnet-4"
-    system_prompt 'Read "research_data" from scratchpad and provide analysis.'
+    system_prompt 'Read "research/data" from scratchpad and provide analysis.'
   end
 end
 
@@ -877,9 +878,9 @@ result = swarm.execute("Research Ruby performance optimization techniques and an
 
 **How it works**:
 1. Coordinator delegates to researcher: "Gather data on Ruby performance"
-2. Researcher uses `ScratchpadWrite(key: "research_data", value: "...")`
+2. Researcher uses `ScratchpadWrite(file_path: "research/data", content: "...", title: "Research Data")`
 3. Coordinator delegates to analyst: "Analyze the research"
-4. Analyst uses `ScratchpadRead(key: "research_data")` to get the data
+4. Analyst uses `ScratchpadRead(file_path: "research/data")` to get the data
 5. Analyst provides analysis
 
 ## Common Pitfalls and Solutions
@@ -1347,7 +1348,8 @@ Unless `disable_default_tools: true`:
 - **Grep** - Search file contents
 - **Glob** - Find files by pattern
 - **TodoWrite** - Track tasks
-- **ScratchpadWrite, ScratchpadRead, ScratchpadList** - Shared memory
+- **Think** - Extended reasoning
+- **ScratchpadWrite, ScratchpadRead, ScratchpadGlob, ScratchpadGrep** - Shared memory
 
 ### Common Tools (Add Explicitly)
 

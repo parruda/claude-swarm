@@ -383,7 +383,7 @@ agents:
 **Description:** List of tools available to the agent.
 
 **Default tools (when `default tools enabled`):**
-- `Read`, `Glob`, `Grep`, `TodoWrite`, `ScratchpadWrite`, `ScratchpadRead`, `ScratchpadList`
+- `Read`, `Glob`, `Grep`, `TodoWrite`, `ScratchpadWrite`, `ScratchpadRead`, `ScratchpadGlob`, `ScratchpadGrep`, `Think`
 
 **Additional tools:**
 - `Write`, `Edit`, `MultiEdit`, `Bash`
@@ -664,7 +664,7 @@ agents:
 
 **Type:** Boolean (optional)
 **Default:** `true`
-**Description:** Include default tools (Read, Grep, Glob, TodoWrite, Scratchpad).
+**Description:** Include default tools (Read, Grep, Glob, TodoWrite, Think, and scratchpad tools).
 
 ```yaml
 agents:
