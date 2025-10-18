@@ -1,0 +1,25 @@
+version: 1
+swarm:
+  name: "Markdown Instances Demo"
+  main: lead
+  instances:
+    lead:
+      description: "Lead developer coordinating the team"
+      directory: .
+      model: opus
+      connections: [frontend, backend]
+      prompt: |
+        You are the lead developer coordinating a development team.
+        Your team members are defined in markdown files with frontmatter.
+        Delegate tasks to your specialized team members.
+
+    # Reference markdown files for instance configuration
+    frontend: ./instances/frontend_dev.md
+    backend: ./instances/backend_developer.md
+
+    # Can still mix inline configuration with markdown references
+    tester:
+      description: "QA engineer focused on testing"
+      directory: .
+      model: sonnet
+      prompt: "You are a QA engineer specializing in automated testing and quality assurance."
