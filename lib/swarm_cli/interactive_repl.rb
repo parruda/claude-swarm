@@ -69,6 +69,59 @@ module SwarmCLI
       exit(130)
     end
 
+    # Execute a message with Ctrl+C cancellation support
+    # Public for testing
+    #
+    # @param input [String] User input to execute
+    # @return [SwarmSDK::Result, nil] Result or nil if cancelled
+    def execute_with_cancellation(input, &log_callback)
+      cancelled = false
+      result = nil
+
+      # Execute in Async block to enable Ctrl+C cancellation
+      Async do |task|
+        # Use Async::Condition for trap-safe cancellation
+        # (Condition#signal uses Thread::Queue which is safe from trap context)
+        cancel_condition = Async::Condition.new
+
+        # Install trap ONLY during execution
+        # When Ctrl+C is pressed, signal the condition instead of calling task.stop
+        old_trap = trap("INT") do
+          cancel_condition.signal(:cancel)
+        end
+
+        begin
+          # Execute swarm in async task
+          llm_task = task.async do
+            @swarm.execute(input, &log_callback)
+          end
+
+          # Monitor task - watches for cancellation signal
+          # Must be created AFTER llm_task so it can reference it
+          monitor_task = task.async do
+            if cancel_condition.wait == :cancel
+              cancelled = true
+              llm_task.stop
+            end
+          end
+
+          result = llm_task.wait
+        rescue Async::Stop
+          # Task was stopped by Ctrl+C
+          cancelled = true
+        ensure
+          # Clean up monitor task
+          monitor_task&.stop if monitor_task&.alive?
+
+          # CRITICAL: Restore old trap when done
+          # This ensures Ctrl+C at the prompt still exits the REPL
+          trap("INT", old_trap)
+        end
+      end.wait
+
+      cancelled ? nil : result
+    end
+
     private
 
     def setup_ui_components
@@ -285,62 +338,21 @@ module SwarmCLI
 
       puts ""
 
-      cancelled = false
-      result = nil
+      # Execute with cancellation support
+      result = execute_with_cancellation(input) do |log_entry|
+        # Skip model warnings - already emitted before first prompt
+        next if log_entry[:type] == "model_lookup_warning"
 
-      # Execute in Async block to enable Ctrl+C cancellation
-      Async do |task|
-        # Use Async::Condition for trap-safe cancellation
-        # (Condition#signal uses Thread::Queue which is safe from trap context)
-        cancel_condition = Async::Condition.new
+        @formatter.on_log(log_entry)
 
-        # Install trap ONLY during execution
-        # When Ctrl+C is pressed, signal the condition instead of calling task.stop
-        old_trap = trap("INT") do
-          cancel_condition.signal(:cancel)
+        # Track context percentage from usage info
+        if log_entry[:usage] && log_entry[:usage][:tokens_used_percentage]
+          @last_context_percentage = log_entry[:usage][:tokens_used_percentage]
         end
+      end
 
-        begin
-          # Execute swarm in async task
-          llm_task = task.async do
-            @swarm.execute(input) do |log_entry|
-              # Skip model warnings - already emitted before first prompt
-              next if log_entry[:type] == "model_lookup_warning"
-
-              @formatter.on_log(log_entry)
-
-              # Track context percentage from usage info
-              if log_entry[:usage] && log_entry[:usage][:tokens_used_percentage]
-                @last_context_percentage = log_entry[:usage][:tokens_used_percentage]
-              end
-            end
-          end
-
-          # Monitor task - watches for cancellation signal
-          # Must be created AFTER llm_task so it can reference it
-          monitor_task = task.async do
-            if cancel_condition.wait == :cancel
-              cancelled = true
-              llm_task.stop
-            end
-          end
-
-          result = llm_task.wait
-        rescue Async::Stop
-          # Task was stopped by Ctrl+C
-          cancelled = true
-        ensure
-          # Clean up monitor task
-          monitor_task&.stop if monitor_task&.alive?
-
-          # CRITICAL: Restore old trap when done
-          # This ensures Ctrl+C at the prompt still exits the REPL
-          trap("INT", old_trap)
-        end
-      end.wait
-
-      # Handle cancellation
-      if cancelled
+      # Handle cancellation (result is nil when cancelled)
+      if result.nil?
         # Stop all active spinners
         @formatter.spinner_manager.stop_all
 

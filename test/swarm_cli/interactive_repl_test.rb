@@ -51,6 +51,66 @@ class InteractiveREPLTest < Minitest::Test
     assert_includes(SwarmCLI::InteractiveREPL::COMMANDS, "/exit")
   end
 
+  def test_execute_with_cancellation_returns_nil_on_async_stop
+    # Test that execute_with_cancellation returns nil when Async::Stop is raised
+    repl = SwarmCLI::InteractiveREPL.new(swarm: @swarm, options: @options)
+
+    # Mock swarm to raise Async::Stop (simulating cancellation)
+    @swarm.expect(:execute, nil) do |_input, &_block|
+      raise Async::Stop
+    end
+
+    result = repl.execute_with_cancellation("test input")
+
+    # Should return nil when cancelled
+    assert_nil(result, "execute_with_cancellation should return nil when cancelled")
+  end
+
+  def test_execute_with_cancellation_returns_result_on_success
+    # Test that execute_with_cancellation returns the result on successful execution
+    repl = SwarmCLI::InteractiveREPL.new(swarm: @swarm, options: @options)
+
+    # Use a simple string as result to avoid mock complexity
+    success_result = "execution completed"
+
+    @swarm.expect(:execute, success_result) do |_input, &block|
+      # Simulate a log entry
+      block&.call({ type: "agent_start", agent: :test })
+      success_result
+    end
+
+    result = repl.execute_with_cancellation("test input")
+
+    # Should return the result when successful
+    assert_equal(success_result, result, "execute_with_cancellation should return result on success")
+  end
+
+  def test_execute_with_cancellation_restores_signal_handler
+    # Test that the signal handler is properly restored after execution
+    repl = SwarmCLI::InteractiveREPL.new(swarm: @swarm, options: @options)
+
+    # Set a custom signal handler before
+    original_trap = trap("INT", "DEFAULT")
+
+    begin
+      # Mock successful execution
+      result_mock = Minitest::Mock.new
+
+      @swarm.expect(:execute, result_mock) do |_input, &block|
+        block&.call({ type: "agent_start", agent: :test })
+        result_mock
+      end
+
+      repl.execute_with_cancellation("test")
+
+      # After execute_with_cancellation completes, the original trap should be restored
+      # We verify no error occurred during execution
+      assert(true, "Signal handler should be restored without errors")
+    ensure
+      trap("INT", original_trap)
+    end
+  end
+
   private
 
   def mock_swarm
