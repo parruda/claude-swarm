@@ -22,9 +22,17 @@ module SwarmSDK
         # Represents a single scratchpad entry with metadata
         Entry = Struct.new(:content, :title, :created_at, :size, keyword_init: true)
 
-        def initialize
+        # Initialize scratchpad with optional persistence
+        #
+        # @param persist_to [String, nil] Path to JSON file for persistence (nil = no persistence)
+        def initialize(persist_to: nil)
           @entries = {}
           @total_size = 0
+          @persist_to = persist_to
+          @mutex = Mutex.new
+
+          # Load existing data if persistence is enabled
+          load_from_file if @persist_to && File.exist?(@persist_to)
         end
 
         # Write content to scratchpad
@@ -35,44 +43,49 @@ module SwarmSDK
         # @raise [ArgumentError] If size limits are exceeded
         # @return [Entry] The created entry
         def write(file_path:, content:, title:)
-          raise ArgumentError, "file_path is required" if file_path.nil? || file_path.to_s.strip.empty?
-          raise ArgumentError, "content is required" if content.nil?
-          raise ArgumentError, "title is required" if title.nil? || title.to_s.strip.empty?
+          @mutex.synchronize do
+            raise ArgumentError, "file_path is required" if file_path.nil? || file_path.to_s.strip.empty?
+            raise ArgumentError, "content is required" if content.nil?
+            raise ArgumentError, "title is required" if title.nil? || title.to_s.strip.empty?
 
-          content_size = content.bytesize
+            content_size = content.bytesize
 
-          # Check entry size limit
-          if content_size > MAX_ENTRY_SIZE
-            raise ArgumentError, "Content exceeds maximum size (#{format_bytes(MAX_ENTRY_SIZE)}). " \
-              "Current: #{format_bytes(content_size)}"
+            # Check entry size limit
+            if content_size > MAX_ENTRY_SIZE
+              raise ArgumentError, "Content exceeds maximum size (#{format_bytes(MAX_ENTRY_SIZE)}). " \
+                "Current: #{format_bytes(content_size)}"
+            end
+
+            # Calculate new total size
+            existing_entry = @entries[file_path]
+            existing_size = existing_entry ? existing_entry.size : 0
+            new_total_size = @total_size - existing_size + content_size
+
+            # Check total size limit
+            if new_total_size > MAX_TOTAL_SIZE
+              raise ArgumentError, "Scratchpad full (#{format_bytes(MAX_TOTAL_SIZE)} limit). " \
+                "Current: #{format_bytes(@total_size)}, " \
+                "Would be: #{format_bytes(new_total_size)}. " \
+                "Clear old entries or use smaller content."
+            end
+
+            # Create entry
+            entry = Entry.new(
+              content: content,
+              title: title,
+              created_at: Time.now,
+              size: content_size,
+            )
+
+            # Update storage
+            @entries[file_path] = entry
+            @total_size = new_total_size
+
+            # Persist to file if enabled
+            save_to_file if @persist_to
+
+            entry
           end
-
-          # Calculate new total size
-          existing_entry = @entries[file_path]
-          existing_size = existing_entry ? existing_entry.size : 0
-          new_total_size = @total_size - existing_size + content_size
-
-          # Check total size limit
-          if new_total_size > MAX_TOTAL_SIZE
-            raise ArgumentError, "Scratchpad full (#{format_bytes(MAX_TOTAL_SIZE)} limit). " \
-              "Current: #{format_bytes(@total_size)}, " \
-              "Would be: #{format_bytes(new_total_size)}. " \
-              "Clear old entries or use smaller content."
-          end
-
-          # Create entry
-          entry = Entry.new(
-            content: content,
-            title: title,
-            created_at: Time.now,
-            size: content_size,
-          )
-
-          # Update storage
-          @entries[file_path] = entry
-          @total_size = new_total_size
-
-          entry
         end
 
         # Read content from scratchpad
@@ -234,6 +247,68 @@ module SwarmSDK
           else
             "#{bytes}B"
           end
+        end
+
+        # Save scratchpad data to JSON file
+        #
+        # @return [void]
+        def save_to_file
+          return unless @persist_to
+
+          # Convert entries to serializable format
+          data = {
+            version: 1,
+            total_size: @total_size,
+            entries: @entries.transform_values do |entry|
+              {
+                content: entry.content,
+                title: entry.title,
+                created_at: entry.created_at.iso8601,
+                size: entry.size,
+              }
+            end,
+          }
+
+          # Ensure directory exists
+          dir = File.dirname(@persist_to)
+          FileUtils.mkdir_p(dir) unless Dir.exist?(dir)
+
+          # Write to file atomically (write to temp file, then rename)
+          temp_file = "#{@persist_to}.tmp"
+          File.write(temp_file, JSON.pretty_generate(data))
+          File.rename(temp_file, @persist_to)
+        end
+
+        # Load scratchpad data from JSON file
+        #
+        # @return [void]
+        def load_from_file
+          return unless @persist_to && File.exist?(@persist_to)
+
+          data = JSON.parse(File.read(@persist_to))
+
+          # Restore entries
+          @entries = data["entries"].transform_values do |entry_data|
+            Entry.new(
+              content: entry_data["content"],
+              title: entry_data["title"],
+              created_at: Time.parse(entry_data["created_at"]),
+              size: entry_data["size"],
+            )
+          end
+
+          # Restore total size
+          @total_size = data["total_size"]
+        rescue JSON::ParserError => e
+          # If file is corrupted, log warning and start fresh
+          warn("Warning: Failed to load scratchpad from #{@persist_to}: #{e.message}. Starting with empty scratchpad.")
+          @entries = {}
+          @total_size = 0
+        rescue StandardError => e
+          # If any other error occurs, log warning and start fresh
+          warn("Warning: Failed to load scratchpad from #{@persist_to}: #{e.message}. Starting with empty scratchpad.")
+          @entries = {}
+          @total_size = 0
         end
       end
     end

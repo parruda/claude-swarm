@@ -14,6 +14,9 @@ module SwarmSDK
       RubyLLM.configure do |config|
         config.openai_api_key = "test-key-12345"
       end
+
+      # Create test scratchpad to avoid writing to filesystem
+      @test_scratchpad = create_test_scratchpad
     end
 
     def teardown
@@ -22,17 +25,20 @@ module SwarmSDK
       RubyLLM.configure do |config|
         config.openai_api_key = @original_api_key
       end
+
+      # Clean up test scratchpad files
+      cleanup_test_scratchpads
     end
 
     def test_initialization_with_defaults
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       assert_equal("Test Swarm", swarm.name)
       assert_nil(swarm.lead_agent)
     end
 
     def test_add_agent_with_required_fields
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       result = swarm.add_agent(create_agent(
         name: :test_agent,
@@ -47,7 +53,7 @@ module SwarmSDK
     end
 
     def test_add_agent_with_all_fields
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :full_agent,
@@ -71,7 +77,7 @@ module SwarmSDK
     end
 
     def test_add_agent_converts_name_to_symbol
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: "string_name",
@@ -85,7 +91,7 @@ module SwarmSDK
     end
 
     def test_add_duplicate_agent_raises_error
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :duplicate,
@@ -109,7 +115,7 @@ module SwarmSDK
     end
 
     def test_add_agent_uses_default_directories
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :test,
@@ -124,7 +130,7 @@ module SwarmSDK
     end
 
     def test_set_lead_agent
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :lead,
@@ -140,7 +146,7 @@ module SwarmSDK
     end
 
     def test_set_lead_converts_to_symbol
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :lead,
@@ -156,7 +162,7 @@ module SwarmSDK
     end
 
     def test_set_nonexistent_lead_raises_error
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       error = assert_raises(ConfigurationError) do
         swarm.lead = :nonexistent
@@ -166,7 +172,7 @@ module SwarmSDK
     end
 
     def test_agent_names_returns_all_names
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :agent1,
@@ -212,7 +218,7 @@ module SwarmSDK
     end
 
     def test_execute_without_lead_raises_error
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       error = assert_raises(ConfigurationError) do
         swarm.execute("Do something")
@@ -227,7 +233,7 @@ module SwarmSDK
     end
 
     def test_chaining_add_agent_and_set_lead
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
         .add_agent(create_agent(
           name: :lead,
           description: "Lead",
@@ -250,7 +256,7 @@ module SwarmSDK
     end
 
     def test_agent_uses_default_timeout
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :agent1,
@@ -266,7 +272,7 @@ module SwarmSDK
     end
 
     def test_agent_can_override_timeout
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :agent1,
@@ -283,7 +289,7 @@ module SwarmSDK
     end
 
     def test_agent_method_with_string_converts_to_symbol
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :test_agent,
@@ -301,7 +307,7 @@ module SwarmSDK
     end
 
     def test_agent_method_with_nonexistent_agent_raises_error
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       error = assert_raises(AgentNotFoundError) do
         swarm.agent(:nonexistent)
@@ -311,7 +317,7 @@ module SwarmSDK
     end
 
     def test_execute_returns_result_instance
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :lead,
@@ -335,7 +341,7 @@ module SwarmSDK
     end
 
     def test_execute_with_error_returns_failed_result
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :lead,
@@ -365,7 +371,7 @@ module SwarmSDK
     end
 
     def test_execute_with_type_error_returns_llm_error_for_proxy
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :lead,
@@ -397,7 +403,7 @@ module SwarmSDK
     end
 
     def test_execute_with_streaming_logs
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :lead,
@@ -422,7 +428,7 @@ module SwarmSDK
     end
 
     def test_register_agent_tools_adds_delegation_tools
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :lead,
@@ -453,7 +459,7 @@ module SwarmSDK
     end
 
     def test_register_agent_tools_with_unknown_agent_raises_error
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :lead,
@@ -474,7 +480,7 @@ module SwarmSDK
     end
 
     def test_execute_with_agent_delegation
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :lead,
@@ -517,7 +523,7 @@ module SwarmSDK
     end
 
     def test_initialize_agents_sets_system_prompt
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :agent1,
@@ -537,7 +543,7 @@ module SwarmSDK
     end
 
     def test_initialize_agents_configures_parameters
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :agent1,
@@ -559,7 +565,7 @@ module SwarmSDK
     end
 
     def test_execute_with_configuration_error_raises
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       # No lead agent set
 
@@ -571,7 +577,7 @@ module SwarmSDK
     end
 
     def test_execute_duration_is_measured
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :lead,
@@ -599,7 +605,7 @@ module SwarmSDK
     end
 
     def test_execute_with_type_error_without_base_url
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :lead,
@@ -627,7 +633,7 @@ module SwarmSDK
     end
 
     def test_execute_with_nil_lead_agent_in_error
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       # Add agent but don't set lead
       swarm.add_agent(create_agent(
@@ -647,7 +653,7 @@ module SwarmSDK
     end
 
     def test_agent_with_no_system_prompt
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :test,
@@ -664,7 +670,7 @@ module SwarmSDK
     end
 
     def test_agent_with_no_parameters
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :test,
@@ -681,7 +687,7 @@ module SwarmSDK
     end
 
     def test_agent_with_empty_parameters
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :test,
@@ -698,7 +704,7 @@ module SwarmSDK
     end
 
     def test_set_bypass_permissions
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :test,
@@ -716,7 +722,7 @@ module SwarmSDK
     end
 
     def test_set_bypass_permissions_with_string_name
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :test,
@@ -734,7 +740,7 @@ module SwarmSDK
     end
 
     def test_set_bypass_permissions_for_nonexistent_agent_raises_error
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       error = assert_raises(AgentNotFoundError) do
         swarm.agent_definition(:nonexistent).bypass_permissions = true
@@ -744,7 +750,7 @@ module SwarmSDK
     end
 
     def test_agent_with_assume_model_exists_false
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       # Without base_url, assume_model_exists should default to false
       swarm.add_agent(create_agent(
@@ -762,7 +768,7 @@ module SwarmSDK
     end
 
     def test_agent_with_assume_model_exists_explicit_with_base_url
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :test,
@@ -781,7 +787,7 @@ module SwarmSDK
     end
 
     def test_initialize_agents_without_logstream_emitter
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :agent1,
@@ -802,7 +808,7 @@ module SwarmSDK
     end
 
     def test_agent_names_returns_all_added_agents
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(name: :agent1, description: "A1", model: "gpt-5", system_prompt: "Test", directory: "."))
       swarm.add_agent(create_agent(name: :agent2, description: "A2", model: "gpt-5", system_prompt: "Test", directory: "."))
@@ -814,7 +820,7 @@ module SwarmSDK
     end
 
     def test_agent_with_inline_tool_permissions
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       # Using inline permissions format: { Write: { allowed_paths: [...] } }
       swarm.add_agent(create_agent(
@@ -849,7 +855,7 @@ module SwarmSDK
     end
 
     def test_agent_with_string_tool_names
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :test,
@@ -868,7 +874,7 @@ module SwarmSDK
     end
 
     def test_agent_with_mixed_tool_formats
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: @test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :test,

@@ -362,6 +362,28 @@ module TestHelpers
 
       SwarmSDK::Agent::Definition.new(name, config)
     end
+
+    # Helper to create a test scratchpad with temp file persistence
+    # This prevents tests from writing to .swarm/scratchpad.json
+    #
+    # @return [SwarmSDK::Tools::Stores::Scratchpad] Scratchpad with temp file persistence
+    def create_test_scratchpad
+      temp_file = Tempfile.new(["scratchpad-test", ".json"])
+      temp_file.close
+      @test_scratchpad_files ||= []
+      @test_scratchpad_files << temp_file.path
+      SwarmSDK::Tools::Stores::Scratchpad.new(persist_to: temp_file.path)
+    end
+
+    # Clean up test scratchpad files
+    def cleanup_test_scratchpads
+      return unless defined?(@test_scratchpad_files)
+
+      @test_scratchpad_files&.each do |path|
+        File.delete(path) if File.exist?(path)
+      end
+      @test_scratchpad_files = []
+    end
   end
 end
 

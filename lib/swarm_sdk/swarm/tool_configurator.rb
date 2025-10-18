@@ -74,7 +74,11 @@ module SwarmSDK
         when :ScratchpadWrite
           Tools::ScratchpadWrite.create_for_scratchpad(@scratchpad)
         when :ScratchpadRead
-          Tools::ScratchpadRead.create_for_scratchpad(@scratchpad)
+          Tools::ScratchpadRead.create_for_scratchpad(@scratchpad, agent_name)
+        when :ScratchpadEdit
+          Tools::ScratchpadEdit.create_for_scratchpad(@scratchpad, agent_name)
+        when :ScratchpadMultiEdit
+          Tools::ScratchpadMultiEdit.create_for_scratchpad(@scratchpad, agent_name)
         when :ScratchpadGlob
           Tools::ScratchpadGlob.create_for_scratchpad(@scratchpad)
         when :ScratchpadGrep

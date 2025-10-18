@@ -7,10 +7,16 @@ module SwarmSDK
     class ScratchpadToolsTest < Minitest::Test
       def setup
         @scratchpad = Tools::Stores::Scratchpad.new
+        @agent_name = :test_agent
         @write_tool = ScratchpadWrite.create_for_scratchpad(@scratchpad)
-        @read_tool = ScratchpadRead.create_for_scratchpad(@scratchpad)
+        @read_tool = ScratchpadRead.create_for_scratchpad(@scratchpad, @agent_name)
         @glob_tool = ScratchpadGlob.create_for_scratchpad(@scratchpad)
         @grep_tool = ScratchpadGrep.create_for_scratchpad(@scratchpad)
+        @edit_tool = ScratchpadEdit.create_for_scratchpad(@scratchpad, @agent_name)
+        @multi_edit_tool = ScratchpadMultiEdit.create_for_scratchpad(@scratchpad, @agent_name)
+
+        # Clear read tracker before each test
+        Tools::Stores::ScratchpadReadTracker.clear(@agent_name)
       end
 
       # ScratchpadWrite tests
@@ -76,12 +82,14 @@ module SwarmSDK
 
       # ScratchpadRead tests
 
-      def test_scratchpad_read_returns_content
-        @scratchpad.write(file_path: "test/path", content: "Expected content", title: "Test")
+      def test_scratchpad_read_returns_content_with_line_numbers
+        @scratchpad.write(file_path: "test/path", content: "Line 1\nLine 2\nLine 3", title: "Test")
 
         result = @read_tool.execute(file_path: "test/path")
 
-        assert_equal("Expected content", result)
+        assert_match(/^\s*1→Line 1$/, result)
+        assert_match(/^\s*2→Line 2$/, result)
+        assert_match(/^\s*3→Line 3$/, result)
       end
 
       def test_scratchpad_read_handles_missing_path
@@ -104,10 +112,10 @@ module SwarmSDK
         # Write using write tool
         @write_tool.execute(file_path: "shared", content: "Shared content", title: "Shared")
 
-        # Read using read tool
+        # Read using read tool (returns content with line numbers)
         result = @read_tool.execute(file_path: "shared")
 
-        assert_equal("Shared content", result)
+        assert_match(/^\s*1→Shared content$/, result)
 
         # Glob using glob tool
         glob_result = @glob_tool.execute(pattern: "shared")
@@ -140,29 +148,30 @@ module SwarmSDK
 
         result = @read_tool.execute(file_path: "unicode")
 
-        assert_equal(unicode_content, result)
+        # Read now returns content with line numbers
+        assert_match(/^\s*1→#{Regexp.escape(unicode_content)}$/, result)
       end
 
       def test_multiple_tool_instances_share_same_scratchpad
         # Create another set of tools for the same scratchpad
         write_tool2 = ScratchpadWrite.create_for_scratchpad(@scratchpad)
-        read_tool2 = ScratchpadRead.create_for_scratchpad(@scratchpad)
+        read_tool2 = ScratchpadRead.create_for_scratchpad(@scratchpad, @agent_name)
 
         # Write with first tool
         @write_tool.execute(file_path: "test", content: "Original", title: "Test")
 
-        # Read with second tool
+        # Read with second tool (returns content with line numbers)
         result = read_tool2.execute(file_path: "test")
 
-        assert_equal("Original", result)
+        assert_match(/^\s*1→Original$/, result)
 
         # Update with second tool
         write_tool2.execute(file_path: "test", content: "Updated", title: "Updated")
 
-        # Read with first tool
+        # Read with first tool (returns content with line numbers)
         result = @read_tool.execute(file_path: "test")
 
-        assert_equal("Updated", result)
+        assert_match(/^\s*1→Updated$/, result)
       end
 
       def test_scratchpad_write_with_nil_file_path
@@ -337,6 +346,288 @@ module SwarmSDK
         result = @grep_tool.execute(pattern: "test", output_mode: "invalid")
 
         assert_match(/Error: Invalid output_mode/, result)
+      end
+
+      # ScratchpadEdit tests
+
+      def test_scratchpad_edit_replaces_content
+        @scratchpad.write(file_path: "test", content: "Hello world\nFoo bar", title: "Test")
+        @read_tool.execute(file_path: "test") # Read before edit
+
+        result = @edit_tool.execute(
+          file_path: "test",
+          old_string: "world",
+          new_string: "universe",
+        )
+
+        assert_match(/Successfully replaced 1 occurrence/, result)
+
+        updated_content = @scratchpad.read(file_path: "test")
+
+        assert_equal("Hello universe\nFoo bar", updated_content)
+      end
+
+      def test_scratchpad_edit_with_replace_all
+        @scratchpad.write(file_path: "test", content: "foo bar foo baz foo", title: "Test")
+        @read_tool.execute(file_path: "test")
+
+        result = @edit_tool.execute(
+          file_path: "test",
+          old_string: "foo",
+          new_string: "FOO",
+          replace_all: true,
+        )
+
+        assert_match(/Successfully replaced 3 occurrence/, result)
+
+        updated_content = @scratchpad.read(file_path: "test")
+
+        assert_equal("FOO bar FOO baz FOO", updated_content)
+      end
+
+      def test_scratchpad_edit_requires_read_before_edit
+        @scratchpad.write(file_path: "test", content: "Hello world", title: "Test")
+
+        result = @edit_tool.execute(
+          file_path: "test",
+          old_string: "world",
+          new_string: "universe",
+        )
+
+        assert_match(/Error:.*Cannot edit scratchpad entry without reading it first/, result)
+      end
+
+      def test_scratchpad_edit_handles_missing_old_string
+        @scratchpad.write(file_path: "test", content: "Hello world", title: "Test")
+        @read_tool.execute(file_path: "test")
+
+        result = @edit_tool.execute(
+          file_path: "test",
+          old_string: "missing",
+          new_string: "replacement",
+        )
+
+        assert_match(/Error:.*old_string not found/, result)
+      end
+
+      def test_scratchpad_edit_handles_multiple_occurrences_without_replace_all
+        @scratchpad.write(file_path: "test", content: "foo bar foo", title: "Test")
+        @read_tool.execute(file_path: "test")
+
+        result = @edit_tool.execute(
+          file_path: "test",
+          old_string: "foo",
+          new_string: "FOO",
+        )
+
+        assert_match(/Error:.*Found 2 occurrences/, result)
+      end
+
+      def test_scratchpad_edit_preserves_title
+        @scratchpad.write(file_path: "test", content: "Original content", title: "Important Title")
+        @read_tool.execute(file_path: "test")
+
+        @edit_tool.execute(
+          file_path: "test",
+          old_string: "Original",
+          new_string: "Updated",
+        )
+
+        entries = @scratchpad.list
+        entry = entries.find { |e| e[:path] == "test" }
+
+        assert_equal("Important Title", entry[:title])
+      end
+
+      def test_scratchpad_edit_validates_inputs
+        # Empty file_path
+        result = @edit_tool.execute(file_path: "", old_string: "foo", new_string: "bar")
+
+        assert_match(/Error:.*file_path is required/, result)
+
+        # Empty old_string
+        result = @edit_tool.execute(file_path: "test", old_string: "", new_string: "bar")
+
+        assert_match(/Error:.*old_string is required/, result)
+
+        # Nil new_string
+        result = @edit_tool.execute(file_path: "test", old_string: "foo", new_string: nil)
+
+        assert_match(/Error:.*new_string is required/, result)
+
+        # Same old_string and new_string
+        result = @edit_tool.execute(file_path: "test", old_string: "foo", new_string: "foo")
+
+        assert_match(/Error:.*must be different/, result)
+      end
+
+      def test_scratchpad_edit_handles_missing_entry
+        result = @edit_tool.execute(
+          file_path: "nonexistent",
+          old_string: "foo",
+          new_string: "bar",
+        )
+
+        assert_match(%r{Error:.*scratchpad://nonexistent not found}, result)
+      end
+
+      # ScratchpadMultiEdit tests
+
+      def test_scratchpad_multi_edit_applies_multiple_edits
+        @scratchpad.write(file_path: "test", content: "Hello world\nFoo bar", title: "Test")
+        @read_tool.execute(file_path: "test")
+
+        edits_json = JSON.generate([
+          { old_string: "Hello", new_string: "Hi" },
+          { old_string: "world", new_string: "universe" },
+          { old_string: "Foo", new_string: "FOO" },
+        ])
+
+        result = @multi_edit_tool.execute(file_path: "test", edits_json: edits_json)
+
+        assert_match(/Successfully applied 3 edit/, result)
+        assert_match(/Total replacements: 3/, result)
+
+        updated_content = @scratchpad.read(file_path: "test")
+
+        assert_equal("Hi universe\nFOO bar", updated_content)
+      end
+
+      def test_scratchpad_multi_edit_edits_are_sequential
+        @scratchpad.write(file_path: "test", content: "AAA BBB CCC", title: "Test")
+        @read_tool.execute(file_path: "test")
+
+        # First edit changes AAA to XXX
+        # Second edit changes XXX to YYY (sees result of first edit)
+        edits_json = JSON.generate([
+          { old_string: "AAA", new_string: "XXX" },
+          { old_string: "XXX", new_string: "YYY" },
+        ])
+
+        result = @multi_edit_tool.execute(file_path: "test", edits_json: edits_json)
+
+        assert_match(/Successfully applied 2 edit/, result)
+
+        updated_content = @scratchpad.read(file_path: "test")
+
+        assert_equal("YYY BBB CCC", updated_content)
+      end
+
+      def test_scratchpad_multi_edit_with_replace_all
+        @scratchpad.write(file_path: "test", content: "foo bar foo baz foo", title: "Test")
+        @read_tool.execute(file_path: "test")
+
+        edits_json = JSON.generate([
+          { old_string: "foo", new_string: "FOO", replace_all: true },
+          { old_string: "bar", new_string: "BAR" },
+        ])
+
+        result = @multi_edit_tool.execute(file_path: "test", edits_json: edits_json)
+
+        assert_match(/Successfully applied 2 edit/, result)
+        assert_match(/Total replacements: 4/, result) # 3 foo + 1 bar
+
+        updated_content = @scratchpad.read(file_path: "test")
+
+        assert_equal("FOO BAR FOO baz FOO", updated_content)
+      end
+
+      def test_scratchpad_multi_edit_requires_read_before_edit
+        @scratchpad.write(file_path: "test", content: "Hello world", title: "Test")
+
+        edits_json = JSON.generate([{ old_string: "world", new_string: "universe" }])
+
+        result = @multi_edit_tool.execute(file_path: "test", edits_json: edits_json)
+
+        assert_match(/Error:.*Cannot edit scratchpad entry without reading it first/, result)
+      end
+
+      def test_scratchpad_multi_edit_stops_on_error
+        @scratchpad.write(file_path: "test", content: "Hello world", title: "Test")
+        @read_tool.execute(file_path: "test")
+
+        # Second edit will fail because "missing" doesn't exist
+        edits_json = JSON.generate([
+          { old_string: "Hello", new_string: "Hi" },
+          { old_string: "missing", new_string: "replacement" },
+        ])
+
+        result = @multi_edit_tool.execute(file_path: "test", edits_json: edits_json)
+
+        assert_match(/Error:.*Edit 1.*old_string not found/, result)
+        assert_match(/Previous successful edits/, result)
+        assert_match(/Edit 0.*Replaced 1/, result)
+        assert_match(/All or nothing approach/, result)
+
+        # Content should be unchanged
+        content = @scratchpad.read(file_path: "test")
+
+        assert_equal("Hello world", content)
+      end
+
+      def test_scratchpad_multi_edit_validates_json
+        @scratchpad.write(file_path: "test", content: "test", title: "Test")
+        @read_tool.execute(file_path: "test")
+
+        # Invalid JSON
+        result = @multi_edit_tool.execute(file_path: "test", edits_json: "not json")
+
+        assert_match(/Error:.*Invalid JSON format/, result)
+
+        # Not an array
+        result = @multi_edit_tool.execute(file_path: "test", edits_json: '{"foo":"bar"}')
+
+        assert_match(/Error:.*must be an array/, result)
+
+        # Empty array
+        result = @multi_edit_tool.execute(file_path: "test", edits_json: "[]")
+
+        assert_match(/Error:.*cannot be empty/, result)
+      end
+
+      def test_scratchpad_multi_edit_validates_edit_structure
+        @scratchpad.write(file_path: "test", content: "test", title: "Test")
+        @read_tool.execute(file_path: "test")
+
+        # Missing old_string
+        edits_json = JSON.generate([{ new_string: "bar" }])
+        result = @multi_edit_tool.execute(file_path: "test", edits_json: edits_json)
+
+        assert_match(/Error:.*missing required field 'old_string'/, result)
+
+        # Missing new_string
+        edits_json = JSON.generate([{ old_string: "foo" }])
+        result = @multi_edit_tool.execute(file_path: "test", edits_json: edits_json)
+
+        assert_match(/Error:.*missing required field 'new_string'/, result)
+
+        # Same old_string and new_string
+        edits_json = JSON.generate([{ old_string: "foo", new_string: "foo" }])
+        result = @multi_edit_tool.execute(file_path: "test", edits_json: edits_json)
+
+        assert_match(/Error:.*must be different/, result)
+      end
+
+      def test_scratchpad_multi_edit_preserves_title
+        @scratchpad.write(file_path: "test", content: "Original content", title: "Important Title")
+        @read_tool.execute(file_path: "test")
+
+        edits_json = JSON.generate([{ old_string: "Original", new_string: "Updated" }])
+
+        @multi_edit_tool.execute(file_path: "test", edits_json: edits_json)
+
+        entries = @scratchpad.list
+        entry = entries.find { |e| e[:path] == "test" }
+
+        assert_equal("Important Title", entry[:title])
+      end
+
+      def test_scratchpad_multi_edit_handles_missing_entry
+        edits_json = JSON.generate([{ old_string: "foo", new_string: "bar" }])
+
+        result = @multi_edit_tool.execute(file_path: "nonexistent", edits_json: edits_json)
+
+        assert_match(%r{Error:.*scratchpad://nonexistent not found}, result)
       end
     end
   end

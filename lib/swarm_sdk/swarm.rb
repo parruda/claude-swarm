@@ -129,7 +129,8 @@ module SwarmSDK
     # @param name [String] Human-readable swarm name
     # @param global_concurrency [Integer] Max concurrent LLM calls across entire swarm
     # @param default_local_concurrency [Integer] Default max concurrent tool calls per agent
-    def initialize(name:, global_concurrency: DEFAULT_GLOBAL_CONCURRENCY, default_local_concurrency: DEFAULT_LOCAL_CONCURRENCY)
+    # @param scratchpad [Tools::Stores::Scratchpad, nil] Optional scratchpad instance (for testing)
+    def initialize(name:, global_concurrency: DEFAULT_GLOBAL_CONCURRENCY, default_local_concurrency: DEFAULT_LOCAL_CONCURRENCY, scratchpad: nil)
       @name = name
       @global_concurrency = global_concurrency
       @default_local_concurrency = default_local_concurrency
@@ -138,7 +139,11 @@ module SwarmSDK
       @global_semaphore = Async::Semaphore.new(@global_concurrency)
 
       # Shared scratchpad for all agents
-      @scratchpad = Tools::Stores::Scratchpad.new
+      # Use provided scratchpad (for testing) or create persistent one
+      @scratchpad = scratchpad || begin
+        scratchpad_path = File.join(Dir.pwd, ".swarm", "scratchpad.json")
+        Tools::Stores::Scratchpad.new(persist_to: scratchpad_path)
+      end
 
       # Hook registry for named hooks and swarm defaults
       @hook_registry = Hooks::Registry.new

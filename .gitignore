@@ -9,6 +9,7 @@
 .hbt/
 .prompts.md
 .claude-swarm
+.swarm/
 *.gem
 tmp/
 node_modules/

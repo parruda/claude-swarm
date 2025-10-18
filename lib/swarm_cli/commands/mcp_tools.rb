@@ -14,7 +14,9 @@ module SwarmCLI
 
       def initialize(options)
         @options = options
-        @scratchpad = SwarmSDK::Scratchpad.new
+        # Create scratchpad with persistence for MCP server
+        scratchpad_path = File.join(Dir.pwd, ".swarm", "scratchpad.json")
+        @scratchpad = SwarmSDK::Scratchpad.new(persist_to: scratchpad_path)
       end
 
       def execute
