@@ -4,7 +4,6 @@ module SwarmCLI
   class CLI
     class << self
       def start(args)
-        SwarmSDK.refresh_models_silently
         new(args).run
       end
     end

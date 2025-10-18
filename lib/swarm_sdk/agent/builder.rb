@@ -163,13 +163,14 @@ module SwarmSDK
         @description = text
       end
 
-      # Add tools
+      # Set or add tools
       #
       # Uses Set internally to automatically deduplicate tool names across multiple calls.
       # This allows calling tools() multiple times without worrying about duplicates.
       #
       # @param tool_names [Array<Symbol>] Tool names to add
       # @param include_default [Boolean] Whether to include default tools (Read, Grep, etc.)
+      # @param replace [Boolean] If true, replaces existing tools instead of merging (default: false)
       #
       # @example Basic usage with defaults
       #   tools :Grep, :Read  # include_default: true is implicit
@@ -181,7 +182,11 @@ module SwarmSDK
       #   tools :Read
       #   tools :Write, :Edit  # @tools now contains Set[:Read, :Write, :Edit]
       #   tools :Read          # Still Set[:Read, :Write, :Edit] - no duplicate
-      def tools(*tool_names, include_default: true)
+      #
+      # @example Replace tools (for markdown overrides)
+      #   tools :Read, :Write, replace: true  # Replaces all existing tools
+      def tools(*tool_names, include_default: true, replace: false)
+        @tools = Set.new if replace
         @tools.merge(tool_names.map(&:to_sym))
         @include_default_tools = include_default
       end

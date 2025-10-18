@@ -5,6 +5,22 @@ All notable changes to SwarmSDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Claude Code Agent File Compatibility** (#141)
+  - Automatically detects and converts Claude Code agent markdown files
+  - Supports model shortcuts: `sonnet`, `opus`, `haiku` → latest model IDs
+  - DSL/YAML overrides: `agent :name, File.read("file.md") do ... end`
+  - Model alias system via `model_aliases.json` for easy updates
+  - Static model validation using `models.json` (no network calls, no API keys)
+  - Improved model suggestions with provider prefix stripping
+
+### Changed
+- Model validation now uses SwarmSDK's static registry instead of RubyLLM's dynamic registry
+- All agents now use `assume_model_exists: true` by default (SwarmSDK validates separately)
+- Model suggestions properly handle provider-prefixed queries (e.g., `anthropic:claude-sonnet-4-5`)
+
 ## [2.0.1] - Fri, Oct 17 2025
 
 ### Fixed
