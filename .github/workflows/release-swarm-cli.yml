@@ -1,14 +1,8 @@
 name: Release SwarmCLI Gem
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'lib/swarm_cli.rb'
-      - 'lib/swarm_cli/**'
-      - 'swarm_cli.gemspec'
-      - '.github/workflows/release-swarm-cli.yml'
+  release:
+    types: [published]
 
 jobs:
   # detect-version-change:

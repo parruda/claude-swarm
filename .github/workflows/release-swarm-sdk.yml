@@ -1,14 +1,8 @@
 name: Release SwarmSDK Gem
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'lib/swarm_sdk.rb'
-      - 'lib/swarm_sdk/**'
-      - 'swarm_sdk.gemspec'
-      - '.github/workflows/release-swarm-sdk.yml'
+  release:
+    types: [published]
 
 jobs:
   # detect-version-change:
