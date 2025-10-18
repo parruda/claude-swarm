@@ -44,7 +44,7 @@ module SwarmSDK
         @headers = {}
         @timeout = nil
         @mcp_servers = []
-        @include_default_tools = true
+        @disable_default_tools = nil # nil = include all default tools
         @bypass_permissions = false
         @coding_agent = nil # nil = not set (will default to false in Definition)
         @assume_model_exists = nil
@@ -124,9 +124,19 @@ module SwarmSDK
         @mcp_servers << server_config
       end
 
-      # Set include_default_tools flag (deprecated - use tools method with include_default parameter)
-      def include_default_tools(enabled)
-        @include_default_tools = enabled
+      # Disable default tools
+      #
+      # @param value [Boolean, Array<Symbol>]
+      #   - true: Disable ALL default tools
+      #   - Array of symbols: Disable specific tools (e.g., [:Think, :TodoWrite])
+      #
+      # @example Disable all default tools
+      #   disable_default_tools true
+      #
+      # @example Disable specific tools
+      #   disable_default_tools [:Think, :TodoWrite]
+      def disable_default_tools(value)
+        @disable_default_tools = value
       end
 
       # Set bypass_permissions flag
@@ -188,7 +198,8 @@ module SwarmSDK
       def tools(*tool_names, include_default: true, replace: false)
         @tools = Set.new if replace
         @tools.merge(tool_names.map(&:to_sym))
-        @include_default_tools = include_default
+        # When include_default is false, disable all default tools
+        @disable_default_tools = true unless include_default
       end
 
       # Add tools from all_agents configuration
@@ -342,7 +353,7 @@ module SwarmSDK
         agent_config[:headers] = @headers if @headers.any?
         agent_config[:timeout] = @timeout if @timeout
         agent_config[:mcp_servers] = @mcp_servers if @mcp_servers.any?
-        agent_config[:include_default_tools] = @include_default_tools
+        agent_config[:disable_default_tools] = @disable_default_tools unless @disable_default_tools.nil?
         agent_config[:bypass_permissions] = @bypass_permissions
         agent_config[:coding_agent] = @coding_agent
         agent_config[:assume_model_exists] = @assume_model_exists unless @assume_model_exists.nil?

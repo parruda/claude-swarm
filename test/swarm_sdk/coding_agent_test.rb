@@ -18,9 +18,9 @@ module SwarmSDK
         system_prompt: "Custom prompt",
       )
 
-      # Default: coding_agent=false, include_default_tools=true
+      # Default: coding_agent=false, default tools enabled
       refute(agent_def.coding_agent)
-      assert(agent_def.include_default_tools)
+      assert_nil(agent_def.disable_default_tools)
 
       # Should include TODO/Scratchpad info + custom prompt
       assert_includes(agent_def.system_prompt, "Custom prompt")
@@ -31,17 +31,17 @@ module SwarmSDK
     end
 
     def test_coding_agent_false_without_default_tools
-      # coding_agent=false, include_default_tools=false
+      # coding_agent=false, disable_default_tools: true
       agent_def = Agent::Definition.new(
         :test_agent,
         description: "Test agent",
         model: "gpt-4",
         system_prompt: "Custom prompt",
-        include_default_tools: false,
+        disable_default_tools: true,
       )
 
       refute(agent_def.coding_agent)
-      refute(agent_def.include_default_tools)
+      assert(agent_def.disable_default_tools)
 
       # Should be ONLY the custom prompt (no TODO/Scratchpad info)
       assert_equal("Custom prompt", agent_def.system_prompt)
@@ -95,7 +95,7 @@ module SwarmSDK
         coding_agent: false,
       )
 
-      # With coding_agent=false, include_default_tools=true, and nil custom_prompt
+      # With coding_agent=false, default tools enabled, and nil custom_prompt
       # Should get TODO/Scratchpad info only
       refute_empty(agent_def.system_prompt)
       assert_includes(agent_def.system_prompt, "TodoWrite")
@@ -110,10 +110,10 @@ module SwarmSDK
         model: "gpt-4",
         system_prompt: nil,
         coding_agent: false,
-        include_default_tools: false,
+        disable_default_tools: true,
       )
 
-      # With coding_agent=false, include_default_tools=false, and nil custom_prompt
+      # With coding_agent=false, disable_default_tools: true, and nil custom_prompt
       # Should get empty string
       assert_equal("", agent_def.system_prompt)
     end
@@ -135,7 +135,7 @@ module SwarmSDK
       agent_def = swarm.agent_definition(:custom_agent)
 
       refute(agent_def.coding_agent)
-      refute(agent_def.include_default_tools)
+      assert(agent_def.disable_default_tools)
       # Without default tools, should be exactly custom prompt
       assert_equal("My custom prompt only", agent_def.system_prompt)
     end
@@ -173,7 +173,7 @@ module SwarmSDK
               description: "Custom agent"
               model: gpt-4
               coding_agent: false
-              include_default_tools: false
+              disable_default_tools: true
               system_prompt: "Custom only"
               tools: [Read]
       YAML
@@ -191,7 +191,7 @@ module SwarmSDK
         agent_def = swarm.agent_definition(:custom_agent)
 
         refute(agent_def.coding_agent)
-        refute(agent_def.include_default_tools)
+        assert(agent_def.disable_default_tools)
         # Without default tools, should be exactly custom prompt
         assert_equal("Custom only", agent_def.system_prompt)
       ensure
@@ -242,11 +242,11 @@ module SwarmSDK
         model: "gpt-4",
         system_prompt: "Custom",
         coding_agent: false,
-        include_default_tools: false,
+        disable_default_tools: true,
       )
 
       refute(agent_def.coding_agent)
-      refute(agent_def.include_default_tools)
+      assert(agent_def.disable_default_tools)
       # Without default tools, exactly custom prompt
       assert_equal("Custom", agent_def.system_prompt)
 
@@ -283,7 +283,7 @@ module SwarmSDK
         model: "gpt-4",
         system_prompt: "Custom prompt only",
         coding_agent: false,
-        include_default_tools: false, # No default tools
+        disable_default_tools: true, # No default tools
       )
 
       coding_def = Agent::Definition.new(
@@ -296,7 +296,7 @@ module SwarmSDK
 
       # Non-coding agent has only custom prompt (no default tools)
       refute(non_coding_def.coding_agent)
-      refute(non_coding_def.include_default_tools)
+      assert(non_coding_def.disable_default_tools)
       assert_equal("Custom prompt only", non_coding_def.system_prompt)
 
       # Coding agent has base + custom

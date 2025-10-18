@@ -151,7 +151,7 @@ Tools are functions agents call to interact with the world. SwarmSDK provides:
 | **Task Management** | TodoWrite | Track progress on multi-step tasks |
 | **Shared Memory** | ScratchpadWrite, ScratchpadRead, ScratchpadList | Share data between agents |
 
-**Default tools**: Every agent automatically gets Read, Grep, Glob, TodoWrite, and Scratchpad tools unless you explicitly disable them with `include_default_tools: false`.
+**Default tools**: Every agent automatically gets Read, Grep, Glob, TodoWrite, and Scratchpad tools unless you explicitly disable them with `disable_default_tools: true`.
 
 ## Configuration Formats: YAML vs Ruby DSL vs Markdown
 
@@ -1001,7 +1001,7 @@ end
 agent :reader do
   description "Reader"
   model "gpt-4"
-  include_default_tools false  # Disables all default tools
+  disable_default_tools true  # Disables all default tools
   tools :Read  # Only Read available
 end
 # If agent tries to write: ToolNotFoundError
@@ -1342,7 +1342,7 @@ result = swarm.execute("Your task here")
 
 ### Default Tools (Always Available)
 
-Unless `include_default_tools: false`:
+Unless `disable_default_tools: true`:
 - **Read** - Read files
 - **Grep** - Search file contents
 - **Glob** - Find files by pattern

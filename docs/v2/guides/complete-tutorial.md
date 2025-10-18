@@ -445,6 +445,72 @@ ScratchpadList()  # Lists all scratchpad entries
 - Storing intermediate analysis
 - Caching expensive computations
 
+#### Think Tool
+
+Enable explicit reasoning and planning:
+
+```ruby
+agent :problem_solver do
+  description "Problem solver"
+  model "gpt-4"
+  system_prompt "Use the Think tool frequently to reason through problems"
+  # Think included by default
+end
+```
+
+**Usage**:
+```
+Think(thoughts: "Let me break this down: 1) Read the file, 2) Analyze structure, 3) Make changes")
+Think(thoughts: "If we have 150 requests/sec and each takes 20ms, that's 150 * 0.02 = 3 seconds")
+```
+
+**Why use Think**:
+- **Better reasoning**: Explicit thinking leads to better outcomes
+- **Step-by-step planning**: Break complex tasks into manageable steps
+- **Arithmetic accuracy**: Work through calculations methodically
+- **Context maintenance**: Remember important details across multiple steps
+
+**When to use**:
+1. **Before starting tasks**: Understand the problem and create a plan
+2. **For arithmetic**: Work through calculations step by step
+3. **After sub-tasks**: Summarize progress and plan next actions
+4. **When debugging**: Track investigation process
+5. **For complex decisions**: Break down logic and options
+
+**How it works**: The Think tool records thoughts as function calls in the conversation history. These create "attention sinks" that the model can reference throughout the task, leading to better reasoning than just thinking in the system prompt.
+
+**Best practice**: Successful agents use Think 5-10 times per task on average. If you haven't used Think in the last 2-3 actions, you probably should.
+
+**Example workflow**:
+```
+1. Think: "User wants X. Breaking into: 1) Read code, 2) Identify changes, 3) Implement, 4) Test"
+2. Read relevant files
+3. Think: "I see the structure. Key files are A, B. Need to modify B's function foo()"
+4. Make changes
+5. Think: "Changes made. Next: verify tests pass"
+6. Run tests
+7. Think: "Tests pass. Task complete."
+```
+
+**Disable specific default tools** (if needed):
+```ruby
+agent :agent_name do
+  description "..."
+  model "gpt-4"
+  disable_default_tools [:Think]  # Disable just Think
+  # Or disable multiple: [:Think, :TodoWrite, :Grep]
+end
+```
+
+```yaml
+agent_name:
+  description: "..."
+  model: "gpt-4"
+  disable_default_tools:  # Disable specific tools
+    - Think
+    - TodoWrite
+```
+
 ### 2.2 Default Tools
 
 Some tools are included automatically:
@@ -457,6 +523,7 @@ agent :agent_name do
   # - Read, Grep, Glob (file operations)
   # - TodoWrite (task tracking)
   # - ScratchpadWrite, ScratchpadRead, ScratchpadList (shared storage)
+  # - Think (explicit reasoning)
 
   # Add additional tools:
   tools :Write, :Edit, :Bash
@@ -464,13 +531,40 @@ end
 ```
 
 **Disable default tools**:
+```ruby
+# Disable ALL default tools
+agent :minimal_agent do
+  description "Minimal agent"
+  model "gpt-4"
+  disable_default_tools true
+  tools :Read  # Only Read available
+end
+
+# Disable SPECIFIC default tools
+agent :selective_agent do
+  description "Selective agent"
+  model "gpt-4"
+  disable_default_tools [:Think, :TodoWrite]  # Disable these
+  # Still has: Read, Grep, Glob, Scratchpad tools
+end
+```
+
 ```yaml
+# Disable ALL default tools
 minimal_agent:
   description: "Minimal agent"
   model: "gpt-4"
-  include_default_tools: false
+  disable_default_tools: true
   tools:
     - Read       # Only Read available
+
+# Disable SPECIFIC default tools
+selective_agent:
+  description: "Selective agent"
+  model: "gpt-4"
+  disable_default_tools:
+    - Think
+    - TodoWrite
 ```
 
 **When to disable**: When you want precise control over agent capabilities.

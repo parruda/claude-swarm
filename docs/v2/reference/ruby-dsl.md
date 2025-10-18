@@ -853,13 +853,13 @@ max_concurrent_tools 20  # Allow more parallelism
 
 ---
 
-### include_default_tools
+### disable_default_tools
 
 Include default tools (Read, Grep, Glob, TodoWrite, Scratchpad).
 
 **Signature:**
 ```ruby
-include_default_tools(enabled) → void
+disable_default_tools(value) → void
 ```
 
 **Parameters:**
@@ -871,7 +871,7 @@ include_default_tools(enabled) → void
 
 **Example:**
 ```ruby
-include_default_tools false  # No default tools
+disable_default_tools true  # No default tools
 ```
 
 ---

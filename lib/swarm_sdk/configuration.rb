@@ -116,6 +116,11 @@ module SwarmSDK
       return unless @config[:swarm]
 
       @all_agents_config = @config[:swarm][:all_agents] || {}
+
+      # Convert disable_default_tools array elements to symbols
+      if @all_agents_config[:disable_default_tools].is_a?(Array)
+        @all_agents_config[:disable_default_tools] = @all_agents_config[:disable_default_tools].map(&:to_sym)
+      end
     end
 
     def load_hooks_config
@@ -212,6 +217,9 @@ module SwarmSDK
           # Merge headers: all_agents.headers + agent.headers
           # Agent values override all_agents values for same keys
           merged[:headers] = (merged[:headers] || {}).merge(value || {})
+        when :disable_default_tools
+          # Convert array elements to symbols if it's an array
+          merged[key] = value.is_a?(Array) ? value.map(&:to_sym) : value
         else
           # For everything else (model, provider, base_url, timeout, coding_agent, etc.),
           # agent value overrides all_agents value

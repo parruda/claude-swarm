@@ -12,7 +12,7 @@ module SwarmSDK
     #
     # This encapsulates all tool-related logic that was previously in Swarm.
     class ToolConfigurator
-      # Default tools available to all agents (unless include_default_tools: false)
+      # Default tools available to all agents (unless disable_default_tools is set)
       DEFAULT_TOOLS = [
         :Read,
         :Grep,
@@ -21,6 +21,7 @@ module SwarmSDK
         :ScratchpadWrite,
         :ScratchpadRead,
         :ScratchpadList,
+        :Think,
       ].freeze
 
       def initialize(swarm, scratchpad)
@@ -75,6 +76,8 @@ module SwarmSDK
           Tools::ScratchpadRead.create_for_scratchpad(@scratchpad)
         when :ScratchpadList
           Tools::ScratchpadList.create_for_scratchpad(@scratchpad)
+        when :Think
+          Tools::Think.new
         else
           # Regular tools - get class from registry and instantiate
           tool_class = Tools::Registry.get(tool_name_sym)
@@ -133,13 +136,14 @@ module SwarmSDK
         end
       end
 
-      # Register default tools for agents that have include_default_tools enabled
+      # Register default tools for agents (unless disabled)
       #
       # @param chat [AgentChat] The chat instance
       # @param agent_name [Symbol] Agent name
       # @param agent_definition [AgentDefinition] Agent definition
       def register_default_tools(chat, agent_name:, agent_definition:)
-        return unless agent_definition.include_default_tools
+        # If disable_default_tools is true, skip all default tools
+        return if agent_definition.disable_default_tools == true
 
         # Get explicit tool names to avoid duplicates
         explicit_tool_names = agent_definition.tools.map { |t| t[:name] }.to_set
@@ -147,6 +151,9 @@ module SwarmSDK
         DEFAULT_TOOLS.each do |tool_name|
           # Skip if already registered explicitly
           next if explicit_tool_names.include?(tool_name)
+
+          # Skip if tool is in the disable list
+          next if tool_disabled?(tool_name, agent_definition.disable_default_tools)
 
           tool_instance = create_tool_instance(tool_name, agent_name, agent_definition.directory)
 
@@ -163,6 +170,25 @@ module SwarmSDK
           )
 
           chat.with_tool(tool_instance)
+        end
+      end
+
+      # Check if a tool should be disabled based on disable_default_tools config
+      #
+      # @param tool_name [Symbol] Tool name to check
+      # @param disable_config [nil, Boolean, Array<Symbol>] Disable configuration
+      # @return [Boolean] True if tool should be disabled
+      def tool_disabled?(tool_name, disable_config)
+        return false if disable_config.nil?
+
+        if disable_config == true
+          # Disable all default tools
+          true
+        elsif disable_config.is_a?(Array)
+          # Disable only tools in the array
+          disable_config.include?(tool_name)
+        else
+          false
         end
       end
 

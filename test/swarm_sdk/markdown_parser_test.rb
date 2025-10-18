@@ -166,7 +166,7 @@ module SwarmSDK
 
       agent_def = MarkdownParser.parse(content)
 
-      # With coding_agent: false, include_default_tools: true (default), and empty prompt
+      # With coding_agent: false, # All default tools enabled (default), and empty prompt
       # Should get TODO/Scratchpad info
       refute_empty(agent_def.system_prompt)
       assert_includes(agent_def.system_prompt, "TodoWrite")
@@ -180,13 +180,13 @@ module SwarmSDK
         description: Test
         directory: .
         coding_agent: false
-        include_default_tools: false
+        disable_default_tools: true
         ---
       MARKDOWN
 
       agent_def = MarkdownParser.parse(content)
 
-      # With coding_agent: false, include_default_tools: false, and empty prompt
+      # With coding_agent: false, disable_default_tools: true, and empty prompt
       # Should be empty
       assert_equal("", agent_def.system_prompt)
     end

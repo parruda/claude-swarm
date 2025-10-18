@@ -3,7 +3,7 @@
 
 # Manual Test 5: Advanced Flags
 #
-# Tests: include_default_tools, bypass_permissions, skip_base_prompt, assume_model_exists
+# Tests: disable_default_tools, bypass_permissions, coding_agent, assume_model_exists
 #
 # Run: bundle exec ruby -Ilib lib/swarm_sdk/examples/dsl/05_advanced_flags.rb
 
@@ -49,8 +49,8 @@ puts ""
 agent_def = swarm.agent_definition(:test_agent)
 
 puts "Advanced Flags Verification:"
-puts "  skip_base_prompt: #{agent_def.skip_base_prompt}"
-puts "  include_default_tools: #{agent_def.include_default_tools}"
+puts "  coding_agent: #{agent_def.coding_agent}"
+puts "  disable_default_tools: #{agent_def.disable_default_tools}"
 puts "  bypass_permissions: #{agent_def.bypass_permissions}"
 puts "  assume_model_exists: #{agent_def.assume_model_exists}"
 puts "  system_prompt: #{agent_def.system_prompt[0..80]}..."
