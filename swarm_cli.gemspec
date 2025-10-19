@@ -52,5 +52,6 @@ Gem::Specification.new do |spec|
   spec.add_dependency("csv")
   spec.add_dependency("docx", "~> 0.10")
   spec.add_dependency("pdf-reader", "~> 2.15")
+  spec.add_dependency("reverse_markdown", "~> 3.0.0")
   spec.add_dependency("roo", "~> 3.0.0")
 end

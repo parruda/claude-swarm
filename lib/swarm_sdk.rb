@@ -41,11 +41,50 @@ module SwarmSDK
   class StateError < Error; end
 
   class << self
+    # Settings for SwarmSDK (global configuration)
+    attr_accessor :settings
+
     # Main entry point for DSL
     def build(&block)
       Swarm::Builder.build(&block)
     end
+
+    # Configure SwarmSDK global settings
+    def configure
+      self.settings ||= Settings.new
+      yield(settings)
+    end
+
+    # Reset settings to defaults
+    def reset_settings!
+      self.settings = Settings.new
+    end
+
+    # Alias for backward compatibility
+    alias_method :configuration, :settings
+    alias_method :reset_configuration!, :reset_settings!
   end
+
+  # Settings class for SwarmSDK global settings (not to be confused with Configuration for YAML loading)
+  class Settings
+    # WebFetch tool LLM processing configuration
+    attr_accessor :webfetch_provider, :webfetch_model, :webfetch_base_url, :webfetch_max_tokens
+
+    def initialize
+      @webfetch_provider = nil
+      @webfetch_model = nil
+      @webfetch_base_url = nil
+      @webfetch_max_tokens = 4096
+    end
+
+    # Check if WebFetch LLM processing is enabled
+    def webfetch_llm_enabled?
+      !@webfetch_provider.nil? && !@webfetch_model.nil?
+    end
+  end
+
+  # Initialize default settings
+  self.settings = Settings.new
 end
 
 # Automatically configure RubyLLM from environment variables

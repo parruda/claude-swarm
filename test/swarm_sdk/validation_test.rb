@@ -93,7 +93,7 @@ module SwarmSDK
     end
 
     def test_swarm_validate_aggregates_warnings_from_all_agents
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: Tools::Stores::ScratchpadStorage.new)
 
       # Add agent with invalid model
       swarm.add_agent(Agent::Definition.new(:agent1, {
@@ -120,7 +120,7 @@ module SwarmSDK
     end
 
     def test_swarm_validate_returns_empty_when_all_agents_valid
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: Tools::Stores::ScratchpadStorage.new)
 
       swarm.add_agent(Agent::Definition.new(:agent1, {
         description: "Agent 1",
@@ -138,7 +138,7 @@ module SwarmSDK
     end
 
     def test_swarm_validate_handles_proxy_configurations
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: Tools::Stores::ScratchpadStorage.new)
 
       # Proxy agent - should still warn (for user awareness about context tracking)
       swarm.add_agent(Agent::Definition.new(:proxy_agent, {

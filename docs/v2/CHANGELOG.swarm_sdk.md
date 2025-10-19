@@ -5,6 +5,143 @@ All notable changes to SwarmSDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.5]
+
+### Added
+
+- **WebFetch Tool** - Fetch and process web content
+  - Fetches URLs and converts HTML to Markdown
+  - Optional LLM processing via `SwarmSDK.configure { |c| c.webfetch_provider; c.webfetch_model }`
+  - Uses `reverse_markdown` gem if installed, falls back to built-in converter
+  - 15-minute caching, redirect detection, comprehensive error handling
+  - Default tool (available to all agents)
+
+- **HtmlConverter** - HTML to Markdown conversion
+  - Conditional gem usage pattern (uses `reverse_markdown` if installed)
+  - Built-in fallback for common HTML elements
+  - Follows DocumentConverter pattern for consistency
+
+- **Memory System** - Per-agent persistent knowledge storage
+  - **MemoryStorage class**: Persistent storage to `{directory}/memory.json`
+  - **7 Memory tools**: MemoryWrite, MemoryRead, MemoryEdit, MemoryMultiEdit, MemoryGlob, MemoryGrep, MemoryDelete
+  - Per-agent isolation (each agent has own memory)
+  - Search results ordered by most recent first
+  - Configured via `memory { directory }` DSL or `memory:` YAML field
+  - Auto-injected memory system prompt from `lib/swarm_sdk/prompts/memory.md.erb`
+  - Comprehensive learning protocols and schemas included
+
+- **Memory Configuration DSL**
+  ```ruby
+  agent :assistant do
+    memory do
+      adapter :filesystem  # optional, default
+      directory ".swarm/assistant-memory"  # required
+    end
+  end
+  ```
+
+- **Memory Configuration YAML**
+  ```yaml
+  agents:
+    assistant:
+      memory:
+        adapter: filesystem
+        directory: .swarm/assistant-memory
+  ```
+
+- **Scratchpad Configuration DSL** - Enable/disable at swarm level
+  ```ruby
+  SwarmSDK.build do
+    use_scratchpad true  # or false (default: true)
+  end
+  ```
+
+- **Scratchpad Configuration YAML**
+  ```yaml
+  swarm:
+    use_scratchpad: true  # or false
+  ```
+
+- **Agent Start Events** - New log event after agent initialization
+  - Emits `agent_start` with full agent configuration
+  - Includes: agent, model, provider, directory, system_prompt, tools, delegates_to, memory_enabled, memory_directory, timestamp
+  - Useful for debugging and configuration verification
+
+- **SwarmSDK Global Settings** - `SwarmSDK.configure` for global configuration
+  - WebFetch settings: `webfetch_provider`, `webfetch_model`, `webfetch_base_url`, `webfetch_max_tokens`
+  - Separate from YAML Configuration class (renamed to Settings internally)
+
+- **Learning Assistant Example** - Complete example in `examples/learning-assistant/`
+  - Agent that learns and builds knowledge over time
+  - Memory schema with YAML frontmatter + Markdown
+  - Example memory entries (concept, fact, skill, experience)
+  - Comprehensive learning protocols and best practices
+
+### Changed
+
+- **Scratchpad Architecture** - Complete redesign
+  - **Was**: Single persistent storage with comprehensive tools (Edit, Glob, Grep, etc.)
+  - **Now**: Simplified volatile storage with 3 tools (Write, Read, List)
+  - **Purpose**: Temporary work-in-progress sharing between agents
+  - **Scope**: Shared across all agents (volatile, in-memory only)
+  - **Old comprehensive features** moved to Memory system
+
+- **Storage renamed**: `updated_at` instead of `created_at`
+  - More accurate since writes update existing entries
+  - Affects both MemoryStorage and ScratchpadStorage
+
+- **Storage architecture** - Introduced abstract base class
+  - `Storage` (abstract base)
+  - `MemoryStorage` (persistent, per-agent)
+  - `ScratchpadStorage` (volatile, shared)
+  - Future-ready for SQLite and FAISS adapters
+
+- **Default tools** - Conditional inclusion
+  - Core defaults: Read, Grep, Glob, TodoWrite, Think, WebFetch
+  - Scratchpad tools: Added if `use_scratchpad true` (default)
+  - Memory tools: Added if agent has `memory` configured
+  - Enables fine-grained control over tool availability
+
+- **Cost Tracking** - Fixed to use SwarmSDK's models.json
+  - **Was**: Used `RubyLLM.models.find()` which lacks current model pricing
+  - **Now**: Uses `SwarmSDK::Models.find()` with up-to-date pricing
+  - Accurate cost calculation for all models in SwarmSDK registry
+
+- **Read tracker renamed**: `ScratchpadReadTracker` → `StorageReadTracker`
+  - More general name since it's used by both Memory and Scratchpad
+  - Consistent with Storage abstraction
+
+### Removed
+
+- **Old Scratchpad tools** - Moved to Memory system
+  - ScratchpadEdit → MemoryEdit
+  - ScratchpadMultiEdit → MemoryMultiEdit
+  - ScratchpadGlob → MemoryGlob
+  - ScratchpadGrep → MemoryGrep
+  - ScratchpadDelete → MemoryDelete
+
+- **Scratchpad persistence** - Now volatile
+  - No longer persists to `.swarm/scratchpad.json`
+  - Use Memory system for persistent storage
+
+### Breaking Changes
+
+⚠️ **Major breaking changes requiring migration:**
+
+1. **Scratchpad tools removed**: ScratchpadEdit, ScratchpadMultiEdit, ScratchpadGlob, ScratchpadGrep, ScratchpadDelete
+   - **Migration**: Use Memory tools instead for persistent storage needs
+
+2. **Scratchpad is now volatile**: Does not persist across sessions
+   - **Migration**: Configure `memory` for agents that need persistence
+
+3. **Storage field renamed**: `created_at` → `updated_at`
+   - **Migration**: Old persisted scratchpad.json files will not load
+
+4. **Default tools behavior changed**: Memory and Scratchpad are conditional
+   - Scratchpad: Enabled by default via `use_scratchpad true`
+   - Memory: Opt-in via `memory` configuration
+   - **Migration**: Explicitly configure if needed
+
 ## [2.0.4]
 
 ### Added

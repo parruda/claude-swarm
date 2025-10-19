@@ -70,20 +70,37 @@ module SwarmSDK
         def calculate_cost(message)
           return zero_cost unless message.input_tokens && message.output_tokens
 
-          model_info = RubyLLM.models.find(message.model_id)
+          # Use SwarmSDK's model registry (not RubyLLM's) for up-to-date pricing
+          model_info = SwarmSDK::Models.find(message.model_id)
           return zero_cost unless model_info
 
-          # Prices are per million tokens (USD)
-          input_cost = (message.input_tokens / 1_000_000.0) * model_info.input_price_per_million
-          output_cost = (message.output_tokens / 1_000_000.0) * model_info.output_price_per_million
+          # Extract pricing from SwarmSDK's models.json structure
+          pricing = model_info["pricing"] || model_info[:pricing]
+          return zero_cost unless pricing
+
+          text_pricing = pricing["text_tokens"] || pricing[:text_tokens]
+          return zero_cost unless text_pricing
+
+          standard_pricing = text_pricing["standard"] || text_pricing[:standard]
+          return zero_cost unless standard_pricing
+
+          input_price = standard_pricing["input_per_million"] || standard_pricing[:input_per_million]
+          output_price = standard_pricing["output_per_million"] || standard_pricing[:output_per_million]
+
+          return zero_cost unless input_price && output_price
+
+          # Calculate costs (prices are per million tokens in USD)
+          input_cost = (message.input_tokens / 1_000_000.0) * input_price
+          output_cost = (message.output_tokens / 1_000_000.0) * output_price
 
           {
             input_cost: input_cost,
             output_cost: output_cost,
             total_cost: input_cost + output_cost,
           }
-        rescue StandardError
+        rescue StandardError => e
           # Model not found in registry or pricing not available
+          RubyLLM.logger.debug("Cost calculation failed for #{message.model_id}: #{e.message}")
           zero_cost
         end
 

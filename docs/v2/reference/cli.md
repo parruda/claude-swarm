@@ -394,12 +394,17 @@ Starts an MCP server that exposes SwarmSDK tools (Read, Write, Edit, Bash, Grep,
 - `Glob`: Find files by pattern
 - `TodoWrite`: Manage task lists
 - `Think`: Extended reasoning
-- `ScratchpadWrite`: Write to scratchpad
-- `ScratchpadRead`: Read from scratchpad (with line numbers)
-- `ScratchpadEdit`: Edit scratchpad entries
-- `ScratchpadMultiEdit`: Apply multiple edits to scratchpad entry
-- `ScratchpadGlob`: Search scratchpad by glob pattern
-- `ScratchpadGrep`: Search scratchpad content by regex
+- `WebFetch`: Fetch and process web content
+- `ScratchpadWrite`: Write to shared scratchpad (volatile)
+- `ScratchpadRead`: Read from shared scratchpad
+- `ScratchpadList`: List scratchpad entries
+- `MemoryWrite`: Write to per-agent memory (persistent)
+- `MemoryRead`: Read from memory (with line numbers)
+- `MemoryEdit`: Edit memory entries
+- `MemoryMultiEdit`: Apply multiple edits to memory
+- `MemoryGlob`: Search memory by glob pattern
+- `MemoryGrep`: Search memory content by regex
+- `MemoryDelete`: Delete memory entries
 
 **Examples:**
 ```bash

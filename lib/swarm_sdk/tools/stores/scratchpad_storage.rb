@@ -3,36 +3,23 @@
 module SwarmSDK
   module Tools
     module Stores
-      # Scratchpad provides session-scoped, in-memory storage for agents
-      # to store detailed outputs that would otherwise bloat tool responses.
+      # ScratchpadStorage provides volatile, shared storage
       #
       # Features:
-      # - Session-scoped: Cleared when swarm execution completes
-      # - Shared: Any agent can read/write any scratchpad address
+      # - Shared: All agents share the same scratchpad
+      # - Volatile: NEVER persists - all data lost when process ends
       # - Path-based: Hierarchical organization using file-path-like addresses
-      # - In-memory: No filesystem I/O, pure memory storage
       # - Metadata-rich: Stores content + title + timestamp + size
-      class Scratchpad
-        # Maximum size per scratchpad entry (1MB)
-        MAX_ENTRY_SIZE = 1_000_000
-
-        # Maximum total scratchpad size (100MB)
-        MAX_TOTAL_SIZE = 100_000_000
-
-        # Represents a single scratchpad entry with metadata
-        Entry = Struct.new(:content, :title, :created_at, :size, keyword_init: true)
-
-        # Initialize scratchpad with optional persistence
-        #
-        # @param persist_to [String, nil] Path to JSON file for persistence (nil = no persistence)
-        def initialize(persist_to: nil)
+      # - Thread-safe: Mutex-protected operations
+      #
+      # Use for temporary, cross-agent communication within a single session.
+      class ScratchpadStorage < Storage
+        # Initialize scratchpad storage (always volatile)
+        def initialize
+          super() # Initialize parent Storage class
           @entries = {}
           @total_size = 0
-          @persist_to = persist_to
           @mutex = Mutex.new
-
-          # Load existing data if persistence is enabled
-          load_from_file if @persist_to && File.exist?(@persist_to)
         end
 
         # Write content to scratchpad
@@ -73,16 +60,13 @@ module SwarmSDK
             entry = Entry.new(
               content: content,
               title: title,
-              created_at: Time.now,
+              updated_at: Time.now,
               size: content_size,
             )
 
             # Update storage
             @entries[file_path] = entry
             @total_size = new_total_size
-
-            # Persist to file if enabled
-            save_to_file if @persist_to
 
             entry
           end
@@ -102,10 +86,30 @@ module SwarmSDK
           entry.content
         end
 
+        # Delete a specific entry
+        #
+        # @param file_path [String] Path to delete
+        # @raise [ArgumentError] If path not found
+        # @return [void]
+        def delete(file_path:)
+          @mutex.synchronize do
+            raise ArgumentError, "file_path is required" if file_path.nil? || file_path.to_s.strip.empty?
+
+            entry = @entries[file_path]
+            raise ArgumentError, "scratchpad://#{file_path} not found" unless entry
+
+            # Update total size
+            @total_size -= entry.size
+
+            # Remove entry
+            @entries.delete(file_path)
+          end
+        end
+
         # List scratchpad entries, optionally filtered by prefix
         #
         # @param prefix [String, nil] Filter by path prefix
-        # @return [Array<Hash>] Array of entry metadata (path, title, size, created_at)
+        # @return [Array<Hash>] Array of entry metadata (path, title, size, updated_at)
         def list(prefix: nil)
           entries = @entries
 
@@ -114,21 +118,21 @@ module SwarmSDK
             entries = entries.select { |path, _| path.start_with?(prefix) }
           end
 
-          # Return metadata
+          # Return metadata sorted by path
           entries.map do |path, entry|
             {
               path: path,
               title: entry.title,
               size: entry.size,
-              created_at: entry.created_at,
+              updated_at: entry.updated_at,
             }
           end.sort_by { |e| e[:path] }
         end
 
-        # Search entries by glob pattern (like filesystem glob)
+        # Search entries by glob pattern
         #
         # @param pattern [String] Glob pattern (e.g., "**/*.txt", "parallel/*/task_*")
-        # @return [Array<Hash>] Array of matching entry metadata (path, title, size, created_at)
+        # @return [Array<Hash>] Array of matching entry metadata, sorted by most recent first
         def glob(pattern:)
           raise ArgumentError, "pattern is required" if pattern.nil? || pattern.to_s.strip.empty?
 
@@ -138,18 +142,18 @@ module SwarmSDK
           # Filter entries by pattern
           matching_entries = @entries.select { |path, _| regex.match?(path) }
 
-          # Return metadata sorted by path
+          # Return metadata sorted by most recent first
           matching_entries.map do |path, entry|
             {
               path: path,
               title: entry.title,
               size: entry.size,
-              created_at: entry.created_at,
+              updated_at: entry.updated_at,
             }
-          end.sort_by { |e| e[:path] }
+          end.sort_by { |e| -e[:updated_at].to_f }
         end
 
-        # Search entry content by pattern (like grep)
+        # Search entry content by pattern
         #
         # @param pattern [String] Regular expression pattern to search for
         # @param case_insensitive [Boolean] Whether to perform case-insensitive search
@@ -170,24 +174,24 @@ module SwarmSDK
               .sort
             matching_paths
           when "content"
-            # Return paths with matching lines
+            # Return paths with matching lines, sorted by most recent first
             results = []
             @entries.each do |path, entry|
               matching_lines = []
               entry.content.each_line.with_index(1) do |line, line_num|
                 matching_lines << { line_number: line_num, content: line.chomp } if regex.match?(line)
               end
-              results << { path: path, matches: matching_lines } unless matching_lines.empty?
+              results << { path: path, matches: matching_lines, updated_at: entry.updated_at } unless matching_lines.empty?
             end
-            results.sort_by { |r| r[:path] }
+            results.sort_by { |r| -r[:updated_at].to_f }.map { |r| r.except(:updated_at) }
           when "count"
-            # Return paths with match counts
+            # Return paths with match counts, sorted by most recent first
             results = []
             @entries.each do |path, entry|
               count = entry.content.scan(regex).size
-              results << { path: path, count: count } if count > 0
+              results << { path: path, count: count, updated_at: entry.updated_at } if count > 0
             end
-            results.sort_by { |r| r[:path] }
+            results.sort_by { |r| -r[:updated_at].to_f }.map { |r| r.except(:updated_at) }
           else
             raise ArgumentError, "Invalid output_mode: #{output_mode}. Must be 'files_with_matches', 'content', or 'count'"
           end
@@ -197,8 +201,10 @@ module SwarmSDK
         #
         # @return [void]
         def clear
-          @entries.clear
-          @total_size = 0
+          @mutex.synchronize do
+            @entries.clear
+            @total_size = 0
+          end
         end
 
         # Get current total size
@@ -211,104 +217,6 @@ module SwarmSDK
         # @return [Integer] Number of entries
         def size
           @entries.size
-        end
-
-        private
-
-        # Convert glob pattern to regex
-        #
-        # @param pattern [String] Glob pattern
-        # @return [Regexp] Regular expression
-        def glob_to_regex(pattern)
-          # Escape special regex characters except glob wildcards
-          escaped = Regexp.escape(pattern)
-
-          # Convert glob wildcards to regex
-          # ** matches any number of directories (including zero)
-          escaped = escaped.gsub('\*\*', ".*")
-          # * matches anything except directory separator
-          escaped = escaped.gsub('\*', "[^/]*")
-          # ? matches single character except directory separator
-          escaped = escaped.gsub('\?', "[^/]")
-
-          # Anchor to start and end
-          Regexp.new("\\A#{escaped}\\z")
-        end
-
-        # Format bytes to human-readable size
-        #
-        # @param bytes [Integer] Number of bytes
-        # @return [String] Formatted size (e.g., "1.5MB", "500.0KB")
-        def format_bytes(bytes)
-          if bytes >= 1_000_000
-            "#{(bytes.to_f / 1_000_000).round(1)}MB"
-          elsif bytes >= 1_000
-            "#{(bytes.to_f / 1_000).round(1)}KB"
-          else
-            "#{bytes}B"
-          end
-        end
-
-        # Save scratchpad data to JSON file
-        #
-        # @return [void]
-        def save_to_file
-          return unless @persist_to
-
-          # Convert entries to serializable format
-          data = {
-            version: 1,
-            total_size: @total_size,
-            entries: @entries.transform_values do |entry|
-              {
-                content: entry.content,
-                title: entry.title,
-                created_at: entry.created_at.iso8601,
-                size: entry.size,
-              }
-            end,
-          }
-
-          # Ensure directory exists
-          dir = File.dirname(@persist_to)
-          FileUtils.mkdir_p(dir) unless Dir.exist?(dir)
-
-          # Write to file atomically (write to temp file, then rename)
-          temp_file = "#{@persist_to}.tmp"
-          File.write(temp_file, JSON.pretty_generate(data))
-          File.rename(temp_file, @persist_to)
-        end
-
-        # Load scratchpad data from JSON file
-        #
-        # @return [void]
-        def load_from_file
-          return unless @persist_to && File.exist?(@persist_to)
-
-          data = JSON.parse(File.read(@persist_to))
-
-          # Restore entries
-          @entries = data["entries"].transform_values do |entry_data|
-            Entry.new(
-              content: entry_data["content"],
-              title: entry_data["title"],
-              created_at: Time.parse(entry_data["created_at"]),
-              size: entry_data["size"],
-            )
-          end
-
-          # Restore total size
-          @total_size = data["total_size"]
-        rescue JSON::ParserError => e
-          # If file is corrupted, log warning and start fresh
-          warn("Warning: Failed to load scratchpad from #{@persist_to}: #{e.message}. Starting with empty scratchpad.")
-          @entries = {}
-          @total_size = 0
-        rescue StandardError => e
-          # If any other error occurs, log warning and start fresh
-          warn("Warning: Failed to load scratchpad from #{@persist_to}: #{e.message}. Starting with empty scratchpad.")
-          @entries = {}
-          @total_size = 0
         end
       end
     end

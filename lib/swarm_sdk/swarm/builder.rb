@@ -52,6 +52,7 @@ module SwarmSDK
         @swarm_hooks = []
         @nodes = {}
         @start_node = nil
+        @scratchpad_enabled = true # Default: enabled
       end
 
       # Set swarm name
@@ -62,6 +63,13 @@ module SwarmSDK
       # Set lead agent
       def lead(agent_name)
         @lead_agent = agent_name
+      end
+
+      # Enable or disable shared scratchpad
+      #
+      # @param enabled [Boolean] Whether to enable scratchpad tools
+      def use_scratchpad(enabled)
+        @scratchpad_enabled = enabled
       end
 
       # Define an agent with fluent API or load from markdown content
@@ -303,7 +311,7 @@ module SwarmSDK
       # @return [Swarm] Configured swarm instance
       def build_single_swarm
         # Create swarm using SDK
-        swarm = Swarm.new(name: @swarm_name)
+        swarm = Swarm.new(name: @swarm_name, scratchpad_enabled: @scratchpad_enabled)
 
         # Merge all_agents config into each agent (including file-loaded ones)
         merge_all_agents_config_into_agents if @all_agents_config

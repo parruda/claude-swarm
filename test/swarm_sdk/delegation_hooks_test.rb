@@ -271,7 +271,7 @@ module SwarmSDK
     private
 
     def create_swarm_with_delegation
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: Tools::Stores::ScratchpadStorage.new)
 
       swarm.add_agent(create_agent(
         name: :lead,
@@ -295,7 +295,7 @@ module SwarmSDK
     end
 
     def create_swarm_with_tools
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: Tools::Stores::ScratchpadStorage.new)
 
       swarm.add_agent(create_agent(
         name: :lead,

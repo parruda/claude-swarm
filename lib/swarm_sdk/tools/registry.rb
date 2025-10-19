@@ -17,11 +17,18 @@ module SwarmSDK
         Glob: SwarmSDK::Tools::Glob,
         MultiEdit: :special, # Requires agent context for read-before-edit enforcement
         TodoWrite: :special, # Requires agent context for todo tracking
-        ScratchpadWrite: :special, # Requires scratchpad instance
-        ScratchpadRead: :special, # Requires scratchpad instance
-        ScratchpadGlob: :special, # Requires scratchpad instance
-        ScratchpadGrep: :special, # Requires scratchpad instance
+        ScratchpadWrite: :special, # Requires scratchpad storage instance
+        ScratchpadRead: :special, # Requires scratchpad storage instance
+        ScratchpadList: :special, # Requires scratchpad storage instance
+        MemoryWrite: :special, # Requires memory storage instance
+        MemoryRead: :special, # Requires memory storage instance
+        MemoryEdit: :special, # Requires memory storage instance
+        MemoryMultiEdit: :special, # Requires memory storage instance
+        MemoryDelete: :special, # Requires memory storage instance
+        MemoryGlob: :special, # Requires memory storage instance
+        MemoryGrep: :special, # Requires memory storage instance
         Think: SwarmSDK::Tools::Think,
+        WebFetch: SwarmSDK::Tools::WebFetch,
       }.freeze
 
       class << self

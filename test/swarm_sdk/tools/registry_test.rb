@@ -77,6 +77,15 @@ module SwarmSDK
         assert_includes(names, :Bash)
         assert_includes(names, :Grep)
         assert_includes(names, :Glob)
+        assert_includes(names, :WebFetch)
+        # Scratchpad tools (simplified)
+        assert_includes(names, :ScratchpadWrite)
+        assert_includes(names, :ScratchpadRead)
+        assert_includes(names, :ScratchpadList)
+        # Memory tools
+        assert_includes(names, :MemoryWrite)
+        assert_includes(names, :MemoryRead)
+        assert_includes(names, :MemoryDelete)
       end
 
       def test_registry_validate

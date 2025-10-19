@@ -372,7 +372,7 @@ module TestHelpers
       temp_file.close
       @test_scratchpad_files ||= []
       @test_scratchpad_files << temp_file.path
-      SwarmSDK::Tools::Stores::Scratchpad.new(persist_to: temp_file.path)
+      SwarmSDK::Tools::Stores::MemoryStorage.new(persist_to: temp_file.path)
     end
 
     # Clean up test scratchpad files

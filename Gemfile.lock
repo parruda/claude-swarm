@@ -16,6 +16,7 @@ PATH
       fast-mcp (~> 1.6)
       pastel
       pdf-reader (~> 2.15)
+      reverse_markdown (~> 3.0.0)
       roo (~> 3.0.0)
       swarm_sdk (~> 2.0)
       tty-box
@@ -26,7 +27,7 @@ PATH
       tty-spinner
       tty-tree
       zeitwerk
-    swarm_sdk (2.0.4)
+    swarm_sdk (2.0.5)
       async (~> 2.0)
       ruby_llm (~> 1.8)
       ruby_llm-mcp
@@ -234,6 +235,8 @@ GEM
     regexp_parser (2.11.3)
     reline (0.6.2)
       io-console (~> 0.5)
+    reverse_markdown (3.0.0)
+      nokogiri
     rexml (3.4.4)
     roo (3.0.0)
       base64 (~> 0.2)

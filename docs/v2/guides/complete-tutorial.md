@@ -412,9 +412,9 @@ TodoWrite(
 
 **When to use**: Multi-step tasks where tracking progress helps.
 
-#### Scratchpad Tools
+#### Scratchpad Tools (Shared, Volatile)
 
-Share and persist data between agents using the scratchpad. Data is automatically saved to `.swarm/scratchpad.json` and survives swarm restarts.
+Share work-in-progress data between agents in the same swarm. Scratchpad is **volatile** (in-memory only, cleared when swarm ends) and **shared** (all agents access the same scratchpad).
 
 ```ruby
 agent :processor do
@@ -425,57 +425,108 @@ agent :processor do
 end
 ```
 
-**ScratchpadWrite** - Store content with metadata:
+**ScratchpadWrite** - Store temporary data:
 ```
-ScratchpadWrite(file_path: "analysis_result", content: "...", title: "Analysis Result")
-```
-
-**ScratchpadRead** - Read content with line numbers:
-```
-ScratchpadRead(file_path: "analysis_result")
-# Returns:
-#      1→First line of content
-#      2→Second line of content
+ScratchpadWrite(file_path: "task/batch1/result", content: "...", title: "Batch 1 Result")
 ```
 
-**ScratchpadEdit** - Edit existing entries:
+**ScratchpadRead** - Read shared data:
 ```
-ScratchpadEdit(file_path: "report", old_string: "draft", new_string: "final")
-ScratchpadEdit(file_path: "doc", old_string: "foo", new_string: "bar", replace_all: true)
-```
-
-**ScratchpadMultiEdit** - Apply multiple edits sequentially:
-```
-ScratchpadMultiEdit(
-  file_path: "doc",
-  edits_json: '[{"old_string":"foo","new_string":"bar"},{"old_string":"baz","new_string":"qux"}]'
-)
+ScratchpadRead(file_path: "task/batch1/result")
+# Returns: Content without line numbers (simpler than Memory tools)
 ```
 
-**ScratchpadGlob** - Search by file pattern:
+**ScratchpadList** - List all entries:
 ```
-ScratchpadGlob(pattern: "**")  # Lists all entries
-ScratchpadGlob(pattern: "analysis/*")  # Direct children of analysis/
-ScratchpadGlob(pattern: "analysis/**")  # All entries under analysis/ (recursive)
-```
-
-**ScratchpadGrep** - Search content by regex:
-```
-ScratchpadGrep(pattern: "error", output_mode: "content")  # Show matching lines
-ScratchpadGrep(pattern: "error", output_mode: "count")    # Count matches
+ScratchpadList(prefix: "task/")  # List entries under task/
+ScratchpadList()                 # List all entries
 ```
 
 **Features**:
-- **Persistent**: Data saved to `.swarm/scratchpad.json`
-- **Thread-safe**: Concurrent access protected
-- **Atomic writes**: Data integrity guaranteed
+- **Volatile**: Cleared when swarm ends (no persistence)
 - **Shared**: All agents access the same scratchpad
-- **Hierarchical**: Use paths like `"analysis/performance/report"`
+- **Simple**: Just write, read, list (no edit/grep/glob)
+- **Fast**: In-memory only, no disk I/O
 
 **Use cases**:
-- Passing large data between agents
-- Storing intermediate analysis
-- Caching expensive computations
+- Sharing intermediate results between agents
+- Coordinating parallel work
+- Passing data in delegation chains
+
+#### Memory Tools (Per-Agent, Persistent)
+
+Build persistent knowledge over time with per-agent memory. Memory is **persistent** (survives sessions) and **isolated** (each agent has its own memory).
+
+```ruby
+agent :learning_assistant do
+  description "Assistant that learns over time"
+  model "gpt-4"
+  system_prompt "Build knowledge in memory"
+
+  # Configure persistent memory
+  memory do
+    adapter :filesystem  # default, optional
+    directory ".swarm/learning-assistant"  # required
+  end
+  # Memory tools automatically added when memory is configured
+end
+```
+
+**YAML equivalent:**
+```yaml
+learning_assistant:
+  description: "Assistant that learns over time"
+  model: "gpt-4"
+  memory:
+    adapter: filesystem  # optional
+    directory: .swarm/learning-assistant  # required
+```
+
+**MemoryWrite** - Store knowledge permanently:
+```
+MemoryWrite(file_path: "concepts/ruby/classes.md", content: "...", title: "Ruby Classes")
+```
+
+**MemoryRead** - Recall knowledge (with line numbers):
+```
+MemoryRead(file_path: "concepts/ruby/classes.md")
+# Returns:
+#      1→---
+#      2→type: concept
+#      3→...
+```
+
+**MemoryEdit** - Update knowledge:
+```
+MemoryEdit(file_path: "facts/user.md", old_string: "...", new_string: "...")
+```
+
+**MemoryGlob** - Browse knowledge by pattern:
+```
+MemoryGlob(pattern: "concepts/ruby/**")    # All Ruby concepts
+MemoryGlob(pattern: "skills/**")            # All skills
+```
+
+**MemoryGrep** - Search knowledge by content:
+```
+MemoryGrep(pattern: "authentication", output_mode: "content")
+```
+
+**MemoryDelete** - Remove obsolete knowledge:
+```
+MemoryDelete(file_path: "concepts/outdated.md")
+```
+
+**Features**:
+- **Persistent**: Saved to disk, survives sessions
+- **Per-agent**: Each agent has isolated memory
+- **Comprehensive**: Full edit/search/browse capabilities
+- **Ordered**: Search results show most recent first
+
+**Use cases**:
+- Learning agents that build expertise over time
+- Agents that remember user preferences
+- Agents that accumulate domain knowledge
 - Persisting results across swarm restarts
 
 #### Think Tool
@@ -525,12 +576,62 @@ Think(thoughts: "If we have 150 requests/sec and each takes 20ms, that's 150 * 0
 7. Think: "Tests pass. Task complete."
 ```
 
+#### WebFetch Tool
+
+Fetch and analyze web content:
+
+```ruby
+agent :researcher do
+  description "Web researcher"
+  model "gpt-4"
+  system_prompt "Research information from web sources"
+  # WebFetch included by default
+end
+```
+
+**Usage without LLM processing** (default):
+```
+WebFetch(url: "https://example.com/docs")
+# Returns: Raw markdown conversion of the page
+```
+
+**Usage with LLM processing** (requires configuration):
+```ruby
+# First, configure WebFetch globally
+SwarmSDK.configure do |config|
+  config.webfetch_provider = "anthropic"
+  config.webfetch_model = "claude-3-5-haiku-20241022"
+end
+
+# Then agents can use it with prompts
+WebFetch(url: "https://example.com/api-docs", prompt: "List all available API endpoints")
+# Returns: LLM's analysis of the page content
+```
+
+**Features**:
+- Fetches web content and converts HTML to Markdown
+- Optional LLM processing with user-defined prompts
+- 15-minute cache to avoid redundant fetches
+- Handles redirects and errors gracefully
+- Supports custom providers and models via configuration
+
+**HTML to Markdown conversion**:
+- Uses `reverse_markdown` gem if installed (handles complex HTML, tables, etc.)
+- Falls back to built-in converter for common HTML elements
+- Always strips scripts and styles
+
+**When to use**:
+- Fetching API documentation
+- Reading blog posts or articles
+- Extracting information from web pages
+- Researching technical content
+
 **Disable specific default tools** (if needed):
 ```ruby
 agent :agent_name do
   description "..."
   model "gpt-4"
-  disable_default_tools [:Think]  # Disable just Think
+  disable_default_tools [:Think, :WebFetch]  # Disable specific tools
   # Or disable multiple: [:Think, :TodoWrite, :Grep]
 end
 ```
@@ -541,7 +642,7 @@ agent_name:
   model: "gpt-4"
   disable_default_tools:  # Disable specific tools
     - Think
-    - TodoWrite
+    - WebFetch
 ```
 
 ### 2.2 Default Tools

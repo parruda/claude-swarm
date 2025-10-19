@@ -3,7 +3,7 @@
 require "test_helper"
 
 module SwarmSDK
-  class ScratchpadIntegrationTest < Minitest::Test
+  class MemoryIntegrationTest < Minitest::Test
     def setup
       # Set fake API key to avoid RubyLLM configuration errors
       @original_api_key = ENV["ANTHROPIC_API_KEY"]
@@ -12,7 +12,7 @@ module SwarmSDK
         config.anthropic_api_key = "test-key-12345"
       end
 
-      @swarm = Swarm.new(name: "Test Swarm")
+      @swarm = Swarm.new(name: "Test Swarm", scratchpad: Tools::Stores::MemoryStorage.new(persist_to: Dir.mktmpdir + "/memory-test.json"))
 
       # Add agents WITHOUT explicitly requesting scratchpad tools
       # They should still get them because they're default tools
@@ -69,16 +69,16 @@ module SwarmSDK
       # Scratchpad tools use simple names without module namespacing
       assert(writer.tools.key?(:ScratchpadWrite), "Writer should have scratchpad_write")
       assert(writer.tools.key?(:ScratchpadRead), "Writer should have scratchpad_read")
-      assert(writer.tools.key?(:ScratchpadGlob), "Writer should have scratchpad_glob")
-      assert(writer.tools.key?(:ScratchpadGrep), "Writer should have scratchpad_grep")
+      assert(writer.tools.key?(:ScratchpadList), "Writer should have scratchpad_list")
+      assert(writer.tools.key?(:ScratchpadList), "Writer should have scratchpad_list")
 
       # Reader has Read tool configured, but should also have scratchpad tools
       # Read tool has custom naming, so it's just :Read
       assert(reader.tools.key?(:Read), "Reader should have read tool")
       assert(reader.tools.key?(:ScratchpadWrite), "Reader should have scratchpad_write")
       assert(reader.tools.key?(:ScratchpadRead), "Reader should have scratchpad_read")
-      assert(reader.tools.key?(:ScratchpadGlob), "Reader should have scratchpad_glob")
-      assert(reader.tools.key?(:ScratchpadGrep), "Reader should have scratchpad_grep")
+      assert(reader.tools.key?(:ScratchpadList), "Reader should have scratchpad_list")
+      assert(reader.tools.key?(:ScratchpadList), "Reader should have scratchpad_list")
     end
 
     def test_default_tools_are_always_available
@@ -91,8 +91,8 @@ module SwarmSDK
         # Scratchpad tools
         assert(agent.tools.key?(:ScratchpadWrite), "#{agent} should have scratchpad_write")
         assert(agent.tools.key?(:ScratchpadRead), "#{agent} should have scratchpad_read")
-        assert(agent.tools.key?(:ScratchpadGlob), "#{agent} should have scratchpad_glob")
-        assert(agent.tools.key?(:ScratchpadGrep), "#{agent} should have scratchpad_grep")
+        assert(agent.tools.key?(:ScratchpadList), "#{agent} should have scratchpad_list")
+        assert(agent.tools.key?(:ScratchpadList), "#{agent} should have scratchpad_list")
 
         # File system tools
         assert(agent.tools.key?(:Read), "#{agent} should have read")

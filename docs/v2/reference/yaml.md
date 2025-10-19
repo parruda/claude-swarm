@@ -86,6 +86,22 @@ swarm:
 
 ---
 
+### use_scratchpad
+
+**Type:** Boolean (optional)
+**Default:** `true`
+**Description:** Enable or disable shared scratchpad tools for all agents in the swarm.
+
+When enabled, all agents get scratchpad tools (ScratchpadWrite, ScratchpadRead, ScratchpadList). Scratchpad is volatile (in-memory only) and shared across all agents.
+
+```yaml
+swarm:
+  use_scratchpad: true   # default
+  use_scratchpad: false  # disable scratchpad
+```
+
+---
+
 ### agents
 
 **Type:** Object (required)
@@ -383,8 +399,13 @@ agents:
 **Description:** List of tools available to the agent.
 
 **Default tools (when `default tools enabled`):**
-- `Read`, `Glob`, `Grep`, `TodoWrite`, `Think`
-- `ScratchpadWrite`, `ScratchpadRead`, `ScratchpadEdit`, `ScratchpadMultiEdit`, `ScratchpadGlob`, `ScratchpadGrep`
+- `Read`, `Glob`, `Grep`, `TodoWrite`, `Think`, `WebFetch`
+
+**Scratchpad tools** (added if `use_scratchpad: true` at swarm level, default):
+- `ScratchpadWrite`, `ScratchpadRead`, `ScratchpadList`
+
+**Memory tools** (added if agent has `memory` configured):
+- `MemoryWrite`, `MemoryRead`, `MemoryEdit`, `MemoryMultiEdit`, `MemoryGlob`, `MemoryGrep`, `MemoryDelete`
 
 **Additional tools:**
 - `Write`, `Edit`, `MultiEdit`, `Bash`
@@ -433,6 +454,39 @@ agents:
   coordinator:
     delegates_to: [frontend, backend, reviewer]
 ```
+
+---
+
+### memory
+
+**Type:** Object (optional)
+**Default:** `null` (memory disabled)
+**Description:** Configure persistent memory storage for this agent.
+
+When configured, the agent automatically gets all 7 memory tools (MemoryWrite, MemoryRead, MemoryEdit, MemoryMultiEdit, MemoryGlob, MemoryGrep, MemoryDelete) and a memory system prompt is appended.
+
+Memory is per-agent (isolated) and persistent (survives across sessions).
+
+**Fields:**
+- `adapter` (String, optional): Storage adapter (default: `"filesystem"`)
+- `directory` (String, required): Directory where `memory.json` will be stored
+
+```yaml
+agents:
+  learning_assistant:
+    description: "Assistant that learns"
+    model: gpt-4
+    memory:
+      adapter: filesystem  # optional
+      directory: .swarm/assistant-memory  # required
+
+  # Minimal (adapter defaults to filesystem)
+  another_agent:
+    memory:
+      directory: .swarm/another-agent
+```
+
+**Future adapters:** `sqlite`, `faiss` (not yet implemented)
 
 ---
 
