@@ -37,18 +37,41 @@ module SwarmSDK
         :Grep,
         :Glob,
         :TodoWrite,
-        :ScratchpadWrite,
-        :ScratchpadRead,
-        :ScratchpadGlob,
-        :ScratchpadGrep,
         :Think,
+        :WebFetch,
       ]
 
       assert_equal(expected_tools, Swarm::DEFAULT_TOOLS)
     end
 
+    def test_scratchpad_tools_constant
+      expected_tools = [
+        :ScratchpadWrite,
+        :ScratchpadRead,
+        :ScratchpadList,
+      ]
+
+      assert_equal(expected_tools, Swarm::ToolConfigurator::SCRATCHPAD_TOOLS)
+    end
+
+    def test_memory_tools_constant
+      expected_tools = [
+        :MemoryWrite,
+        :MemoryRead,
+        :MemoryEdit,
+        :MemoryMultiEdit,
+        :MemoryGlob,
+        :MemoryGrep,
+        :MemoryDelete,
+      ]
+
+      assert_equal(expected_tools, Swarm::ToolConfigurator::MEMORY_TOOLS)
+    end
+
     def test_agent_includes_default_tools_by_default
-      swarm = Swarm.new(name: "Test Swarm")
+      # Use non-persistent scratchpad for testing
+      test_scratchpad = Tools::Stores::ScratchpadStorage.new
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :developer,
@@ -70,13 +93,15 @@ module SwarmSDK
       assert(agent.tools.key?(:TodoWrite), "Should have default TodoWrite")
       assert(agent.tools.key?(:ScratchpadWrite), "Should have default ScratchpadWrite")
       assert(agent.tools.key?(:ScratchpadRead), "Should have default ScratchpadRead")
-      assert(agent.tools.key?(:ScratchpadGlob), "Should have default ScratchpadGlob")
-      assert(agent.tools.key?(:ScratchpadGrep), "Should have default ScratchpadGrep")
+      assert(agent.tools.key?(:ScratchpadList), "Should have default ScratchpadList")
       assert(agent.tools.key?(:Think), "Should have default Think")
+      assert(agent.tools.key?(:WebFetch), "Should have default WebFetch")
     end
 
     def test_agent_can_exclude_default_tools
-      swarm = Swarm.new(name: "Test Swarm")
+      # Use non-persistent scratchpad for testing
+      test_scratchpad = Tools::Stores::ScratchpadStorage.new
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :developer,
@@ -100,7 +125,9 @@ module SwarmSDK
     end
 
     def test_agent_with_no_tools_still_gets_defaults
-      swarm = Swarm.new(name: "Test Swarm")
+      # Use non-persistent scratchpad for testing
+      test_scratchpad = Tools::Stores::ScratchpadStorage.new
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :developer,
@@ -119,7 +146,9 @@ module SwarmSDK
     end
 
     def test_agent_with_no_tools_and_no_defaults_has_nothing
-      swarm = Swarm.new(name: "Test Swarm")
+      # Use non-persistent scratchpad for testing
+      test_scratchpad = Tools::Stores::ScratchpadStorage.new
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: test_scratchpad)
 
       swarm.add_agent(create_agent(
         name: :developer,

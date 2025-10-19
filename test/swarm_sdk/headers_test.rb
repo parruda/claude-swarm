@@ -42,7 +42,7 @@ module SwarmSDK
     end
 
     def test_ruby_api_headers_support
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: Tools::Stores::ScratchpadStorage.new)
 
       swarm.add_agent(create_agent(
         name: :backend,
@@ -86,7 +86,7 @@ module SwarmSDK
     end
 
     def test_empty_headers_handled_gracefully
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: Tools::Stores::ScratchpadStorage.new)
 
       swarm.add_agent(create_agent(
         name: :backend,
@@ -102,7 +102,7 @@ module SwarmSDK
     end
 
     def test_nil_headers_handled_gracefully
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: Tools::Stores::ScratchpadStorage.new)
 
       swarm.add_agent(create_agent(
         name: :backend,

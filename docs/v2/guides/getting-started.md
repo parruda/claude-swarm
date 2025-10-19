@@ -148,11 +148,15 @@ Tools are functions agents call to interact with the world. SwarmSDK provides:
 | **File I/O** | Read, Write, Edit, MultiEdit | Read and modify files |
 | **Search** | Grep, Glob | Find content and files |
 | **Execution** | Bash | Run shell commands |
+| **Web** | WebFetch | Fetch and process web content |
 | **Task Management** | TodoWrite | Track progress on multi-step tasks |
-| **Shared Memory** | ScratchpadWrite, ScratchpadRead, ScratchpadEdit, ScratchpadMultiEdit, ScratchpadGlob, ScratchpadGrep | Share data between agents |
+| **Shared Scratchpad** | ScratchpadWrite, ScratchpadRead, ScratchpadList | Share work-in-progress between agents (volatile) |
+| **Per-Agent Memory** | MemoryWrite, MemoryRead, MemoryEdit, MemoryMultiEdit, MemoryGlob, MemoryGrep, MemoryDelete | Persistent learning and knowledge storage (opt-in) |
 | **Reasoning** | Think | Extended reasoning for complex problems |
 
-**Default tools**: Every agent automatically gets Read, Grep, Glob, TodoWrite, Think, and all scratchpad tools unless you explicitly disable them with `disable_default_tools: true`.
+**Default tools**: Every agent automatically gets Read, Grep, Glob, TodoWrite, Think, WebFetch, and scratchpad tools (ScratchpadWrite, ScratchpadRead, ScratchpadList) unless you explicitly disable them with `disable_default_tools: true`.
+
+**Memory tools** are opt-in for learning agents that need persistent knowledge storage.
 
 ## Configuration Formats: YAML vs Ruby DSL vs Markdown
 
@@ -1349,7 +1353,8 @@ Unless `disable_default_tools: true`:
 - **Glob** - Find files by pattern
 - **TodoWrite** - Track tasks
 - **Think** - Extended reasoning
-- **ScratchpadWrite, ScratchpadRead, ScratchpadGlob, ScratchpadGrep** - Shared memory
+- **WebFetch** - Fetch and process web content
+- **ScratchpadWrite, ScratchpadRead, ScratchpadList** - Shared scratchpad (volatile)
 
 ### Common Tools (Add Explicitly)
 

@@ -32,6 +32,51 @@ result = swarm.execute("Task prompt")
 
 ## Top-Level Methods
 
+### SwarmSDK.configure
+
+Configure global SwarmSDK settings.
+
+**Signature:**
+```ruby
+SwarmSDK.configure {|config| ... } → void
+```
+
+**Parameters:**
+- `block` (required): Configuration block
+
+**Available settings:**
+- `webfetch_provider` (String): LLM provider for WebFetch tool (e.g., "anthropic", "openai", "ollama")
+- `webfetch_model` (String): Model name for WebFetch tool (e.g., "claude-3-5-haiku-20241022")
+- `webfetch_base_url` (String, optional): Custom base URL for the provider
+- `webfetch_max_tokens` (Integer): Maximum tokens for WebFetch LLM responses (default: 4096)
+
+**Description:**
+Global configuration that applies to all swarms. Currently used to configure the WebFetch tool's LLM processing behavior.
+
+When `webfetch_provider` and `webfetch_model` are set, the WebFetch tool will process fetched web content using the configured LLM. Without this configuration, WebFetch returns raw markdown.
+
+**Example:**
+```ruby
+# Configure WebFetch to use Anthropic's Claude Haiku
+SwarmSDK.configure do |config|
+  config.webfetch_provider = "anthropic"
+  config.webfetch_model = "claude-3-5-haiku-20241022"
+  config.webfetch_max_tokens = 4096
+end
+
+# Configure WebFetch to use local Ollama
+SwarmSDK.configure do |config|
+  config.webfetch_provider = "ollama"
+  config.webfetch_model = "llama3.2"
+  config.webfetch_base_url = "http://localhost:11434"
+end
+
+# Reset to defaults (disables WebFetch LLM processing)
+SwarmSDK.reset_settings!
+```
+
+---
+
 ### SwarmSDK.build
 
 Build a swarm using the DSL.
@@ -117,6 +162,34 @@ lead(agent_name) → void
 ```ruby
 lead :backend
 lead :coordinator
+```
+
+---
+
+### use_scratchpad
+
+Enable or disable shared scratchpad tools for all agents.
+
+**Signature:**
+```ruby
+use_scratchpad(enabled) → void
+```
+
+**Parameters:**
+- `enabled` (Boolean, required): Whether to enable scratchpad tools
+
+**Default:** `true` (scratchpad tools enabled)
+
+**Description:**
+Controls whether agents have access to scratchpad tools (ScratchpadWrite, ScratchpadRead, ScratchpadList). Scratchpad is volatile (in-memory only) and shared across all agents in the swarm.
+
+**Example:**
+```ruby
+# Enable scratchpad (default)
+use_scratchpad true
+
+# Disable scratchpad
+use_scratchpad false
 ```
 
 ---
@@ -541,8 +614,13 @@ tools(*tool_names, include_default: true) → void
 - `include_default` (Boolean, keyword): Include default tools
 
 **Default tools (when `include_default: true`):**
-- `Read`, `Glob`, `Grep`, `TodoWrite`, `Think`
-- `ScratchpadWrite`, `ScratchpadRead`, `ScratchpadEdit`, `ScratchpadMultiEdit`, `ScratchpadGlob`, `ScratchpadGrep`
+- `Read`, `Glob`, `Grep`, `TodoWrite`, `Think`, `WebFetch`
+
+**Scratchpad tools** (added if `scratchpad true` at swarm level, default):
+- `ScratchpadWrite`, `ScratchpadRead`, `ScratchpadList`
+
+**Memory tools** (added if agent has `memory` configured):
+- `MemoryWrite`, `MemoryRead`, `MemoryEdit`, `MemoryMultiEdit`, `MemoryGlob`, `MemoryGrep`, `MemoryDelete`
 
 **Additional tools:**
 - `Write`, `Edit`, `MultiEdit`, `Bash`
@@ -590,6 +668,44 @@ delegates_to :database
 delegates_to :tester, :reviewer
 delegates_to :frontend  # Cumulative - adds to existing list
 ```
+
+---
+
+### memory
+
+Configure persistent memory storage for this agent.
+
+**Signature:**
+```ruby
+memory(&block) → void
+```
+
+**Parameters:**
+- `block` (required): Memory configuration block
+
+**Block DSL:**
+- `adapter(symbol)` - Storage adapter (default: `:filesystem`)
+- `directory(string)` - Directory where memory.json will be stored (required)
+
+**Description:**
+Enables persistent memory for the agent. When configured, the agent automatically gets all 7 memory tools (MemoryWrite, MemoryRead, MemoryEdit, MemoryMultiEdit, MemoryGlob, MemoryGrep, MemoryDelete) and a memory system prompt is appended to help the agent use memory effectively.
+
+Memory is per-agent (isolated) and persistent (survives across sessions).
+
+**Example:**
+```ruby
+memory do
+  adapter :filesystem  # optional, default
+  directory ".swarm/agent-memory"
+end
+
+# Minimal (adapter defaults to :filesystem)
+memory do
+  directory ".swarm/my-agent"
+end
+```
+
+**Future adapters:** `:sqlite`, `:faiss` (not yet implemented)
 
 ---
 

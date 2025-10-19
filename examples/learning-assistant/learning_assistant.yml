@@ -1,0 +1,20 @@
+version: 2
+
+swarm:
+  name: Learning Assistant
+  lead: assistant
+  use_scratchpad: true  # default
+
+  agents:
+    assistant:
+      description: An assistant that learns and builds knowledge over time
+      agent_file: examples/learning-assistant/assistant.md
+
+      # Configure persistent memory for learning
+      memory:
+        adapter: filesystem  # default, can omit
+        directory: .swarm/learning-assistant
+
+      # Memory tools automatically added because memory is configured
+      # Default tools: Read, Grep, Glob, WebFetch, Think, TodoWrite
+      # Scratchpad tools: ScratchpadWrite, ScratchpadRead, ScratchpadList

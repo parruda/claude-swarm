@@ -18,16 +18,32 @@ module SwarmSDK
         :Grep,
         :Glob,
         :TodoWrite,
-        :ScratchpadWrite,
-        :ScratchpadRead,
-        :ScratchpadGlob,
-        :ScratchpadGrep,
         :Think,
+        :WebFetch,
       ].freeze
 
-      def initialize(swarm, scratchpad)
+      # Scratchpad tools (added if scratchpad is enabled)
+      SCRATCHPAD_TOOLS = [
+        :ScratchpadWrite,
+        :ScratchpadRead,
+        :ScratchpadList,
+      ].freeze
+
+      # Memory tools (added if memory is configured for the agent)
+      MEMORY_TOOLS = [
+        :MemoryWrite,
+        :MemoryRead,
+        :MemoryEdit,
+        :MemoryMultiEdit,
+        :MemoryGlob,
+        :MemoryGrep,
+        :MemoryDelete,
+      ].freeze
+
+      def initialize(swarm, scratchpad_storage, memory_storages)
         @swarm = swarm
-        @scratchpad = scratchpad
+        @scratchpad_storage = scratchpad_storage
+        @memory_storages = memory_storages
       end
 
       # Register all tools for an agent (both explicit and default)
@@ -72,17 +88,25 @@ module SwarmSDK
         when :TodoWrite
           Tools::TodoWrite.new(agent_name: agent_name) # TodoWrite doesn't need directory
         when :ScratchpadWrite
-          Tools::ScratchpadWrite.create_for_scratchpad(@scratchpad)
+          Tools::Scratchpad::ScratchpadWrite.create_for_scratchpad(@scratchpad_storage)
         when :ScratchpadRead
-          Tools::ScratchpadRead.create_for_scratchpad(@scratchpad, agent_name)
-        when :ScratchpadEdit
-          Tools::ScratchpadEdit.create_for_scratchpad(@scratchpad, agent_name)
-        when :ScratchpadMultiEdit
-          Tools::ScratchpadMultiEdit.create_for_scratchpad(@scratchpad, agent_name)
-        when :ScratchpadGlob
-          Tools::ScratchpadGlob.create_for_scratchpad(@scratchpad)
-        when :ScratchpadGrep
-          Tools::ScratchpadGrep.create_for_scratchpad(@scratchpad)
+          Tools::Scratchpad::ScratchpadRead.create_for_scratchpad(@scratchpad_storage)
+        when :ScratchpadList
+          Tools::Scratchpad::ScratchpadList.create_for_scratchpad(@scratchpad_storage)
+        when :MemoryWrite
+          Tools::Memory::MemoryWrite.create_for_memory(@memory_storages[agent_name])
+        when :MemoryRead
+          Tools::Memory::MemoryRead.create_for_memory(@memory_storages[agent_name], agent_name)
+        when :MemoryEdit
+          Tools::Memory::MemoryEdit.create_for_memory(@memory_storages[agent_name], agent_name)
+        when :MemoryMultiEdit
+          Tools::Memory::MemoryMultiEdit.create_for_memory(@memory_storages[agent_name], agent_name)
+        when :MemoryDelete
+          Tools::Memory::MemoryDelete.create_for_memory(@memory_storages[agent_name])
+        when :MemoryGlob
+          Tools::Memory::MemoryGlob.create_for_memory(@memory_storages[agent_name])
+        when :MemoryGrep
+          Tools::Memory::MemoryGrep.create_for_memory(@memory_storages[agent_name])
         when :Think
           Tools::Think.new
         else
@@ -155,29 +179,48 @@ module SwarmSDK
         # Get explicit tool names to avoid duplicates
         explicit_tool_names = agent_definition.tools.map { |t| t[:name] }.to_set
 
+        # Register core default tools
         DEFAULT_TOOLS.each do |tool_name|
-          # Skip if already registered explicitly
-          next if explicit_tool_names.include?(tool_name)
-
-          # Skip if tool is in the disable list
-          next if tool_disabled?(tool_name, agent_definition.disable_default_tools)
-
-          tool_instance = create_tool_instance(tool_name, agent_name, agent_definition.directory)
-
-          # Resolve permissions for default tool (same logic as AgentDefinition)
-          # Agent-level permissions override default permissions
-          permissions_config = agent_definition.agent_permissions[tool_name] ||
-            agent_definition.default_permissions[tool_name]
-
-          # Wrap with permissions validator if configured
-          tool_instance = wrap_tool_with_permissions(
-            tool_instance,
-            permissions_config,
-            agent_definition,
-          )
-
-          chat.with_tool(tool_instance)
+          register_tool_if_not_disabled(chat, tool_name, explicit_tool_names, agent_name, agent_definition)
         end
+
+        # Register scratchpad tools if enabled
+        if @swarm.scratchpad_enabled?
+          SCRATCHPAD_TOOLS.each do |tool_name|
+            register_tool_if_not_disabled(chat, tool_name, explicit_tool_names, agent_name, agent_definition)
+          end
+        end
+
+        # Register memory tools if configured for this agent
+        if agent_definition.memory_enabled?
+          MEMORY_TOOLS.each do |tool_name|
+            register_tool_if_not_disabled(chat, tool_name, explicit_tool_names, agent_name, agent_definition)
+          end
+        end
+      end
+
+      # Register a tool if not already explicit or disabled
+      def register_tool_if_not_disabled(chat, tool_name, explicit_tool_names, agent_name, agent_definition)
+        # Skip if already registered explicitly
+        return if explicit_tool_names.include?(tool_name)
+
+        # Skip if tool is in the disable list
+        return if tool_disabled?(tool_name, agent_definition.disable_default_tools)
+
+        tool_instance = create_tool_instance(tool_name, agent_name, agent_definition.directory)
+
+        # Resolve permissions for default tool
+        permissions_config = agent_definition.agent_permissions[tool_name] ||
+          agent_definition.default_permissions[tool_name]
+
+        # Wrap with permissions validator if configured
+        tool_instance = wrap_tool_with_permissions(
+          tool_instance,
+          permissions_config,
+          agent_definition,
+        )
+
+        chat.with_tool(tool_instance)
       end
 
       # Check if a tool should be disabled based on disable_default_tools config

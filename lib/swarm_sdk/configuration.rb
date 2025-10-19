@@ -4,7 +4,7 @@ module SwarmSDK
   class Configuration
     ENV_VAR_WITH_DEFAULT_PATTERN = /\$\{([^:}]+)(:=([^}]*))?\}/
 
-    attr_reader :config_path, :swarm_name, :lead_agent, :agents, :all_agents_config, :swarm_hooks, :all_agents_hooks
+    attr_reader :config_path, :swarm_name, :lead_agent, :agents, :all_agents_config, :swarm_hooks, :all_agents_hooks, :scratchpad_enabled
 
     class << self
       def load(path)
@@ -62,6 +62,7 @@ module SwarmSDK
         name: @swarm_name,
         global_concurrency: Swarm::DEFAULT_GLOBAL_CONCURRENCY,
         default_local_concurrency: Swarm::DEFAULT_LOCAL_CONCURRENCY,
+        scratchpad_enabled: @scratchpad_enabled,
       )
 
       # Add all agents - pass definitions directly
@@ -146,6 +147,7 @@ module SwarmSDK
 
       @swarm_name = swarm[:name]
       @lead_agent = swarm[:lead].to_sym # Convert to symbol for consistency
+      @scratchpad_enabled = swarm[:use_scratchpad].nil? ? true : swarm[:use_scratchpad] # Default: enabled
     end
 
     def load_agents

@@ -62,6 +62,13 @@ module SwarmSDK
     DEFAULT_TOOLS = ToolConfigurator::DEFAULT_TOOLS
 
     attr_reader :name, :agents, :lead_agent, :mcp_clients
+
+    # Check if scratchpad tools are enabled
+    #
+    # @return [Boolean]
+    def scratchpad_enabled?
+      @scratchpad_enabled
+    end
     attr_writer :config_for_hooks
 
     # Class-level MCP log level configuration
@@ -130,20 +137,23 @@ module SwarmSDK
     # @param global_concurrency [Integer] Max concurrent LLM calls across entire swarm
     # @param default_local_concurrency [Integer] Default max concurrent tool calls per agent
     # @param scratchpad [Tools::Stores::Scratchpad, nil] Optional scratchpad instance (for testing)
-    def initialize(name:, global_concurrency: DEFAULT_GLOBAL_CONCURRENCY, default_local_concurrency: DEFAULT_LOCAL_CONCURRENCY, scratchpad: nil)
+    # @param scratchpad_enabled [Boolean] Whether to enable scratchpad tools (default: true)
+    def initialize(name:, global_concurrency: DEFAULT_GLOBAL_CONCURRENCY, default_local_concurrency: DEFAULT_LOCAL_CONCURRENCY, scratchpad: nil, scratchpad_enabled: true)
       @name = name
       @global_concurrency = global_concurrency
       @default_local_concurrency = default_local_concurrency
+      @scratchpad_enabled = scratchpad_enabled
 
       # Shared semaphore for all agents
       @global_semaphore = Async::Semaphore.new(@global_concurrency)
 
-      # Shared scratchpad for all agents
-      # Use provided scratchpad (for testing) or create persistent one
-      @scratchpad = scratchpad || begin
-        scratchpad_path = File.join(Dir.pwd, ".swarm", "scratchpad.json")
-        Tools::Stores::Scratchpad.new(persist_to: scratchpad_path)
-      end
+      # Shared scratchpad storage for all agents (volatile)
+      # Use provided scratchpad storage (for testing) or create volatile one
+      @scratchpad_storage = scratchpad || Tools::Stores::ScratchpadStorage.new
+
+      # Per-agent memory storage (persistent)
+      # Will be populated when agents are initialized
+      @memory_storages = {}
 
       # Hook registry for named hooks and swarm defaults
       @hook_registry = Hooks::Registry.new
@@ -540,13 +550,42 @@ module SwarmSDK
         @agent_definitions,
         @global_semaphore,
         @hook_registry,
-        @scratchpad,
+        @scratchpad_storage,
+        @memory_storages,
         config_for_hooks: @config_for_hooks,
       )
 
       @agents = initializer.initialize_all
       @agent_contexts = initializer.agent_contexts
       @agents_initialized = true
+
+      # Emit agent_start events for all agents
+      emit_agent_start_events
+    end
+
+    # Emit agent_start events for all initialized agents
+    def emit_agent_start_events
+      # Only emit if LogStream is enabled
+      return unless LogStream.emitter
+
+      @agents.each do |agent_name, chat|
+        agent_def = @agent_definitions[agent_name]
+
+        LogStream.emit(
+          type: "agent_start",
+          agent: agent_name,
+          swarm_name: @name,
+          model: agent_def.model,
+          provider: agent_def.provider || "openai",
+          directory: agent_def.directory,
+          system_prompt: agent_def.system_prompt,
+          tools: chat.tools.keys,
+          delegates_to: agent_def.delegates_to,
+          memory_enabled: agent_def.memory_enabled?,
+          memory_directory: agent_def.memory_enabled? ? agent_def.memory.directory : nil,
+          timestamp: Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        )
+      end
     end
 
     # Normalize tools to internal format (kept for add_agent)
@@ -581,12 +620,12 @@ module SwarmSDK
 
     # Create a tool instance (delegates to ToolConfigurator)
     def create_tool_instance(tool_name, agent_name, directory)
-      ToolConfigurator.new(self, @scratchpad).create_tool_instance(tool_name, agent_name, directory)
+      ToolConfigurator.new(self, @scratchpad_storage, @memory_storages).create_tool_instance(tool_name, agent_name, directory)
     end
 
     # Wrap tool with permissions (delegates to ToolConfigurator)
     def wrap_tool_with_permissions(tool_instance, permissions_config, agent_definition)
-      ToolConfigurator.new(self, @scratchpad).wrap_tool_with_permissions(tool_instance, permissions_config, agent_definition)
+      ToolConfigurator.new(self, @scratchpad_storage, @memory_storages).wrap_tool_with_permissions(tool_instance, permissions_config, agent_definition)
     end
 
     # Build MCP transport config (delegates to McpConfigurator)
@@ -596,7 +635,7 @@ module SwarmSDK
 
     # Create delegation tool (delegates to AgentInitializer)
     def create_delegation_tool(name:, description:, delegate_chat:, agent_name:)
-      AgentInitializer.new(self, @agent_definitions, @global_semaphore, @hook_registry, @scratchpad)
+      AgentInitializer.new(self, @agent_definitions, @global_semaphore, @hook_registry, @scratchpad_storage, @memory_storages)
         .create_delegation_tool(name: name, description: description, delegate_chat: delegate_chat, agent_name: agent_name)
     end
 

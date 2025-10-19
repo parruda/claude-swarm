@@ -43,7 +43,8 @@ module SwarmSDK
         :default_permissions,
         :agent_permissions,
         :assume_model_exists,
-        :hooks
+        :hooks,
+        :memory
 
       attr_accessor :bypass_permissions, :max_concurrent_tools
 
@@ -91,7 +92,11 @@ module SwarmSDK
         # Parse directory first so it can be used in system prompt rendering
         @directory = parse_directory(config[:directory])
 
-        # Build system prompt after directory is set
+        # Parse memory configuration BEFORE building system prompt
+        # (memory prompt needs to be appended if memory is enabled)
+        @memory = parse_memory_config(config[:memory])
+
+        # Build system prompt after directory and memory are set
         @system_prompt = build_full_system_prompt(config[:system_prompt])
 
         # Parse tools with permissions support
@@ -114,6 +119,30 @@ module SwarmSDK
         @hooks = parse_hooks(config[:hooks])
 
         validate!
+      end
+
+      # Check if memory is enabled for this agent
+      #
+      # @return [Boolean]
+      def memory_enabled?
+        @memory&.respond_to?(:enabled?) && @memory.enabled?
+      end
+
+      # Parse memory configuration from Hash or MemoryConfig object
+      #
+      # @param memory_config [Hash, Agent::MemoryConfig, nil] Memory configuration
+      # @return [Agent::MemoryConfig, nil]
+      def parse_memory_config(memory_config)
+        return if memory_config.nil?
+        return memory_config if memory_config.is_a?(Agent::MemoryConfig)
+
+        # Convert hash (from YAML) to MemoryConfig object
+        config = Agent::MemoryConfig.new
+        adapter_value = memory_config[:adapter] || memory_config["adapter"] || :filesystem
+        config.adapter(adapter_value.to_sym)
+        directory_value = memory_config[:directory] || memory_config["directory"]
+        config.directory(directory_value) if directory_value
+        config
       end
 
       def to_h
@@ -216,9 +245,8 @@ module SwarmSDK
       end
 
       def build_full_system_prompt(custom_prompt)
-        # If coding_agent is false (default), return custom prompt with optional TODO/Scratchpad info
-        # If coding_agent is true, include full base prompt for coding tasks
-        if @coding_agent
+        # Build the base prompt based on coding_agent setting
+        prompt = if @coding_agent
           # Coding agent: include full base prompt
           rendered_base = render_base_system_prompt
 
@@ -238,11 +266,22 @@ module SwarmSDK
             # No custom prompt: just return TODO/Scratchpad info
             non_coding_base
           end
-        # Default tools available: include TODO/Scratchpad instructions
         else
           # No default tools: return only custom prompt
           (custom_prompt || "").to_s
         end
+
+        # Append memory instructions if memory is enabled
+        if memory_enabled?
+          memory_prompt = render_memory_prompt
+          prompt = if prompt && !prompt.strip.empty?
+            "#{prompt}\n\n#{memory_prompt}"
+          else
+            memory_prompt
+          end
+        end
+
+        prompt
       end
 
       # Check if default tools are enabled (i.e., not disabled)
@@ -263,6 +302,13 @@ module SwarmSDK
         date = Time.now.strftime("%Y-%m-%d")
 
         template_content = File.read(BASE_SYSTEM_PROMPT_PATH)
+        ERB.new(template_content).result(binding)
+      end
+
+      def render_memory_prompt
+        # Load and render the memory system prompt
+        memory_prompt_path = File.expand_path("../prompts/memory.md.erb", __dir__)
+        template_content = File.read(memory_prompt_path)
         ERB.new(template_content).result(binding)
       end
 

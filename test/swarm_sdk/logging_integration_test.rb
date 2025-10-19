@@ -52,7 +52,7 @@ module SwarmSDK
     end
 
     def test_logging_flow_from_swarm_execute
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: Tools::Stores::ScratchpadStorage.new)
 
       swarm.add_agent(create_agent(
         name: :lead,
@@ -139,7 +139,7 @@ module SwarmSDK
     end
 
     def test_logging_includes_agent_information
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: Tools::Stores::ScratchpadStorage.new)
 
       swarm.add_agent(create_agent(
         name: :backend,
@@ -172,7 +172,7 @@ module SwarmSDK
     end
 
     def test_logging_works_without_block
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: Tools::Stores::ScratchpadStorage.new)
 
       swarm.add_agent(create_agent(
         name: :lead,

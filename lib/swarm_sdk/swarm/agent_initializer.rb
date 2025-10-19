@@ -14,12 +14,15 @@ module SwarmSDK
     # This encapsulates the complex initialization logic that was previously
     # embedded in Swarm#initialize_agents.
     class AgentInitializer
-      def initialize(swarm, agent_definitions, global_semaphore, hook_registry, scratchpad, config_for_hooks: nil)
+      # rubocop:disable Metrics/ParameterLists
+      def initialize(swarm, agent_definitions, global_semaphore, hook_registry, scratchpad_storage, memory_storages, config_for_hooks: nil)
+        # rubocop:enable Metrics/ParameterLists
         @swarm = swarm
         @agent_definitions = agent_definitions
         @global_semaphore = global_semaphore
         @hook_registry = hook_registry
-        @scratchpad = scratchpad
+        @scratchpad_storage = scratchpad_storage
+        @memory_storages = memory_storages
         @config_for_hooks = config_for_hooks
         @agents = {}
         @agent_contexts = {}
@@ -77,7 +80,17 @@ module SwarmSDK
       # This creates the Agent::Chat instances but doesn't wire them together yet.
       # Each agent gets its own chat instance with configured tools.
       def pass_1_create_agents
-        tool_configurator = ToolConfigurator.new(@swarm, @scratchpad)
+        # Create memory storage for agents that have memory configured
+        @agent_definitions.each do |agent_name, agent_definition|
+          next unless agent_definition.memory_enabled?
+
+          # Use configured directory or default
+          memory_dir = agent_definition.memory.directory
+          memory_path = File.join(memory_dir, "memory.json")
+          @memory_storages[agent_name] = Tools::Stores::MemoryStorage.new(persist_to: memory_path)
+        end
+
+        tool_configurator = ToolConfigurator.new(@swarm, @scratchpad_storage, @memory_storages)
 
         @agent_definitions.each do |name, agent_definition|
           chat = create_agent_chat(name, agent_definition, tool_configurator)

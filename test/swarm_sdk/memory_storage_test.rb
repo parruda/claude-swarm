@@ -3,9 +3,9 @@
 require "test_helper"
 
 module SwarmSDK
-  class ScratchpadTest < Minitest::Test
+  class MemoryStorageTest < Minitest::Test
     def setup
-      @scratchpad = Tools::Stores::Scratchpad.new
+      @scratchpad = Tools::Stores::MemoryStorage.new(persist_to: Dir.mktmpdir + "/memory-test.json")
     end
 
     def test_write_creates_entry_with_metadata
@@ -15,11 +15,11 @@ module SwarmSDK
         title: "Test entry",
       )
 
-      assert_kind_of(Tools::Stores::Scratchpad::Entry, entry)
+      assert_kind_of(Tools::Stores::Storage::Entry, entry)
       assert_equal("Hello, world!", entry.content)
       assert_equal("Test entry", entry.title)
       assert_equal(13, entry.size) # "Hello, world!" is 13 bytes
-      assert_instance_of(Time, entry.created_at)
+      assert_instance_of(Time, entry.updated_at)
     end
 
     def test_write_updates_existing_entry
@@ -80,7 +80,7 @@ module SwarmSDK
     end
 
     def test_write_rejects_oversized_entry
-      large_content = "x" * (Tools::Stores::Scratchpad::MAX_ENTRY_SIZE + 1)
+      large_content = "x" * (Tools::Stores::Storage::MAX_ENTRY_SIZE + 1)
 
       error = assert_raises(ArgumentError) do
         @scratchpad.write(file_path: "test", content: large_content, title: "Too big")
@@ -93,8 +93,8 @@ module SwarmSDK
       # Fill up scratchpad with multiple 1MB entries (just under MAX_TOTAL_SIZE)
       # MAX_TOTAL_SIZE is 100MB, MAX_ENTRY_SIZE is 1MB
       # So we can fit 100 entries of 1MB each, but not 101
-      entries_count = (Tools::Stores::Scratchpad::MAX_TOTAL_SIZE / Tools::Stores::Scratchpad::MAX_ENTRY_SIZE).floor
-      entry_size = Tools::Stores::Scratchpad::MAX_ENTRY_SIZE - 1000 # Leave some room
+      entries_count = (Tools::Stores::Storage::MAX_TOTAL_SIZE / Tools::Stores::Storage::MAX_ENTRY_SIZE).floor
+      entry_size = Tools::Stores::Storage::MAX_ENTRY_SIZE - 1000 # Leave some room
 
       entries_count.times do |i|
         @scratchpad.write(file_path: "entry_#{i}", content: "x" * entry_size, title: "Entry #{i}")
@@ -104,7 +104,7 @@ module SwarmSDK
       error = assert_raises(ArgumentError) do
         @scratchpad.write(file_path: "overflow", content: "y" * entry_size, title: "Overflow")
       end
-      assert_match(/Scratchpad full/, error.message)
+      assert_match(/Memory storage full/, error.message)
       assert_match(/100.0MB limit/, error.message)
     end
 
@@ -132,7 +132,7 @@ module SwarmSDK
       error = assert_raises(ArgumentError) do
         @scratchpad.read(file_path: "nonexistent")
       end
-      assert_match(%r{scratchpad://nonexistent not found}, error.message)
+      assert_match(%r{memory://nonexistent not found}, error.message)
     end
 
     def test_list_returns_all_entries_when_no_prefix
@@ -177,7 +177,7 @@ module SwarmSDK
       assert_equal("test", entry[:path])
       assert_equal("Test entry", entry[:title])
       assert_equal(100, entry[:size])
-      assert_instance_of(Time, entry[:created_at])
+      assert_instance_of(Time, entry[:updated_at])
     end
 
     def test_list_sorts_by_path
@@ -270,7 +270,8 @@ module SwarmSDK
       entries = @scratchpad.glob(pattern: "parallel/*/task_0")
 
       assert_equal(2, entries.size)
-      assert_equal(["parallel/batch1/task_0", "parallel/batch2/task_0"], entries.map { |e| e[:path] })
+      # Results sorted by most recent first
+      assert_equal(["parallel/batch2/task_0", "parallel/batch1/task_0"], entries.map { |e| e[:path] })
     end
 
     def test_glob_matches_recursive_patterns
@@ -283,10 +284,10 @@ module SwarmSDK
       entries = @scratchpad.glob(pattern: "parallel/**")
 
       assert_equal(3, entries.size)
-      assert_equal(
-        ["parallel/batch1/sub/task_1", "parallel/batch1/task_0", "parallel/batch2/task_2"],
-        entries.map { |e| e[:path] },
-      )
+      # Results are sorted by most recent first
+      paths = entries.map { |e| e[:path] }
+
+      assert_equal(["parallel/batch2/task_2", "parallel/batch1/sub/task_1", "parallel/batch1/task_0"], paths)
     end
 
     def test_glob_matches_question_mark
@@ -297,7 +298,8 @@ module SwarmSDK
       entries = @scratchpad.glob(pattern: "task_?")
 
       assert_equal(2, entries.size)
-      assert_equal(["task_1", "task_2"], entries.map { |e| e[:path] })
+      # Results sorted by most recent first
+      assert_equal(["task_2", "task_1"], entries.map { |e| e[:path] })
     end
 
     def test_glob_returns_metadata
@@ -311,7 +313,7 @@ module SwarmSDK
       assert_equal("test/foo", entry[:path])
       assert_equal("Foo", entry[:title])
       assert_equal(100, entry[:size])
-      assert_instance_of(Time, entry[:created_at])
+      assert_instance_of(Time, entry[:updated_at])
     end
 
     def test_glob_returns_empty_for_no_matches
@@ -334,14 +336,15 @@ module SwarmSDK
       assert_match(/pattern is required/, error.message)
     end
 
-    def test_glob_sorts_by_path
+    def test_glob_sorts_by_most_recent_first
       @scratchpad.write(file_path: "z/1", content: "Z", title: "Z")
       @scratchpad.write(file_path: "a/1", content: "A", title: "A")
       @scratchpad.write(file_path: "m/1", content: "M", title: "M")
 
       entries = @scratchpad.glob(pattern: "*/*")
 
-      assert_equal(["a/1", "m/1", "z/1"], entries.map { |e| e[:path] })
+      # Results sorted by most recent first (reverse order of writes)
+      assert_equal(["m/1", "a/1", "z/1"], entries.map { |e| e[:path] })
     end
 
     # Grep tests
@@ -395,10 +398,11 @@ module SwarmSDK
       results = @scratchpad.grep(pattern: "foo", output_mode: "count")
 
       assert_equal(2, results.size)
-      assert_equal("a", results[0][:path])
-      assert_equal(2, results[0][:count])
-      assert_equal("b", results[1][:path])
-      assert_equal(1, results[1][:count])
+      # Results sorted by most recent first (b is more recent than a)
+      assert_equal("b", results[0][:path])
+      assert_equal(1, results[0][:count])
+      assert_equal("a", results[1][:path])
+      assert_equal(2, results[1][:count])
     end
 
     def test_grep_requires_pattern

@@ -32,7 +32,7 @@ module SwarmSDK
     end
 
     def test_default_tools_included_by_default
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: Tools::Stores::ScratchpadStorage.new)
 
       swarm.add_agent(create_agent(
         name: :developer,
@@ -51,7 +51,7 @@ module SwarmSDK
     end
 
     def test_disable_all_default_tools
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: Tools::Stores::ScratchpadStorage.new)
 
       swarm.add_agent(create_agent(
         name: :developer,
@@ -75,7 +75,7 @@ module SwarmSDK
     end
 
     def test_disable_specific_default_tools
-      swarm = Swarm.new(name: "Test Swarm")
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: Tools::Stores::ScratchpadStorage.new)
 
       swarm.add_agent(create_agent(
         name: :developer,
