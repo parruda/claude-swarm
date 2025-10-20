@@ -25,21 +25,21 @@ class DefragmenterTest < Minitest::Test
     content1 = "Ruby is a dynamic programming language with elegant syntax for building applications"
     content2 = "Ruby is a dynamic programming language with elegant syntax for creating applications"
 
-    @adapter.write(file_path: "concepts/ruby1", content: content1, title: "Ruby 1")
-    @adapter.write(file_path: "concepts/ruby2", content: content2, title: "Ruby 2")
+    @adapter.write(file_path: "concepts/ruby1.md", content: content1, title: "Ruby 1")
+    @adapter.write(file_path: "concepts/ruby2.md", content: content2, title: "Ruby 2")
 
     # Use lower threshold since we're using Jaccard (word overlap)
     duplicates = @defragmenter.find_duplicates(threshold: 0.8)
 
     assert_equal(1, duplicates.size)
-    assert_equal("concepts/ruby1", duplicates.first[:path1])
-    assert_equal("concepts/ruby2", duplicates.first[:path2])
+    assert_equal("concepts/ruby1.md", duplicates.first[:path1])
+    assert_equal("concepts/ruby2.md", duplicates.first[:path2])
     assert_operator(duplicates.first[:similarity], :>=, 80)
   end
 
   def test_find_duplicates_no_matches
-    @adapter.write(file_path: "concepts/ruby", content: "Ruby programming", title: "Ruby")
-    @adapter.write(file_path: "concepts/python", content: "Python programming", title: "Python")
+    @adapter.write(file_path: "concepts/ruby.md", content: "Ruby programming", title: "Ruby")
+    @adapter.write(file_path: "concepts/python.md", content: "Python programming", title: "Python")
 
     duplicates = @defragmenter.find_duplicates(threshold: 0.9)
 
@@ -48,7 +48,7 @@ class DefragmenterTest < Minitest::Test
 
   def test_find_low_quality_missing_frontmatter
     @adapter.write(
-      file_path: "no_frontmatter",
+      file_path: "no_frontmatter.md",
       content: "Just plain content without frontmatter",
       title: "No Frontmatter",
     )
@@ -56,7 +56,7 @@ class DefragmenterTest < Minitest::Test
     low_quality = @defragmenter.find_low_quality
 
     assert_equal(1, low_quality.size)
-    assert_equal("no_frontmatter", low_quality.first[:path])
+    assert_equal("no_frontmatter.md", low_quality.first[:path])
     assert_includes(low_quality.first[:issues], "No metadata")
   end
 
@@ -76,7 +76,7 @@ class DefragmenterTest < Minitest::Test
       This is a well-formed entry with all metadata.
     ENTRY
 
-    @adapter.write(file_path: "concepts/ruby", content: content, title: "Ruby")
+    @adapter.write(file_path: "concepts/ruby.md", content: content, title: "Ruby")
 
     low_quality = @defragmenter.find_low_quality(confidence_filter: "low")
 
@@ -88,7 +88,7 @@ class DefragmenterTest < Minitest::Test
 
   def test_find_archival_candidates
     # Create an entry
-    @adapter.write(file_path: "test/entry", content: "test content", title: "Test Entry")
+    @adapter.write(file_path: "test/entry.md", content: "test content", title: "Test Entry")
 
     # Use a very small age threshold (0 days) so any entry appears as a candidate
     # This tests the archival logic without needing to manipulate timestamps
@@ -96,14 +96,14 @@ class DefragmenterTest < Minitest::Test
 
     # The entry should be flagged as a candidate
     assert_equal(1, candidates.size)
-    assert_equal("test/entry", candidates.first[:path])
+    assert_equal("test/entry.md", candidates.first[:path])
     assert_operator(candidates.first[:age_days], :>=, 0)
   end
 
   def test_full_analysis_report
     # Create some test entries
-    @adapter.write(file_path: "entry1", content: create_sample_entry, title: "Entry 1")
-    @adapter.write(file_path: "entry2", content: "no frontmatter", title: "Entry 2")
+    @adapter.write(file_path: "entry1.md", content: create_sample_entry, title: "Entry 1")
+    @adapter.write(file_path: "entry2.md", content: "no frontmatter", title: "Entry 2")
 
     report = @defragmenter.full_analysis
 

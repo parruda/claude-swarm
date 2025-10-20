@@ -143,7 +143,11 @@ module SwarmMemory
       rescue ArgumentError => e
         validation_error(e.message)
       rescue StandardError => e
-        validation_error("Defrag error: #{e.message}")
+        # Provide detailed error information
+        error_msg = "Defrag error: #{e.class.name} - #{e.message}\n\n"
+        error_msg += "Backtrace:\n"
+        error_msg += e.backtrace.first(10).join("\n")
+        validation_error(error_msg)
       end
 
       private
@@ -158,17 +162,16 @@ module SwarmMemory
       def ensure_defragmenter_loaded
         return if @defragmenter
 
-        # Try to load embedder
-        embedder = begin
-          Embeddings::InformersEmbedder.new
-        rescue StandardError
-          nil # Embeddings not available, defrag will work without them
-        end
+        # Don't load embedder automatically - it can be slow (model download)
+        # Defrag works fine without embeddings (uses text similarity instead)
+        embedder = nil
 
         @defragmenter = Optimization::Defragmenter.new(
           adapter: @storage.adapter,
           embedder: embedder,
         )
+      rescue StandardError => e
+        raise EmbeddingError, "Failed to initialize defragmenter: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
       end
     end
   end

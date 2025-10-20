@@ -342,13 +342,18 @@ module SwarmSDK
         date = Time.now.strftime("%Y-%m-%d")
 
         <<~PROMPT.strip
-          # Environment
+          # Today's date
+
+          <today-date>
+          #{date}
+          #</today-date>
+
+          # Current Environment
 
           <env>
           Working directory: #{cwd}
           Platform: #{platform}
           OS Version: #{os_version}
-          Today's date: #{date}
           </env>
 
           # Task Management

@@ -264,6 +264,16 @@ module SwarmCLI
         agent = entry[:agent]
         @usage_tracker.track_tool_call(tool_call_id: entry[:tool_call_id], tool_name: entry[:tool])
 
+        # Special handling for Think tool - show as thoughts, not as a tool call
+        if entry[:tool] == "Think" && entry[:arguments] && entry[:arguments]["thoughts"]
+          thoughts = entry[:arguments]["thoughts"]
+          thinking = @event_renderer.thinking_text(thoughts, indent: @depth_tracker.get(agent))
+          @output.puts thinking unless thinking.empty?
+          @output.puts
+          # Don't show spinner for Think tool
+          return
+        end
+
         # Render tool call event
         @output.puts @event_renderer.tool_call(
           agent: agent,
@@ -296,6 +306,18 @@ module SwarmCLI
       def handle_tool_result(entry)
         agent = entry[:agent]
         tool_name = entry[:tool] || @usage_tracker.tool_name_for(entry[:tool_call_id])
+
+        # Special handling for Think tool - skip showing result (already shown as thoughts)
+        if tool_name == "Think"
+          # Don't show anything - thoughts were already displayed in handle_tool_call
+          # Start spinner for agent processing
+          unless @quiet
+            spinner_key = "agent_#{agent}".to_sym
+            indent = @depth_tracker.indent(agent)
+            @spinner_manager.start(spinner_key, "#{indent}#{agent} is processing...")
+          end
+          return
+        end
 
         # Stop tool spinner with success
         unless @quiet || tool_name == "TodoWrite"

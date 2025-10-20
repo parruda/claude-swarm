@@ -4,30 +4,60 @@ module SwarmMemory
   module Tools
     # Tool for writing content to memory storage
     #
-    # Stores content in persistent, per-agent memory storage with metadata.
+    # Stores content and metadata in persistent, per-agent memory storage.
     # Each agent has its own isolated memory storage that persists across sessions.
     class MemoryWrite < RubyLLM::Tool
       description <<~DESC
-        Store content in memory for later retrieval.
-        Use this to save detailed outputs, analysis, or results that would
-        otherwise bloat tool responses. Only you (this agent) can access your memory.
+        Store content in memory for later retrieval with structured metadata.
 
-        IMPORTANT: You must determine the appropriate file_path based on the task you're performing.
-        Choose a logical, descriptive path that reflects the content type and purpose.
-        Examples: 'analysis/code_review', 'research/findings', 'parallel/batch_1/results', 'logs/debug_trace'
+        Content is stored in .md files, metadata in sidecar .yml files.
+        You only reference .md files - the .yml sidecars are managed automatically.
+
+        Choose logical paths based on content type:
+        - concepts/ruby/classes.md - Abstract ideas
+        - facts/people/paulo.md - Concrete information
+        - skills/ruby/testing.md - How-to procedures
+        - experience/bug-fix.md - Lessons learned
       DESC
 
       param :file_path,
-        desc: "File-path-like address you determine based on the task (e.g., 'analysis/report', 'parallel/batch1/task_0')",
+        desc: "Path with .md extension (e.g., 'concepts/ruby/classes.md', 'facts/people/paulo.md')",
         required: true
 
       param :content,
-        desc: "Content to store in memory (max 1MB per entry)",
+        desc: "Content to store (pure markdown, no frontmatter needed)",
         required: true
 
       param :title,
-        desc: "Brief title describing the content (shown in listings)",
+        desc: "Brief title describing the content",
         required: true
+
+      # Metadata parameters (stored in .yml sidecar)
+      param :type,
+        desc: "Entry type: concept, fact, skill, or experience",
+        required: false
+
+      param :confidence,
+        desc: "Confidence level: high, medium, or low",
+        required: false
+
+      param :tags,
+        type: "array",
+        desc: "Tags for searching (e.g., ['ruby', 'oop'])",
+        required: false
+
+      param :related,
+        type: "array",
+        desc: "Related memory paths (e.g., ['memory://concepts/ruby/modules.md'])",
+        required: false
+
+      param :domain,
+        desc: "Category/subcategory (e.g., 'programming/ruby', 'people')",
+        required: false
+
+      param :source,
+        desc: "Source of information: user, documentation, experimentation, or inference",
+        required: false
 
       # Initialize with storage instance
       #
@@ -46,12 +76,44 @@ module SwarmMemory
 
       # Execute the tool
       #
-      # @param file_path [String] Path to store content
-      # @param content [String] Content to store
+      # @param file_path [String] Path to store content (.md file)
+      # @param content [String] Content to store (pure markdown)
       # @param title [String] Brief title
-      # @return [String] Success message with path and size
-      def execute(file_path:, content:, title:)
-        entry = @storage.write(file_path: file_path, content: content, title: title)
+      # @param type [String, nil] Entry type
+      # @param confidence [String, nil] Confidence level
+      # @param tags [Array, nil] Tags
+      # @param related [Array, nil] Related paths
+      # @param domain [String, nil] Domain
+      # @param source [String, nil] Source
+      # @return [String] Success message
+      def execute(
+        file_path:,
+        content:,
+        title:,
+        type: nil,
+        confidence: nil,
+        tags: nil,
+        related: nil,
+        domain: nil,
+        source: nil
+      )
+        # Build metadata hash from params
+        metadata = {}
+        metadata["type"] = type if type
+        metadata["confidence"] = confidence if confidence
+        metadata["tags"] = tags if tags
+        metadata["related"] = related if related
+        metadata["domain"] = domain if domain
+        metadata["source"] = source if source
+
+        # Write to storage (metadata passed separately, not in content)
+        entry = @storage.write(
+          file_path: file_path,
+          content: content,
+          title: title,
+          metadata: metadata,
+        )
+
         "Stored at memory://#{file_path} (#{format_bytes(entry.size)})"
       rescue ArgumentError => e
         validation_error(e.message)
