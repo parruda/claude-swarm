@@ -5,6 +5,12 @@ All notable changes to SwarmSDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.6]
+
+### Fixed
+- **MCP parameter type handling**: Fixed issue with parameter type conversion in ruby_llm-mcp
+  - Added monkey patch to remove `to_sym` conversion on MCP parameter types
+
 ## [2.0.5]
 
 ### Added
