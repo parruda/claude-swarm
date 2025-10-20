@@ -13,12 +13,13 @@ module ClaudeSwarm
     ENV_VAR_WITH_DEFAULT_PATTERN = /\$\{([^:}]+)(:=([^}]*))?\}/
     O_SERIES_MODEL_PATTERN = /^(o\d+(\s+(Preview|preview))?(-pro|-mini|-deep-research|-mini-deep-research)?|gpt-5(-mini|-nano)?)$/
 
-    attr_reader :config, :config_path, :swarm, :swarm_name, :main_instance, :instances
+    attr_reader :config, :config_path, :swarm, :swarm_name, :main_instance, :instances, :root_directory
 
     def initialize(config_path, base_dir: nil, options: {})
       @config_path = Pathname.new(config_path).expand_path
       @config_dir = @config_path.dirname
       @base_dir = base_dir || @config_dir
+      @root_directory = @base_dir
       @options = options
       load_and_validate
     end
@@ -207,6 +208,7 @@ module ClaudeSwarm
         disallowed_tools: Array(config["disallowed_tools"]),
         mcps: parse_mcps(config["mcps"] || []),
         prompt: config["prompt"],
+        prompt_file: config["prompt_file"],
         description: config["description"],
         vibe: config["vibe"],
         worktree: parse_worktree_value(config["worktree"]),
