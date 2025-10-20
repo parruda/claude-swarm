@@ -84,10 +84,24 @@ module SwarmSDK
         @agent_definitions.each do |agent_name, agent_definition|
           next unless agent_definition.memory_enabled?
 
-          # Use configured directory or default
-          memory_dir = agent_definition.memory.directory
-          memory_path = File.join(memory_dir, "memory.json")
-          @memory_storages[agent_name] = Tools::Stores::MemoryStorage.new(persist_to: memory_path)
+          # Check if SwarmMemory gem is available
+          unless defined?(SwarmMemory)
+            raise SwarmSDK::ConfigurationError,
+              "Memory configuration requires 'swarm_memory' gem. " \
+                "Add to Gemfile: gem 'swarm_memory'"
+          end
+
+          # Get configured directory
+          memory_config = agent_definition.memory
+          memory_dir = if memory_config.respond_to?(:directory)
+            memory_config.directory # MemoryConfig object (from DSL)
+          else
+            memory_config[:directory] || memory_config["directory"] # Hash (from YAML)
+          end
+
+          # Create SwarmMemory storage with real filesystem
+          adapter = SwarmMemory::Adapters::FilesystemAdapter.new(directory: memory_dir)
+          @memory_storages[agent_name] = SwarmMemory::Core::Storage.new(adapter: adapter)
         end
 
         tool_configurator = ToolConfigurator.new(@swarm, @scratchpad_storage, @memory_storages)

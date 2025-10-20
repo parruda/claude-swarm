@@ -30,6 +30,7 @@ module SwarmSDK
       ].freeze
 
       # Memory tools (added if memory is configured for the agent)
+      # Provided by swarm_memory gem
       MEMORY_TOOLS = [
         :MemoryWrite,
         :MemoryRead,
@@ -38,6 +39,7 @@ module SwarmSDK
         :MemoryGlob,
         :MemoryGrep,
         :MemoryDelete,
+        :MemoryDefrag,
       ].freeze
 
       def initialize(swarm, scratchpad_storage, memory_storages)
@@ -93,22 +95,22 @@ module SwarmSDK
           Tools::Scratchpad::ScratchpadRead.create_for_scratchpad(@scratchpad_storage)
         when :ScratchpadList
           Tools::Scratchpad::ScratchpadList.create_for_scratchpad(@scratchpad_storage)
-        when :MemoryWrite
-          Tools::Memory::MemoryWrite.create_for_memory(@memory_storages[agent_name])
-        when :MemoryRead
-          Tools::Memory::MemoryRead.create_for_memory(@memory_storages[agent_name], agent_name)
-        when :MemoryEdit
-          Tools::Memory::MemoryEdit.create_for_memory(@memory_storages[agent_name], agent_name)
-        when :MemoryMultiEdit
-          Tools::Memory::MemoryMultiEdit.create_for_memory(@memory_storages[agent_name], agent_name)
-        when :MemoryDelete
-          Tools::Memory::MemoryDelete.create_for_memory(@memory_storages[agent_name])
-        when :MemoryGlob
-          Tools::Memory::MemoryGlob.create_for_memory(@memory_storages[agent_name])
-        when :MemoryGrep
-          Tools::Memory::MemoryGrep.create_for_memory(@memory_storages[agent_name])
         when :Think
           Tools::Think.new
+
+        # Memory tools - delegate to SwarmMemory gem if available
+        when :MemoryWrite, :MemoryRead, :MemoryEdit, :MemoryMultiEdit,
+             :MemoryDelete, :MemoryGlob, :MemoryGrep, :MemoryDefrag
+
+          unless defined?(SwarmMemory)
+            raise ConfigurationError,
+              "Memory tools require 'swarm_memory' gem. " \
+                "Add to Gemfile: gem 'swarm_memory'"
+          end
+
+          # Delegate to SwarmMemory for tool creation
+          storage = @memory_storages[agent_name]
+          SwarmMemory.create_tool(tool_name_sym, storage: storage, agent_name: agent_name)
         else
           # Regular tools - get class from registry and instantiate
           tool_class = Tools::Registry.get(tool_name_sym)

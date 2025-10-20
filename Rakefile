@@ -53,6 +53,20 @@ namespace :swarm_cli do
   task all: [:test, :rubocop]
 end
 
+namespace :swarm_memory do
+  Minitest::TestTask.create(:test) do |t|
+    t.test_globs = ["test/swarm_memory/**/*_test.rb"]
+    t.warning = false
+  end
+
+  RuboCop::RakeTask.new(:rubocop) do |t|
+    t.patterns = ["lib/swarm_memory.rb", "lib/swarm_memory/**/*.rb", "test/swarm_memory/**/*.rb"]
+  end
+
+  desc "Run SwarmMemory tests and linting"
+  task all: [:test, :rubocop]
+end
+
 RuboCop::RakeTask.new
 
 task default: [:test, :rubocop]

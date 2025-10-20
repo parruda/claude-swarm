@@ -27,6 +27,11 @@ PATH
       tty-spinner
       tty-tree
       zeitwerk
+    swarm_memory (0.1.0)
+      informers (~> 1.2.1)
+      ruby_llm (~> 1.8)
+      swarm_sdk (~> 2.0)
+      zeitwerk (~> 2.6)
     swarm_sdk (2.0.6)
       async (~> 2.0)
       ruby_llm (~> 1.8)
@@ -136,6 +141,8 @@ GEM
       json (~> 2.0)
       mime-types (~> 3.4)
       rack (< 3)
+    ffi (1.17.2-arm64-darwin)
+    ffi (1.17.2-x86_64-linux-gnu)
     fiber-annotation (0.2.0)
     fiber-local (1.1.0)
       fiber-storage
@@ -156,6 +163,9 @@ GEM
     http-2 (1.1.1)
     httpx (1.6.2)
       http-2 (>= 1.0.0)
+    informers (1.2.1)
+      onnxruntime (>= 0.9)
+      tokenizers (>= 0.5.3)
     io-console (0.8.1)
     io-event (1.14.0)
     irb (1.15.2)
@@ -193,6 +203,10 @@ GEM
       racc (~> 1.4)
     nokogiri (1.18.10-x86_64-linux-gnu)
       racc (~> 1.4)
+    onnxruntime (0.10.1-arm64-darwin)
+      ffi
+    onnxruntime (0.10.1-x86_64-linux)
+      ffi
     ostruct (0.6.3)
     parallel (1.27.0)
     parser (3.3.9.0)
@@ -332,6 +346,8 @@ GEM
     strings-ansi (0.2.0)
     thor (1.4.0)
     tilt (2.6.1)
+    tokenizers (0.6.1-arm64-darwin)
+    tokenizers (0.6.1-x86_64-linux)
     traces (0.18.2)
     tsort (0.2.0)
     ttfunk (1.8.0)
@@ -386,6 +402,7 @@ DEPENDENCIES
   rubocop-shopify
   simplecov (~> 0.22)
   swarm_cli!
+  swarm_memory!
   swarm_sdk!
   vcr
   webmock (~> 3.0)

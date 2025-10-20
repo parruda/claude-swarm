@@ -198,7 +198,7 @@ module SwarmSDK
           <system-reminder>
           #{warning_message}Your todo list has changed. DO NOT mention this explicitly to the user. Here are the latest contents of your todo list:
           #{validated_todos.map { |t| "- #{t[:content]} (#{t[:status]})" }.join("\n")}
-          Continue on with the tasks at hand if applicable.
+          Keep going with the tasks at hand if applicable.
           </system-reminder>
         RESPONSE
       rescue StandardError => e

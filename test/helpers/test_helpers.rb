@@ -368,11 +368,8 @@ module TestHelpers
     #
     # @return [SwarmSDK::Tools::Stores::Scratchpad] Scratchpad with temp file persistence
     def create_test_scratchpad
-      temp_file = Tempfile.new(["scratchpad-test", ".json"])
-      temp_file.close
-      @test_scratchpad_files ||= []
-      @test_scratchpad_files << temp_file.path
-      SwarmSDK::Tools::Stores::MemoryStorage.new(persist_to: temp_file.path)
+      # Create a volatile scratchpad for testing (no persistence)
+      SwarmSDK::Tools::Stores::ScratchpadStorage.new
     end
 
     # Clean up test scratchpad files

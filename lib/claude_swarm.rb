@@ -34,6 +34,8 @@ loader.ignore("#{__dir__}/swarm_sdk.rb")
 loader.ignore("#{__dir__}/swarm_sdk")
 loader.ignore("#{__dir__}/swarm_cli.rb")
 loader.ignore("#{__dir__}/swarm_cli")
+loader.ignore("#{__dir__}/swarm_memory.rb")
+loader.ignore("#{__dir__}/swarm_memory")
 loader.inflector.inflect(
   "cli" => "CLI",
   "openai" => "OpenAI",

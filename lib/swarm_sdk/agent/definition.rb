@@ -125,24 +125,33 @@ module SwarmSDK
       #
       # @return [Boolean]
       def memory_enabled?
-        @memory&.respond_to?(:enabled?) && @memory.enabled?
+        return false if @memory.nil?
+
+        # MemoryConfig object (from DSL)
+        return @memory.enabled? if @memory.respond_to?(:enabled?)
+
+        # Hash (from YAML) - check for directory key
+        if @memory.is_a?(Hash)
+          directory = @memory[:directory] || @memory["directory"]
+          return !directory.nil? && !directory.to_s.strip.empty?
+        end
+
+        false
       end
 
       # Parse memory configuration from Hash or MemoryConfig object
       #
       # @param memory_config [Hash, Agent::MemoryConfig, nil] Memory configuration
-      # @return [Agent::MemoryConfig, nil]
+      # @return [Agent::MemoryConfig, Hash, nil]
       def parse_memory_config(memory_config)
         return if memory_config.nil?
-        return memory_config if memory_config.is_a?(Agent::MemoryConfig)
 
-        # Convert hash (from YAML) to MemoryConfig object
-        config = Agent::MemoryConfig.new
-        adapter_value = memory_config[:adapter] || memory_config["adapter"] || :filesystem
-        config.adapter(adapter_value.to_sym)
-        directory_value = memory_config[:directory] || memory_config["directory"]
-        config.directory(directory_value) if directory_value
-        config
+        # If it's already a MemoryConfig (from DSL), return as-is
+        return memory_config if defined?(Agent::MemoryConfig) && memory_config.is_a?(Agent::MemoryConfig)
+
+        # If it's a hash (from YAML), keep it as a hash
+        # We'll create storage adapter based on the hash values
+        memory_config
       end
 
       def to_h
@@ -306,8 +315,15 @@ module SwarmSDK
       end
 
       def render_memory_prompt
-        # Load and render the memory system prompt
-        memory_prompt_path = File.expand_path("../prompts/memory.md.erb", __dir__)
+        # Check if SwarmMemory gem is available
+        unless defined?(SwarmMemory)
+          raise ConfigurationError,
+            "Memory configuration requires 'swarm_memory' gem. " \
+              "Add to Gemfile: gem 'swarm_memory'"
+        end
+
+        # Load memory prompt from SwarmMemory gem
+        memory_prompt_path = File.expand_path("../../swarm_memory/prompts/memory.md.erb", __dir__)
         template_content = File.read(memory_prompt_path)
         ERB.new(template_content).result(binding)
       end

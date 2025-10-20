@@ -82,10 +82,14 @@ module SwarmSDK
         assert_includes(names, :ScratchpadWrite)
         assert_includes(names, :ScratchpadRead)
         assert_includes(names, :ScratchpadList)
-        # Memory tools
-        assert_includes(names, :MemoryWrite)
-        assert_includes(names, :MemoryRead)
-        assert_includes(names, :MemoryDelete)
+        # Memory tools are provided by swarm_memory gem (extension)
+        # Only check if SwarmMemory is loaded
+        if defined?(SwarmMemory)
+          assert_includes(names, :MemoryWrite)
+          assert_includes(names, :MemoryRead)
+          assert_includes(names, :MemoryDelete)
+          assert_includes(names, :MemoryDefrag)
+        end
       end
 
       def test_registry_validate
