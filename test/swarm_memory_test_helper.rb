@@ -28,25 +28,33 @@ module SwarmMemoryTestHelper
     FileUtils.rm_rf(dir_path) if dir_path && Dir.exist?(dir_path)
   end
 
-  # Create sample memory entry with frontmatter
+  # Create sample memory entry (pure content, no frontmatter)
   #
-  # @param type [String] Entry type
-  # @param confidence [String] Confidence level
-  # @param tags [Array<String>] Tags
-  # @return [String] Formatted entry content
-  def create_sample_entry(type: "concept", confidence: "high", tags: ["test"])
+  # Frontmatter is now passed as separate metadata params to MemoryWrite,
+  # not embedded in content.
+  #
+  # @return [String] Content only
+  def create_sample_entry
     <<~ENTRY
-      ---
-      type: #{type}
-      confidence: #{confidence}
-      tags: #{tags.inspect}
-      last_verified: #{Date.today}
-      ---
-
       # Sample Entry
 
       This is a sample entry for testing purposes.
     ENTRY
+  end
+
+  # Create sample metadata hash
+  #
+  # @param type [String] Entry type
+  # @param confidence [String] Confidence level
+  # @param tags [Array<String>] Tags
+  # @return [Hash] Metadata hash
+  def create_sample_metadata(type: "concept", confidence: "high", tags: ["test"])
+    {
+      "type" => type,
+      "confidence" => confidence,
+      "tags" => tags,
+      "last_verified" => Date.today.to_s,
+    }
   end
 end
 

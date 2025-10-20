@@ -22,6 +22,7 @@ module SwarmMemory
       #   stats[:health_score] # => 75
       #   stats[:total_entries] # => 42
       def analyze
+        # List entries (handle errors gracefully)
         entries = @adapter.list
         return empty_analysis if entries.empty?
 

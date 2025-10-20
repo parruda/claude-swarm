@@ -27,17 +27,15 @@ module SwarmMemory
 
       # Write content to storage
       #
-      # @param file_path [String] Path to store content
-      # @param content [String] Content to store
+      # @param file_path [String] Path to store content (with .md extension)
+      # @param content [String] Content to store (pure markdown)
       # @param title [String] Brief title
+      # @param metadata [Hash, nil] Optional metadata
       # @param generate_embedding [Boolean] Whether to generate embedding (default: true if embedder present)
       # @return [Entry] The created entry
-      def write(file_path:, content:, title:, generate_embedding: nil)
+      def write(file_path:, content:, title:, metadata: nil, generate_embedding: nil)
         # Normalize path
         normalized_path = PathNormalizer.normalize(file_path)
-
-        # Extract metadata from frontmatter
-        metadata = MetadataExtractor.extract(content)
 
         # Generate embedding if requested and embedder available
         embedding = nil
@@ -53,7 +51,7 @@ module SwarmMemory
           end
         end
 
-        # Write to adapter
+        # Write to adapter (metadata passed from tool parameters)
         @adapter.write(
           file_path: normalized_path,
           content: content,

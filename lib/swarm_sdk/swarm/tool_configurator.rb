@@ -20,6 +20,7 @@ module SwarmSDK
         :TodoWrite,
         :Think,
         :WebFetch,
+        :Clock,
       ].freeze
 
       # Scratchpad tools (added if scratchpad is enabled)
@@ -97,6 +98,8 @@ module SwarmSDK
           Tools::Scratchpad::ScratchpadList.create_for_scratchpad(@scratchpad_storage)
         when :Think
           Tools::Think.new
+        when :Clock
+          Tools::Clock.new
 
         # Memory tools - delegate to SwarmMemory gem if available
         when :MemoryWrite, :MemoryRead, :MemoryEdit, :MemoryMultiEdit,

@@ -13,11 +13,12 @@ class MemoryDefragToolTest < Minitest::Test
   end
 
   def test_analyze_action
-    # Create test entries
+    # Create test entries with metadata
     @storage.write(
-      file_path: "test/entry1",
-      content: create_sample_entry(type: "concept", confidence: "high"),
+      file_path: "test/entry1.md",
+      content: create_sample_entry,
       title: "Entry 1",
+      metadata: create_sample_metadata(type: "concept", confidence: "high"),
     )
 
     result = @tool.execute(action: "analyze")
@@ -32,8 +33,8 @@ class MemoryDefragToolTest < Minitest::Test
     content1 = "Ruby is a programming language with elegant syntax"
     content2 = "Ruby is a programming language with dynamic typing"
 
-    @storage.write(file_path: "entry1", content: content1, title: "Entry 1")
-    @storage.write(file_path: "entry2", content: content2, title: "Entry 2")
+    @storage.write(file_path: "entry1.md", content: content1, title: "Entry 1")
+    @storage.write(file_path: "entry2.md", content: content2, title: "Entry 2")
 
     result = @tool.execute(action: "find_duplicates", similarity_threshold: 0.5)
 
@@ -42,7 +43,7 @@ class MemoryDefragToolTest < Minitest::Test
 
   def test_find_low_quality_action
     # Create entry without frontmatter
-    @storage.write(file_path: "no_meta", content: "plain content", title: "No Meta")
+    @storage.write(file_path: "no_meta.md", content: "plain content", title: "No Meta")
 
     result = @tool.execute(action: "find_low_quality")
 
@@ -51,7 +52,7 @@ class MemoryDefragToolTest < Minitest::Test
   end
 
   def test_find_archival_candidates_action
-    @storage.write(file_path: "test/entry", content: "test", title: "Test")
+    @storage.write(file_path: "test/entry.md", content: "test", title: "Test")
 
     result = @tool.execute(action: "find_archival_candidates", age_days: 0)
 
@@ -59,7 +60,7 @@ class MemoryDefragToolTest < Minitest::Test
   end
 
   def test_full_action
-    @storage.write(file_path: "test/entry", content: create_sample_entry, title: "Test")
+    @storage.write(file_path: "test/entry.md", content: create_sample_entry, title: "Test")
 
     result = @tool.execute(action: "full")
 
@@ -79,7 +80,7 @@ class MemoryDefragToolTest < Minitest::Test
   end
 
   def test_default_action_is_analyze
-    @storage.write(file_path: "test", content: "test", title: "Test")
+    @storage.write(file_path: "test.md", content: "test", title: "Test")
 
     result = @tool.execute
 

@@ -506,17 +506,48 @@ Runs merge + cleanup + compact. Shows health score improvement.
 5. **Review merge results** - Check that stubs work correctly
 6. **Re-analyze after** - Verify health score improved
 
+## Temporal Awareness
+
+**Use the Clock tool to track time** - don't store ephemeral date/time information.
+
+**DO:**
+- ✅ Use `Clock()` when you need to know today's date
+- ✅ Store facts WITH timestamps: "As of 2025-10-20, Paulo prefers Ruby"
+- ✅ Store events with dates: "Meeting scheduled for 2025-10-25"
+- ✅ Use last_verified field in frontmatter to track when info was confirmed
+
+**DON'T:**
+- ❌ Store "current date" as a fact (it becomes stale immediately)
+- ❌ Store "working directory" (available elsewhere)
+- ❌ Store platform/OS info (available elsewhere)
+- ❌ Store temporary session state (use working/ for that)
+
+**Example - Good temporal storage:**
+```
+MemoryWrite(
+  file_path: "facts/people/paulo.md",
+  content: "Paulo confirmed on 2025-10-20 that he prefers Ruby over Python for web development.",
+  title: "Paulo - Language Preferences",
+  type: "fact",
+  confidence: "high",
+  tags: ["paulo", "preferences", "languages"]
+)
+```
+
+The date is PART of the fact (when it was true), not THE fact itself.
+
 ## Critical Rules
 
 1. **Learn immediately, store immediately** - Don't batch learnings
 2. **Always search memory first** - Before researching or asking user
-3. **Use proper frontmatter** - Every entry needs metadata
-4. **Maintain the index** - It's your map to your knowledge
-5. **Cross-reference** - Link related concepts in frontmatter
-6. **Be honest about confidence** - Mark uncertain knowledge as `confidence: low`
-7. **Delete obsolete knowledge** - Keep memory clean and relevant
-8. **Start each session by reading index.md** - Know what you know
-9. **NEVER confuse memory with disk** - Use the right tools for the right storage
+3. **Use Clock() for current date/time** - Don't store ephemeral information
+4. **Store facts with timestamps** - "As of [date], ..." for time-sensitive information
+5. **Maintain the index** - It's your map to your knowledge
+6. **Cross-reference** - Link related concepts in metadata
+7. **Be honest about confidence** - Mark uncertain knowledge as low
+8. **Delete obsolete knowledge** - Keep memory clean and relevant
+9. **Start each session by reading index.md** - Know what you know
+10. **NEVER confuse memory with disk** - Use the right tools for the right storage
 
 ## Session Workflow
 

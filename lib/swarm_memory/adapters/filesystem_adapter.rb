@@ -57,23 +57,12 @@ module SwarmMemory
           raise ArgumentError, "content is required" if content.nil?
           raise ArgumentError, "title is required" if title.nil? || title.to_s.strip.empty?
 
-          # Parse frontmatter from content (if present)
-          parsed = Core::FrontmatterParser.parse(content)
-          content_body = parsed[:body]
-          frontmatter_metadata = parsed[:frontmatter]
+          # Content is stored as-is (no frontmatter extraction)
+          # Metadata comes from tool parameters, not from content
+          content_size = content.bytesize
 
-          # Merge frontmatter with provided metadata and ensure all keys are strings
-          combined_metadata = if metadata
-            # Stringify both hashes before merging
-            stringified_frontmatter = Utils.stringify_keys(frontmatter_metadata)
-            stringified_metadata = Utils.stringify_keys(metadata)
-            stringified_frontmatter.merge(stringified_metadata)
-          else
-            Utils.stringify_keys(frontmatter_metadata)
-          end
-
-          # Size is based on body only (not including frontmatter)
-          content_size = content_body.bytesize
+          # Ensure all metadata keys are strings
+          stringified_metadata = metadata ? Utils.stringify_keys(metadata) : {}
 
           # Check entry size limit
           if content_size > MAX_ENTRY_SIZE
@@ -93,13 +82,15 @@ module SwarmMemory
               "Clear old entries or use smaller content."
           end
 
-          # Flatten path for disk storage
-          disk_path = flatten_path(file_path)
+          # Strip .md extension and flatten path for disk storage
+          # "concepts/ruby/classes.md" → "concepts--ruby--classes"
+          base_path = file_path.sub(/\.md\z/, "")
+          disk_path = flatten_path(base_path)
 
-          # 1. Write ONLY body to .md file (no frontmatter duplication)
+          # 1. Write content to .md file (stored exactly as provided)
           md_file = File.join(@directory, "#{disk_path}.md")
           FileUtils.mkdir_p(File.dirname(md_file))
-          File.write(md_file, content_body)
+          File.write(md_file, content)
 
           # 2. Write metadata to .yml file
           yaml_file = File.join(@directory, "#{disk_path}.yml")
@@ -107,11 +98,11 @@ module SwarmMemory
 
           yaml_data = {
             title: title,
-            file_path: file_path, # Logical path (for agent)
+            file_path: file_path, # Logical path with .md extension
             updated_at: Time.now,
             size: content_size,
             hits: existing_hits, # Preserve hit count
-            metadata: combined_metadata, # Combined frontmatter + provided metadata
+            metadata: stringified_metadata, # Metadata from tool parameters
             embedding_checksum: embedding ? checksum(embedding) : nil,
           }
           # Convert symbol keys to strings for clean YAML output
@@ -134,26 +125,28 @@ module SwarmMemory
             updated_at: Time.now,
           }
 
-          # Return entry object (with body only, no frontmatter)
+          # Return entry object
           Core::Entry.new(
-            content: content_body,
+            content: content,
             title: title,
             updated_at: Time.now,
             size: content_size,
             embedding: embedding,
-            metadata: combined_metadata,
+            metadata: stringified_metadata,
           )
         end
       end
 
       # Read content from filesystem
       #
-      # @param file_path [String] Logical path
+      # @param file_path [String] Logical path with .md extension
       # @return [String] Content
       def read(file_path:)
         raise ArgumentError, "file_path is required" if file_path.nil? || file_path.to_s.strip.empty?
 
-        disk_path = flatten_path(file_path)
+        # Strip .md extension and flatten path
+        base_path = file_path.sub(/\.md\z/, "")
+        disk_path = flatten_path(base_path)
         md_file = File.join(@directory, "#{disk_path}.md")
 
         raise ArgumentError, "memory://#{file_path} not found" unless File.exist?(md_file)
@@ -174,12 +167,14 @@ module SwarmMemory
 
       # Read full entry with all metadata
       #
-      # @param file_path [String] Logical path
+      # @param file_path [String] Logical path with .md extension
       # @return [Core::Entry] Full entry object
       def read_entry(file_path:)
         raise ArgumentError, "file_path is required" if file_path.nil? || file_path.to_s.strip.empty?
 
-        disk_path = flatten_path(file_path)
+        # Strip .md extension and flatten path
+        base_path = file_path.sub(/\.md\z/, "")
+        disk_path = flatten_path(base_path)
         md_file = File.join(@directory, "#{disk_path}.md")
         yaml_file = File.join(@directory, "#{disk_path}.yml")
 
@@ -217,13 +212,15 @@ module SwarmMemory
 
       # Delete entry from filesystem
       #
-      # @param file_path [String] Logical path
+      # @param file_path [String] Logical path with .md extension
       # @return [void]
       def delete(file_path:)
         @mutex.synchronize do
           raise ArgumentError, "file_path is required" if file_path.nil? || file_path.to_s.strip.empty?
 
-          disk_path = flatten_path(file_path)
+          # Strip .md extension and flatten path
+          base_path = file_path.sub(/\.md\z/, "")
+          disk_path = flatten_path(base_path)
           md_file = File.join(@directory, "#{disk_path}.md")
 
           raise ArgumentError, "memory://#{file_path} not found" unless File.exist?(md_file)
@@ -255,16 +252,17 @@ module SwarmMemory
 
         entries = md_files.map do |md_file|
           disk_path = File.basename(md_file, ".md")
-          logical_path = unflatten_path(disk_path)
+          base_logical_path = unflatten_path(disk_path)
+          logical_path = "#{base_logical_path}.md" # Add .md extension
 
-          # Filter by prefix if provided
-          next if prefix && !logical_path.start_with?(prefix)
+          # Filter by prefix if provided (strip .md for comparison)
+          next if prefix && !base_logical_path.start_with?(prefix.sub(/\.md\z/, ""))
 
           yaml_file = md_file.sub(".md", ".yml")
           yaml_data = File.exist?(yaml_file) ? YAML.load_file(yaml_file, permitted_classes: [Time, Date, Symbol]) : {}
 
           {
-            path: logical_path,
+            path: logical_path, # With .md extension
             title: yaml_data["title"] || "Untitled",
             size: yaml_data["size"] || File.size(md_file),
             updated_at: parse_time(yaml_data["updated_at"]) || File.mtime(md_file),
@@ -276,13 +274,14 @@ module SwarmMemory
 
       # Search by glob pattern
       #
-      # @param pattern [String] Glob pattern
+      # @param pattern [String] Glob pattern (e.g., "concepts/**/*.md")
       # @return [Array<Hash>] Matching entries
       def glob(pattern:)
         raise ArgumentError, "pattern is required" if pattern.nil? || pattern.to_s.strip.empty?
 
-        # Flatten the pattern for disk matching
-        disk_pattern = flatten_path(pattern)
+        # Strip .md from pattern and flatten for disk matching
+        base_pattern = pattern.sub(/\.md\z/, "")
+        disk_pattern = flatten_path(base_pattern)
 
         # Glob for .md files
         md_files = Dir.glob(File.join(@directory, "#{disk_pattern}.md"))
@@ -290,13 +289,14 @@ module SwarmMemory
 
         results = md_files.map do |md_file|
           disk_path = File.basename(md_file, ".md")
-          logical_path = unflatten_path(disk_path)
+          base_logical_path = unflatten_path(disk_path)
+          logical_path = "#{base_logical_path}.md" # Add .md extension
 
           yaml_file = md_file.sub(".md", ".yml")
           yaml_data = File.exist?(yaml_file) ? YAML.load_file(yaml_file, permitted_classes: [Time, Date, Symbol]) : {}
 
           {
-            path: logical_path,
+            path: logical_path, # With .md extension
             title: yaml_data["title"] || "Untitled",
             size: File.size(md_file),
             updated_at: parse_time(yaml_data["updated_at"]) || File.mtime(md_file),
@@ -435,10 +435,11 @@ module SwarmMemory
 
       # Increment hit counter for an entry
       #
-      # @param file_path [String] Logical path
+      # @param file_path [String] Logical path with .md extension
       # @return [void]
       def increment_hits(file_path)
-        disk_path = flatten_path(file_path)
+        base_path = file_path.sub(/\.md\z/, "")
+        disk_path = flatten_path(base_path)
         yaml_file = File.join(@directory, "#{disk_path}.yml")
         return unless File.exist?(yaml_file)
 
@@ -453,12 +454,13 @@ module SwarmMemory
         warn("Warning: Failed to increment hits for #{file_path}: #{e.message}")
       end
 
-      # Get entry size from .yaml or .md file
+      # Get entry size from .yml or .md file
       #
-      # @param file_path [String] Logical path
+      # @param file_path [String] Logical path with .md extension
       # @return [Integer] Size in bytes
       def get_entry_size(file_path)
-        disk_path = flatten_path(file_path)
+        base_path = file_path.sub(/\.md\z/, "")
+        disk_path = flatten_path(base_path)
         yaml_file = File.join(@directory, "#{disk_path}.yml")
 
         if File.exist?(yaml_file)
@@ -498,7 +500,8 @@ module SwarmMemory
           next if stub_file?(md_file)
 
           disk_path = File.basename(md_file, ".md")
-          logical_path = unflatten_path(disk_path)
+          base_logical_path = unflatten_path(disk_path)
+          logical_path = "#{base_logical_path}.md" # Add .md extension
 
           yaml_file = md_file.sub(".md", ".yml")
           yaml_data = File.exist?(yaml_file) ? YAML.load_file(yaml_file, permitted_classes: [Time, Date, Symbol]) : {}
@@ -518,10 +521,10 @@ module SwarmMemory
         index
       end
 
-      # Grep for files with matches (fast path: .yaml first)
+      # Grep for files with matches (fast path: .yml first)
       #
       # @param regex [Regexp] Pattern to match
-      # @return [Array<String>] Matching logical paths
+      # @return [Array<String>] Matching logical paths with .md extension
       def grep_files_with_matches(regex)
         results = []
 
@@ -530,10 +533,11 @@ module SwarmMemory
           next if yaml_file.include?("_stubs/")
 
           content = File.read(yaml_file)
-          if regex.match?(content)
-            disk_path = File.basename(yaml_file, ".yml")
-            results << unflatten_path(disk_path)
-          end
+          next unless regex.match?(content)
+
+          disk_path = File.basename(yaml_file, ".yml")
+          base_path = unflatten_path(disk_path)
+          results << "#{base_path}.md" # Add .md extension
         end
 
         # If found in metadata, return quickly
@@ -544,10 +548,11 @@ module SwarmMemory
           next if stub_file?(md_file)
 
           content = File.read(md_file)
-          if regex.match?(content)
-            disk_path = File.basename(md_file, ".md")
-            results << unflatten_path(disk_path)
-          end
+          next unless regex.match?(content)
+
+          disk_path = File.basename(md_file, ".md")
+          base_path = unflatten_path(disk_path)
+          results << "#{base_path}.md" # Add .md extension
         end
 
         results.uniq.sort
@@ -573,10 +578,11 @@ module SwarmMemory
           next if matching_lines.empty?
 
           disk_path = File.basename(md_file, ".md")
-          logical_path = unflatten_path(disk_path)
+          base_path = unflatten_path(disk_path)
+          logical_path = "#{base_path}.md" # Add .md extension
 
           results << {
-            path: logical_path,
+            path: logical_path, # With .md extension
             matches: matching_lines,
           }
         end
@@ -600,10 +606,11 @@ module SwarmMemory
           next if count <= 0
 
           disk_path = File.basename(md_file, ".md")
-          logical_path = unflatten_path(disk_path)
+          base_path = unflatten_path(disk_path)
+          logical_path = "#{base_path}.md" # Add .md extension
 
           results << {
-            path: logical_path,
+            path: logical_path, # With .md extension
             count: count,
           }
         end

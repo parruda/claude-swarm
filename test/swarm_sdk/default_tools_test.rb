@@ -39,6 +39,7 @@ module SwarmSDK
         :TodoWrite,
         :Think,
         :WebFetch,
+        :Clock,
       ]
 
       assert_equal(expected_tools, Swarm::DEFAULT_TOOLS)

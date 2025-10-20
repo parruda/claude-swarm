@@ -24,6 +24,7 @@ module SwarmSDK
         ScratchpadList: :special, # Requires scratchpad storage instance
         Think: SwarmSDK::Tools::Think,
         WebFetch: SwarmSDK::Tools::WebFetch,
+        Clock: SwarmSDK::Tools::Clock,
       }.freeze
 
       # Runtime extension registry for gems that provide tools

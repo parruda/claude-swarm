@@ -39,6 +39,14 @@ module SwarmMemory
     # @param agent_name [String, Symbol] Agent identifier
     # @return [RubyLLM::Tool] Configured tool instance
     def create_tool(tool_name, storage:, agent_name:)
+      # Validate storage is present
+      if storage.nil?
+        raise ConfigurationError,
+          "Cannot create #{tool_name} tool: memory storage is nil. " \
+            "Did you configure memory for this agent? " \
+            "Add: memory { directory '.swarm/agent-memory' }"
+      end
+
       case tool_name.to_sym
       when :MemoryWrite
         Tools::MemoryWrite.new(storage: storage, agent_name: agent_name)
