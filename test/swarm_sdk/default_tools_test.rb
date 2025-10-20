@@ -63,6 +63,7 @@ module SwarmSDK
         :MemoryGlob,
         :MemoryGrep,
         :MemoryDelete,
+        :MemoryDefrag,
       ]
 
       assert_equal(expected_tools, Swarm::ToolConfigurator::MEMORY_TOOLS)

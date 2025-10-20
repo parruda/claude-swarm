@@ -15,6 +15,7 @@ $LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
 
 require "claude_swarm"
 require "swarm_sdk"
+require "swarm_memory"
 require "minitest/autorun"
 
 # WebMock for mocking HTTP requests in tests

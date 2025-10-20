@@ -6,8 +6,10 @@ module SwarmSDK
     #
     # Maps tool names (symbols) to their RubyLLM::Tool classes.
     # Provides validation and lookup functionality for tool registration.
+    # Supports runtime extension registration for gems like swarm_memory.
     class Registry
       # All available built-in tools
+      # Memory tools removed - provided by swarm_memory gem
       BUILTIN_TOOLS = {
         Read: :special, # Requires agent context for read tracking
         Write: :special, # Requires agent context for read-before-write enforcement
@@ -20,24 +22,49 @@ module SwarmSDK
         ScratchpadWrite: :special, # Requires scratchpad storage instance
         ScratchpadRead: :special, # Requires scratchpad storage instance
         ScratchpadList: :special, # Requires scratchpad storage instance
-        MemoryWrite: :special, # Requires memory storage instance
-        MemoryRead: :special, # Requires memory storage instance
-        MemoryEdit: :special, # Requires memory storage instance
-        MemoryMultiEdit: :special, # Requires memory storage instance
-        MemoryDelete: :special, # Requires memory storage instance
-        MemoryGlob: :special, # Requires memory storage instance
-        MemoryGrep: :special, # Requires memory storage instance
         Think: SwarmSDK::Tools::Think,
         WebFetch: SwarmSDK::Tools::WebFetch,
       }.freeze
 
+      # Runtime extension registry for gems that provide tools
+      @extensions = {}
+
       class << self
-        # Get tool class by name
+        # Register tools from an extension gem
+        #
+        # This allows gems like swarm_memory to register their tools at runtime.
+        # Extensions are checked after built-in tools in get() and exists?().
+        #
+        # @param namespace [Symbol] Extension namespace (e.g., :memory)
+        # @param tools [Hash] Tool name => :special or Class
+        # @return [void]
+        #
+        # @example
+        #   Registry.register_extension(:memory, {
+        #     MemoryWrite: :special,
+        #     MemoryRead: :special
+        #   })
+        def register_extension(namespace, tools)
+          @extensions ||= {}
+          @extensions[namespace] = tools
+        end
+
+        # Get tool class by name (checks extensions too)
         #
         # @param name [Symbol, String] Tool name
-        # @return [Class, nil] Tool class or nil if not found
+        # @return [Class, Symbol, nil] Tool class, :special, or nil if not found
         def get(name)
-          BUILTIN_TOOLS[name.to_sym]
+          name_sym = name.to_sym
+
+          # Check built-in first
+          return BUILTIN_TOOLS[name_sym] if BUILTIN_TOOLS.key?(name_sym)
+
+          # Check extensions
+          @extensions&.each_value do |tools|
+            return tools[name_sym] if tools.key?(name_sym)
+          end
+
+          nil
         end
 
         # Get multiple tool classes by names
@@ -48,25 +75,32 @@ module SwarmSDK
         def get_many(names)
           names.map do |name|
             tool_class = get(name)
-            raise ConfigurationError, "Unknown tool: #{name}. Available tools: #{available_names.join(", ")}" unless tool_class
+            unless tool_class
+              raise ConfigurationError,
+                "Unknown tool: #{name}. Available tools: #{available_names.join(", ")}"
+            end
 
             tool_class
           end
         end
 
-        # Check if a tool exists
+        # Check if a tool exists (checks extensions too)
         #
         # @param name [Symbol, String] Tool name
         # @return [Boolean]
         def exists?(name)
-          BUILTIN_TOOLS.key?(name.to_sym)
+          name_sym = name.to_sym
+          BUILTIN_TOOLS.key?(name_sym) ||
+            @extensions&.any? { |_, tools| tools.key?(name_sym) }
         end
 
-        # Get all available tool names
+        # Get all available tool names (includes extensions)
         #
         # @return [Array<Symbol>]
         def available_names
-          BUILTIN_TOOLS.keys
+          names = BUILTIN_TOOLS.keys.dup
+          @extensions&.each_value { |tools| names.concat(tools.keys) }
+          names.uniq
         end
 
         # Validate tool names
