@@ -18,10 +18,13 @@ module SwarmMemory
       # Initialize embedder with model configuration
       #
       # @param model [String] HuggingFace model identifier
-      # @param quantized [Boolean] Use quantized variant for speed (default: true)
+      # @param quantized [Boolean] Use quantized variant (default: false for original model)
       # @param cache_dir [String, nil] Optional custom cache directory
       # @raise [EmbeddingError] If Informers gem is not available
-      def initialize(model: DEFAULT_MODEL, quantized: true, cache_dir: nil)
+      #
+      # Note: The original sentence-transformers model uses unquantized ONNX (90MB).
+      # For a smaller quantized version (22MB), use model: "Xenova/all-MiniLM-L6-v2", quantized: true
+      def initialize(model: DEFAULT_MODEL, quantized: false, cache_dir: nil)
         super()
 
         unless defined?(Informers)
@@ -66,8 +69,11 @@ module SwarmMemory
       #   end
       def cached?
         cache_dir = Informers.cache_dir
-        dtype = @quantized ? "q8" : "fp32"
-        suffix = dtype == "q8" ? "_quantized" : ""
+
+        # Different models have different file names
+        # Original sentence-transformers: model.onnx (unquantized)
+        # Xenova version: model_quantized.onnx (quantized)
+        suffix = @quantized ? "_quantized" : ""
 
         # Check for required model files
         model_file = File.join(cache_dir, @model_name, "onnx", "model#{suffix}.onnx")

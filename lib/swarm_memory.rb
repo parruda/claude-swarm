@@ -93,3 +93,7 @@ end
 # Auto-register with SwarmSDK when loaded
 require_relative "swarm_memory/integration/registration"
 SwarmMemory::Integration::Registration.register!
+
+# Auto-register CLI commands with SwarmCLI when loaded
+require_relative "swarm_memory/integration/cli_registration"
+SwarmMemory::Integration::CliRegistration.register!

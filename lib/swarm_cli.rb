@@ -36,3 +36,10 @@ module SwarmCLI
   class ConfigurationError < Error; end
   class ExecutionError < Error; end
 end
+
+# Try to load swarm_memory gem if available (for CLI command extensions)
+begin
+  require "swarm_memory"
+rescue LoadError
+  # swarm_memory not installed - that's fine, memory commands won't be available
+end
