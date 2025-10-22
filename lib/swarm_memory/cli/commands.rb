@@ -23,8 +23,8 @@ module SwarmMemory
             setup_embeddings
           when "status"
             show_status
-          when "cache-path"
-            show_cache_path
+          when "model-path"
+            show_model_path
           when "defrag"
             defrag_memory(subcommand_args)
           else
@@ -111,7 +111,7 @@ module SwarmMemory
           exit(0)
         end
 
-        def show_cache_path
+        def show_model_path
           puts Informers.cache_dir
           exit(0)
         end
@@ -162,13 +162,13 @@ module SwarmMemory
           puts "Subcommands:"
           puts "  setup              Setup embeddings (download model ~90MB, one-time)"
           puts "  status             Check if embeddings are ready"
-          puts "  cache-path         Show model cache path"
+          puts "  model-path         Show embedding model cache path"
           puts "  defrag DIRECTORY   Defrag memory at given directory"
           puts
           puts "Examples:"
           puts "  swarm memory setup                            # Download model"
           puts "  swarm memory status                           # Check if ready"
-          puts "  swarm memory cache-path                       # Show cache location"
+          puts "  swarm memory model-path                       # Show model location"
           puts "  swarm memory defrag .swarm/assistant-memory   # Optimize memory"
           puts
         end
