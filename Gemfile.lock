@@ -28,6 +28,7 @@ PATH
       tty-tree
       zeitwerk
     swarm_memory (0.1.0)
+      async (~> 2.0)
       informers (~> 1.2.1)
       ruby_llm (~> 1.8)
       swarm_sdk (~> 2.0)
