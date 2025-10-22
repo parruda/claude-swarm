@@ -264,8 +264,8 @@ class SkillWorkflowTest < Minitest::Test
     refute_includes(tools_after_skill2, "Grep") # Removed (was from skill 1)
   end
 
-  def test_skill_without_tools_removes_all_mutable_tools
-    # Scenario: Skill with no tools specified removes all mutable tools
+  def test_skill_with_empty_tools_keeps_current_tools
+    # Scenario: Skill with empty tools array [] keeps current tools
     temp_dir = @temp_dir
     memory_dir = @memory_dir
 
@@ -289,14 +289,17 @@ class SkillWorkflowTest < Minitest::Test
     memory_write = agent.tools.values.find { |t| t.name == "MemoryWrite" }
     load_skill = agent.tools.values.find { |t| t.name == "LoadSkill" }
 
-    # Create skill without tools (with ALL required parameters)
+    # Capture initial tools
+    initial_tools = agent.tools.values.map(&:name).sort
+
+    # Create skill with empty tools array (with ALL required parameters)
     memory_write.execute(
       file_path: "skill/minimal.md",
-      content: "# Minimal Skill\n\nUse memory tools only",
+      content: "# Minimal Skill\n\nUse current tools",
       title: "Minimal Skill",
       type: "skill",
       confidence: "high",
-      tags: ["minimal", "memory"],
+      tags: ["minimal", "generic"],
       related: [],
       domain: "utilities",
       source: "experimentation",
@@ -306,16 +309,15 @@ class SkillWorkflowTest < Minitest::Test
 
     # Load skill
     load_skill.execute(file_path: "skill/minimal.md")
-    tools_after_load = agent.tools.values.map(&:name)
+    tools_after_load = agent.tools.values.map(&:name).sort
 
-    # All mutable tools should be removed
-    refute_includes(tools_after_load, "Read")
-    refute_includes(tools_after_load, "Write")
-    refute_includes(tools_after_load, "Edit")
+    # All tools should be kept (no swap when tools is [])
+    assert_equal(initial_tools, tools_after_load)
 
-    # Immutable tools should remain
-    assert_includes(tools_after_load, "MemoryWrite")
-    assert_includes(tools_after_load, "LoadSkill")
+    # Verify specific tools are still present
+    assert_includes(tools_after_load, "Read")
+    assert_includes(tools_after_load, "Write")
+    assert_includes(tools_after_load, "Edit")
     assert_includes(tools_after_load, "Think")
     assert_includes(tools_after_load, "Clock")
     assert_includes(tools_after_load, "TodoWrite")

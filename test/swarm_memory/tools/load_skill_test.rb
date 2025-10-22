@@ -187,7 +187,7 @@ class LoadSkillToolTest < Minitest::Test
   end
 
   def test_load_skill_without_tools_keeps_current_tools
-    # Create skill without tools specified
+    # Create skill without tools specified (nil)
     @storage.write(
       file_path: "skill/simple.md",
       content: "# Simple Task",
@@ -197,22 +197,30 @@ class LoadSkillToolTest < Minitest::Test
 
     # Add initial tools
     @chat.add_tool(MockTool.new("Write"))
+    @chat.add_tool(MockTool.new("Read"))
     @chat.add_tool(MockTool.new("Think"))
     @chat.add_tool(MockTool.new("Clock"))
     @chat.add_tool(MockTool.new("TodoWrite"))
+
+    initial_tools_count = @chat.tools.size
 
     result = @tool.execute(file_path: "skill/simple.md")
 
     # Should succeed
     assert_match(/Loaded skill: Simple Task/, result)
 
-    # Since no tools specified, mutable tools removed but no new ones added
+    # Since no tools specified, should keep ALL current tools (no swap)
     tool_names = @chat.tools.map(&:name)
 
-    assert_includes(tool_names, "Think") # Immutable preserved
-    assert_includes(tool_names, "Clock") # Immutable preserved
-    assert_includes(tool_names, "TodoWrite") # Immutable preserved
-    refute_includes(tool_names, "Write") # Mutable removed
+    # All tools should still be present (both mutable and immutable)
+    assert_includes(tool_names, "Write") # Mutable kept
+    assert_includes(tool_names, "Read") # Mutable kept
+    assert_includes(tool_names, "Think") # Immutable kept
+    assert_includes(tool_names, "Clock") # Immutable kept
+    assert_includes(tool_names, "TodoWrite") # Immutable kept
+
+    # Tool count should be unchanged
+    assert_equal(initial_tools_count, @chat.tools.size)
   end
 
   def test_load_skill_preserves_immutable_tools
