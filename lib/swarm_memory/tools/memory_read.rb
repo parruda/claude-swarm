@@ -9,8 +9,13 @@ module SwarmMemory
     class MemoryRead < RubyLLM::Tool
       description <<~DESC
         Read content from your memory storage.
-        Use this to retrieve detailed outputs, analysis, or results that were
-        stored using memory_write. Only you (this agent) can access your memory.
+
+        Returns JSON with two fields:
+        - content: The actual markdown content
+        - metadata: All metadata (type, tags, tools, permissions, etc.)
+
+        Use this to retrieve knowledge stored using MemoryWrite.
+        Only you (this agent) can access your memory.
       DESC
 
       param :file_path,
@@ -35,13 +40,16 @@ module SwarmMemory
       # Execute the tool
       #
       # @param file_path [String] Path to read from
-      # @return [String] Content at the path with line numbers, or error message
+      # @return [String] JSON with content and metadata
       def execute(file_path:)
         # Register this read in the tracker
         Core::StorageReadTracker.register_read(@agent_name, file_path)
 
-        content = @storage.read(file_path: file_path)
-        format_with_line_numbers(content)
+        # Read full entry with metadata
+        entry = @storage.read_entry(file_path: file_path)
+
+        # Always return JSON format (metadata always exists - at minimum title)
+        format_as_json(entry)
       rescue ArgumentError => e
         validation_error(e.message)
       end
@@ -50,6 +58,29 @@ module SwarmMemory
 
       def validation_error(message)
         "<tool_use_error>InputValidationError: #{message}</tool_use_error>"
+      end
+
+      # Format entry as JSON with content and metadata
+      #
+      # Returns a clean JSON format separating content from metadata.
+      # This prevents agents from mimicking metadata format when writing.
+      #
+      # Content includes line numbers (same format as Read tool).
+      # Metadata always includes at least title (from Entry).
+      # Additional metadata comes from the metadata hash (type, tags, tools, etc.)
+      #
+      # @param entry [Core::Entry] Entry with content and metadata
+      # @return [String] Pretty-printed JSON
+      def format_as_json(entry)
+        # Build metadata hash with title included
+        metadata_hash = { "title" => entry.title }
+        metadata_hash.merge!(entry.metadata) if entry.metadata
+
+        result = {
+          content: format_with_line_numbers(entry.content),
+          metadata: metadata_hash,
+        }
+        JSON.pretty_generate(result)
       end
 
       # Format content with line numbers (same format as Read tool)

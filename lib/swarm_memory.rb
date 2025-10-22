@@ -39,8 +39,12 @@ module SwarmMemory
     # @param tool_name [Symbol] Tool name
     # @param storage [SwarmMemory::Core::Storage] Storage instance
     # @param agent_name [String, Symbol] Agent identifier
+    # @param options [Hash] Additional options for special tools like LoadSkill
+    # @option options [SwarmSDK::Agent::Chat] :chat Chat instance (for LoadSkill)
+    # @option options [SwarmSDK::ToolConfigurator] :tool_configurator Tool configurator (for LoadSkill)
+    # @option options [SwarmSDK::Agent::Definition] :agent_definition Agent definition (for LoadSkill)
     # @return [RubyLLM::Tool] Configured tool instance
-    def create_tool(tool_name, storage:, agent_name:)
+    def create_tool(tool_name, storage:, agent_name:, **options)
       # Validate storage is present
       if storage.nil?
         raise ConfigurationError,
@@ -66,6 +70,15 @@ module SwarmMemory
         Tools::MemoryGrep.new(storage: storage)
       when :MemoryDefrag
         Tools::MemoryDefrag.new(storage: storage)
+      when :LoadSkill
+        # LoadSkill requires additional context for tool swapping
+        Tools::LoadSkill.new(
+          storage: storage,
+          agent_name: agent_name,
+          chat: options[:chat],
+          tool_configurator: options[:tool_configurator],
+          agent_definition: options[:agent_definition],
+        )
       else
         raise ConfigurationError, "Unknown memory tool: #{tool_name}"
       end

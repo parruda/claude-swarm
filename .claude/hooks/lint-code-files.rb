@@ -12,7 +12,9 @@ begin
   file_path = input.dig("tool_input", "file_path") || ""
 
   # Determine which linters to run based on file extension
-  run_rubocop = file_path.end_with?(".rb", ".jbuilder", ".erb")
+  # Exclude .md.erb files (markdown templates) from RuboCop
+  run_rubocop = file_path.end_with?(".rb", ".jbuilder", ".html.erb") ||
+    (file_path.end_with?(".erb") && !file_path.end_with?(".md.erb"))
   run_erblint = file_path.end_with?(".erb", ".html.erb")
 
   if !run_rubocop && !run_erblint
@@ -31,7 +33,7 @@ begin
 
     # Run RuboCop if applicable
     if run_rubocop
-      result = %x(bundle exec rubocop -A #{file_path} 2>&1)
+      %x(bundle exec rubocop -A #{file_path} 2>&1)
       exit_code = $CHILD_STATUS.exitstatus
 
       if exit_code != 0

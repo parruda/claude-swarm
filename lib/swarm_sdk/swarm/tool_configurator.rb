@@ -32,6 +32,10 @@ module SwarmSDK
 
       # Memory tools (added if memory is configured for the agent)
       # Provided by swarm_memory gem
+      #
+      # Note: LoadSkill is NOT included in this list because it requires special
+      # handling (needs chat, tool_configurator, agent_definition) and is registered
+      # separately in AgentInitializer#register_load_skill_tool after the chat is created.
       MEMORY_TOOLS = [
         :MemoryWrite,
         :MemoryRead,
@@ -174,32 +178,52 @@ module SwarmSDK
 
       # Register default tools for agents (unless disabled)
       #
+      # Note: Memory tools are registered separately and are NOT affected by
+      # disable_default_tools, since they're configured via memory {} block.
+      #
       # @param chat [AgentChat] The chat instance
       # @param agent_name [Symbol] Agent name
       # @param agent_definition [AgentDefinition] Agent definition
       def register_default_tools(chat, agent_name:, agent_definition:)
-        # If disable_default_tools is true, skip all default tools
-        return if agent_definition.disable_default_tools == true
-
         # Get explicit tool names to avoid duplicates
         explicit_tool_names = agent_definition.tools.map { |t| t[:name] }.to_set
 
-        # Register core default tools
-        DEFAULT_TOOLS.each do |tool_name|
-          register_tool_if_not_disabled(chat, tool_name, explicit_tool_names, agent_name, agent_definition)
-        end
-
-        # Register scratchpad tools if enabled
-        if @swarm.scratchpad_enabled?
-          SCRATCHPAD_TOOLS.each do |tool_name|
+        # Register core default tools (unless disabled)
+        if agent_definition.disable_default_tools != true
+          DEFAULT_TOOLS.each do |tool_name|
             register_tool_if_not_disabled(chat, tool_name, explicit_tool_names, agent_name, agent_definition)
+          end
+
+          # Register scratchpad tools if enabled
+          if @swarm.scratchpad_enabled?
+            SCRATCHPAD_TOOLS.each do |tool_name|
+              register_tool_if_not_disabled(chat, tool_name, explicit_tool_names, agent_name, agent_definition)
+            end
           end
         end
 
         # Register memory tools if configured for this agent
+        # Memory tools are NOT affected by disable_default_tools since they're
+        # explicitly configured via memory {} block
         if agent_definition.memory_enabled?
           MEMORY_TOOLS.each do |tool_name|
-            register_tool_if_not_disabled(chat, tool_name, explicit_tool_names, agent_name, agent_definition)
+            # Skip if already registered explicitly
+            next if explicit_tool_names.include?(tool_name)
+
+            tool_instance = create_tool_instance(tool_name, agent_name, agent_definition.directory)
+
+            # Resolve permissions for memory tool
+            permissions_config = agent_definition.agent_permissions[tool_name] ||
+              agent_definition.default_permissions[tool_name]
+
+            # Wrap with permissions validator if configured
+            tool_instance = wrap_tool_with_permissions(
+              tool_instance,
+              permissions_config,
+              agent_definition,
+            )
+
+            chat.with_tool(tool_instance)
           end
         end
       end

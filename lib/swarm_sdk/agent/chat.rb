@@ -102,6 +102,14 @@ module SwarmSDK
         # Context tracker (created after agent_context is set)
         @context_tracker = nil
 
+        # Track which tools are immutable (cannot be removed by skill swapping)
+        # Default: Think, Clock, and TodoWrite are immutable utilities
+        # SwarmMemory will mark memory tools as immutable when LoadSkill is registered
+        @immutable_tool_names = Set.new(["Think", "Clock", "TodoWrite"])
+
+        # Track active skill (only used if memory enabled)
+        @active_skill_path = nil
+
         # Try to fetch real model info for accurate context tracking
         # This searches across ALL providers, so it works even when using proxies
         # (e.g., Claude model through OpenAI-compatible proxy)
@@ -153,6 +161,57 @@ module SwarmSDK
           error_message: @model_lookup_error[:error_message],
           suggestions: @model_lookup_error[:suggestions].map { |s| { id: s.id, name: s.name, context_window: s.context_window } },
         )
+      end
+
+      # Mark tools as immutable (cannot be removed by skill swapping)
+      #
+      # This is called by SwarmMemory when LoadSkill is registered to mark
+      # all memory tools as immutable. SwarmSDK doesn't need to know about
+      # memory tools - this allows dynamic configuration at runtime.
+      #
+      # @param tool_names [Array<String>] Tool names to mark as immutable
+      # @return [void]
+      def mark_tools_immutable(*tool_names)
+        @immutable_tool_names.merge(tool_names.flatten.map(&:to_s))
+      end
+
+      # Remove all mutable tools (keeps immutable tools)
+      #
+      # Used by LoadSkill to swap tools. Only works if called from a tool
+      # that has been given access to the chat instance.
+      #
+      # @return [void]
+      def remove_mutable_tools
+        @tools.select! { |tool| @immutable_tool_names.include?(tool.name) }
+      end
+
+      # Add a tool instance dynamically
+      #
+      # Used by LoadSkill to add skill-required tools after removing mutable tools.
+      # This is just a convenience wrapper around with_tool.
+      #
+      # @param tool_instance [RubyLLM::Tool] Tool to add
+      # @return [void]
+      def add_tool(tool_instance)
+        with_tool(tool_instance)
+      end
+
+      # Mark skill as loaded (tracking for debugging/logging)
+      #
+      # Called by LoadSkill after successfully swapping tools.
+      # This can be used for logging or debugging purposes.
+      #
+      # @param file_path [String] Path to loaded skill
+      # @return [void]
+      def mark_skill_loaded(file_path)
+        @active_skill_path = file_path
+      end
+
+      # Check if a skill is currently loaded
+      #
+      # @return [Boolean] True if a skill has been loaded
+      def skill_loaded?
+        !@active_skill_path.nil?
       end
 
       # Override ask to inject system reminders and periodic TodoWrite reminders

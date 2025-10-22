@@ -14,14 +14,14 @@ module SwarmMemory
         You only reference .md files - the .yml sidecars are managed automatically.
 
         Choose logical paths based on content type:
-        - concepts/ruby/classes.md - Abstract ideas
-        - facts/people/paulo.md - Concrete information
-        - skills/ruby/testing.md - How-to procedures
+        - concept/ruby/classes.md - Abstract ideas
+        - fact/people/paulo.md - Concrete information
+        - skill/ruby/testing.md - How-to procedures
         - experience/bug-fix.md - Lessons learned
       DESC
 
       param :file_path,
-        desc: "Path with .md extension (e.g., 'concepts/ruby/classes.md', 'facts/people/paulo.md')",
+        desc: "Path with .md extension (e.g., 'concept/ruby/classes.md', 'fact/people/paulo.md')",
         required: true
 
       param :content,
@@ -34,29 +34,39 @@ module SwarmMemory
 
       # Metadata parameters (stored in .yml sidecar)
       param :type,
-        desc: "Entry type: concept, fact, skill, or experience",
-        required: false
+        desc: "Entry type: concept, fact, skill, or experience (matches category: concept/, fact/, skill/, experience/)",
+        required: true
 
       param :confidence,
         desc: "Confidence level: high, medium, or low",
-        required: false
+        required: true
 
       param :tags,
         type: "array",
         desc: "Tags for searching (e.g., ['ruby', 'oop'])",
-        required: false
+        required: true
 
       param :related,
         type: "array",
         desc: "Related memory paths (e.g., ['memory://concepts/ruby/modules.md'])",
-        required: false
+        required: true
 
       param :domain,
         desc: "Category/subcategory (e.g., 'programming/ruby', 'people')",
-        required: false
+        required: true
 
       param :source,
         desc: "Source of information: user, documentation, experimentation, or inference",
+        required: true
+
+      param :tools,
+        type: "array",
+        desc: "Tools required for this skill (e.g., ['Read', 'Edit', 'Bash']). Only for type: skill",
+        required: false
+
+      param :permissions,
+        type: "object",
+        desc: "Tool permission restrictions (same format as swarm config). Only for type: skill",
         required: false
 
       # Initialize with storage instance
@@ -85,17 +95,21 @@ module SwarmMemory
       # @param related [Array, nil] Related paths
       # @param domain [String, nil] Domain
       # @param source [String, nil] Source
+      # @param tools [Array, nil] Tools required (for skills)
+      # @param permissions [Hash, nil] Tool permissions (for skills)
       # @return [String] Success message
       def execute(
         file_path:,
         content:,
         title:,
-        type: nil,
-        confidence: nil,
-        tags: nil,
-        related: nil,
-        domain: nil,
-        source: nil
+        type:,
+        confidence:,
+        tags:,
+        related:,
+        domain:,
+        source:,
+        tools: nil,
+        permissions: nil
       )
         # Build metadata hash from params
         metadata = {}
@@ -105,6 +119,8 @@ module SwarmMemory
         metadata["related"] = related if related
         metadata["domain"] = domain if domain
         metadata["source"] = source if source
+        metadata["tools"] = tools if tools
+        metadata["permissions"] = permissions if permissions
 
         # Write to storage (metadata passed separately, not in content)
         entry = @storage.write(

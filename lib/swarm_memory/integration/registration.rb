@@ -28,6 +28,7 @@ module SwarmMemory
             MemoryGlob: :special,
             MemoryGrep: :special,
             MemoryDefrag: :special,
+            LoadSkill: :special,
           }
 
           SwarmSDK::Tools::Registry.register_extension(:memory, memory_tools)

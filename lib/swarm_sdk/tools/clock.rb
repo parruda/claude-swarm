@@ -24,6 +24,11 @@ module SwarmSDK
 
       # No parameters needed
 
+      # Override name to return simple "Clock"
+      def name
+        "Clock"
+      end
+
       def execute
         now = Time.now
 
