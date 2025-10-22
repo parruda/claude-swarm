@@ -234,6 +234,13 @@ module SwarmSDK
           agent_definition: agent_definition,
         )
 
+        # Register LoadSkill specially if memory is enabled
+        # LoadSkill needs access to chat, tool_configurator, and agent_definition
+        # for dynamic tool swapping, so it must be created after the chat exists
+        if agent_definition.memory_enabled?
+          register_load_skill_tool(chat, agent_name, agent_definition, tool_configurator)
+        end
+
         # Register MCP servers using McpConfigurator
         if agent_definition.mcp_servers.any?
           mcp_configurator = McpConfigurator.new(@swarm)
@@ -274,6 +281,41 @@ module SwarmSDK
 
           chat.with_tool(tool)
         end
+      end
+
+      # Register LoadSkill tool with full context
+      #
+      # LoadSkill needs access to chat, tool_configurator, and agent_definition
+      # to swap tools dynamically. It must be created after the chat exists.
+      #
+      # This method is only called when memory is enabled for the agent.
+      #
+      # @param chat [Agent::Chat] The chat instance
+      # @param agent_name [Symbol] Agent name
+      # @param agent_definition [Agent::Definition] Agent definition
+      # @param tool_configurator [ToolConfigurator] Tool configuration helper
+      # @return [void]
+      def register_load_skill_tool(chat, agent_name, agent_definition, tool_configurator)
+        # Check if SwarmMemory is available
+        unless defined?(SwarmMemory)
+          raise ConfigurationError,
+            "Memory configuration requires 'swarm_memory' gem. " \
+              "Add to Gemfile: gem 'swarm_memory'"
+        end
+
+        storage = @memory_storages[agent_name]
+
+        # Create LoadSkill tool with full context
+        load_skill_tool = SwarmMemory.create_tool(
+          :LoadSkill,
+          storage: storage,
+          agent_name: agent_name,
+          chat: chat,
+          tool_configurator: tool_configurator,
+          agent_definition: agent_definition,
+        )
+
+        chat.with_tool(load_skill_tool)
       end
     end
   end

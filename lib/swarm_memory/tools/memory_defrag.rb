@@ -10,18 +10,67 @@ module SwarmMemory
       description <<~DESC
         Analyze and optimize your memory storage for better precision and recall.
 
-        Operations:
-        - analyze: Report memory health and statistics (read-only)
-        - find_duplicates: Find similar entries (read-only report)
-        - find_low_quality: Find entries with missing metadata (read-only report)
-        - find_archival_candidates: Find old, unused entries (read-only report)
-        - merge_duplicates: Actually merge duplicate entries (creates stubs)
-        - cleanup_stubs: Remove old redirect files (deletes permanently)
-        - compact: Delete low-value entries permanently (quality < 20, age > 30d, hits = 0)
-        - full: Run all optimizations together
+        ## When to Run Defrag
 
-        SAFETY: Active operations (merge_duplicates, cleanup_stubs, compact, full) default to dry_run=true.
-        Set dry_run=false to actually perform changes.
+        Run MemoryDefrag(action: "analyze") when:
+        - You've created 15-20 new entries
+        - Memory feels cluttered or searches return too many irrelevant results
+        - You're having trouble finding specific information
+        - Before starting a major new task (to check memory health)
+        - Periodically (every ~50 new entries minimum)
+
+        ## Operations
+
+        MemoryDefrag can both ANALYZE (read-only) and OPTIMIZE (active) your memory.
+
+        **Read-Only Analysis:**
+
+        1. analyze - Get overall health report (ALWAYS run this first)
+           MemoryDefrag(action: "analyze")
+           Shows entry counts, quality scores, metadata coverage, and health score (0-100).
+
+        2. find_duplicates - Identify similar entries
+           MemoryDefrag(action: "find_duplicates", similarity_threshold: 0.85)
+           Uses both text and semantic similarity (embeddings) to find near-duplicates.
+
+        3. find_low_quality - Find entries with poor metadata
+           MemoryDefrag(action: "find_low_quality", confidence_filter: "low")
+           Identifies entries missing metadata, tags, or with low confidence.
+
+        4. find_archival_candidates - Find old, unused entries
+           MemoryDefrag(action: "find_archival_candidates", age_days: 90)
+           Lists entries that haven't been updated in N days (candidates for deletion).
+
+        **Active Optimization (Actually Modifies Memory):**
+
+        5. merge_duplicates - Actually merge similar entries
+           Preview: MemoryDefrag(action: "merge_duplicates", similarity_threshold: 0.85, dry_run: true)
+           Execute: MemoryDefrag(action: "merge_duplicates", similarity_threshold: 0.85, dry_run: false)
+           Merges similar entries, creates stub files with auto-redirect.
+
+        6. cleanup_stubs - Remove old redirect files
+           MemoryDefrag(action: "cleanup_stubs", age_days: 30, max_hits: 3, dry_run: false)
+           Deletes stub files that are old and rarely accessed.
+
+        7. compact - Delete low-value entries
+           MemoryDefrag(action: "compact", min_quality_score: 20, min_age_days: 30, max_hits: 0, dry_run: false)
+           Permanently deletes entries with low quality, old age, and zero hits.
+
+        8. full - Complete optimization
+           Preview: MemoryDefrag(action: "full", dry_run: true)
+           Execute: MemoryDefrag(action: "full", dry_run: false)
+           Runs merge + cleanup + compact. Shows health score improvement.
+
+        ## Best Practices
+
+        1. Always preview first - Use dry_run=true to see what would happen
+        2. Analyze before optimizing - Run analyze to understand current state
+        3. Conservative thresholds - Start with high similarity (0.85+) for merges
+        4. Regular maintenance - Run every 20-50 new entries
+        5. Review merge results - Check that stubs work correctly
+        6. Re-analyze after - Verify health score improved
+
+        SAFETY: Active operations default to dry_run=true. Set dry_run=false to actually perform changes.
       DESC
 
       param :action,
