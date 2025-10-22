@@ -14,15 +14,13 @@ Gem::Specification.new do |spec|
 
   spec.files         = Dir["lib/**/*", "LICENSE", "README.md"]
   spec.require_paths = ["lib"]
-  spec.required_ruby_version = ">= 3.0.0"
+  spec.required_ruby_version = ">= 3.2.0"
 
   # Core dependencies
+  spec.add_dependency("async", "~> 2.0")
   spec.add_dependency("informers", "~> 1.2.1")
   spec.add_dependency("ruby_llm", "~> 1.8")
   spec.add_dependency("swarm_sdk", "~> 2.0")
   spec.add_dependency("zeitwerk", "~> 2.6")
 
-  # Development dependencies
-  spec.add_development_dependency("minitest", "~> 5.0")
-  spec.add_development_dependency("rake", "~> 13.0")
 end

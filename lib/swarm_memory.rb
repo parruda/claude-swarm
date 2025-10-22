@@ -8,6 +8,8 @@ require "time"
 require "date"
 require "set"
 
+require "async"
+require "async/semaphore"
 require "swarm_sdk"
 require "ruby_llm"
 
