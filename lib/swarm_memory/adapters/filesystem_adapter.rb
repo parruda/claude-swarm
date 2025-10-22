@@ -33,7 +33,7 @@ module SwarmMemory
         raise ArgumentError, "directory is required for FilesystemAdapter" if directory.nil? || directory.to_s.strip.empty?
 
         @directory = File.expand_path(directory)
-        @mutex = Mutex.new
+        @semaphore = Async::Semaphore.new(1) # Fiber-aware concurrency control
         @total_size = 0
 
         # Create directory if it doesn't exist
@@ -56,7 +56,7 @@ module SwarmMemory
       # @return [Core::Entry] The created entry
       def write(file_path:, content:, title:, embedding: nil, metadata: nil)
         with_write_lock do
-          @mutex.synchronize do
+          @semaphore.acquire do
             raise ArgumentError, "file_path is required" if file_path.nil? || file_path.to_s.strip.empty?
             raise ArgumentError, "content is required" if content.nil?
             raise ArgumentError, "title is required" if title.nil? || title.to_s.strip.empty?
@@ -221,7 +221,7 @@ module SwarmMemory
       # @return [void]
       def delete(file_path:)
         with_write_lock do
-          @mutex.synchronize do
+          @semaphore.acquire do
             raise ArgumentError, "file_path is required" if file_path.nil? || file_path.to_s.strip.empty?
 
             # Strip .md extension and flatten path
@@ -344,14 +344,16 @@ module SwarmMemory
       #
       # @return [void]
       def clear
-        @mutex.synchronize do
-          # Delete all .md, .yml, .emb files
-          Dir.glob(File.join(@directory, "**/*.{md,yaml,emb}")).each do |file|
-            File.delete(file)
-          end
+        with_write_lock do
+          @semaphore.acquire do
+            # Delete all .md, .yml, .emb files
+            Dir.glob(File.join(@directory, "**/*.{md,yml,emb}")).each do |file|
+              File.delete(file)
+            end
 
-          @total_size = 0
-          @index = {}
+            @total_size = 0
+            @index = {}
+          end
         end
       end
 
@@ -450,7 +452,7 @@ module SwarmMemory
         yaml_file = File.join(@directory, "#{disk_path}.yml")
         return unless File.exist?(yaml_file)
 
-        @mutex.synchronize do
+        @semaphore.acquire do
           data = YAML.load_file(yaml_file, permitted_classes: [Time, Date, Symbol])
           # Use string key to match the rest of the YAML file
           data["hits"] = (data[:hits] || data["hits"] || 0) + 1
