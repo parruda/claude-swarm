@@ -92,15 +92,18 @@ module SwarmMemory
         end
 
         # 4. Extract tool requirements
-        required_tools = entry.metadata["tools"] || []
+        required_tools = entry.metadata["tools"]
         permissions = entry.metadata["permissions"] || {}
 
-        # 5. Validate and swap tools
-        begin
-          swap_tools(required_tools, permissions)
-        rescue ArgumentError => e
-          return validation_error(e.message)
+        # 5. Validate and swap tools (only if tools are specified)
+        if required_tools && !required_tools.empty?
+          begin
+            swap_tools(required_tools, permissions)
+          rescue ArgumentError => e
+            return validation_error(e.message)
+          end
         end
+        # If no tools specified (nil or []), keep current tools (no swap)
 
         # 6. Mark skill as loaded
         @chat.mark_skill_loaded(file_path)

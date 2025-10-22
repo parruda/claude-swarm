@@ -24,6 +24,13 @@ module SwarmMemory
       # Stub markers
       STUB_MARKERS = ["# merged →", "# moved →"].freeze
 
+      # Virtual built-in entries that always exist without taking storage space
+      # These are meta-skills and resources available to all agents
+      # Mapped as: memory_path => gem_file_basename
+      VIRTUAL_ENTRIES = {
+        "skill/meta/deep-learning-protocol.md" => "deep_learning",
+      }.freeze
+
       # Initialize filesystem adapter with directory
       #
       # @param directory [String] Directory path for storage (REQUIRED)
@@ -149,6 +156,12 @@ module SwarmMemory
       def read(file_path:)
         raise ArgumentError, "file_path is required" if file_path.nil? || file_path.to_s.strip.empty?
 
+        # Check for virtual built-in entries first
+        if VIRTUAL_ENTRIES.key?(file_path)
+          entry = load_virtual_entry(file_path)
+          return entry.content
+        end
+
         # Strip .md extension and flatten path
         base_path = file_path.sub(/\.md\z/, "")
         disk_path = flatten_path(base_path)
@@ -176,6 +189,11 @@ module SwarmMemory
       # @return [Core::Entry] Full entry object
       def read_entry(file_path:)
         raise ArgumentError, "file_path is required" if file_path.nil? || file_path.to_s.strip.empty?
+
+        # Check for virtual built-in entries first
+        if VIRTUAL_ENTRIES.key?(file_path)
+          return load_virtual_entry(file_path)
+        end
 
         # Strip .md extension and flatten path
         base_path = file_path.sub(/\.md\z/, "")
@@ -386,6 +404,35 @@ module SwarmMemory
       end
 
       private
+
+      # Load virtual built-in entry from gem files
+      #
+      # Virtual entries are stored in lib/swarm_memory/skills/ as .md/.yml pairs
+      # and are always available without taking user storage space.
+      #
+      # @param file_path [String] Logical path (e.g., "skill/meta/deep-learning-protocol.md")
+      # @return [Core::Entry] Virtual entry object
+      def load_virtual_entry(file_path)
+        basename = VIRTUAL_ENTRIES[file_path]
+        skills_dir = File.expand_path("../skills", __dir__)
+
+        # Load content from .md file
+        md_file = File.join(skills_dir, "#{basename}.md")
+        content = File.read(md_file)
+
+        # Load metadata from .yml file
+        yml_file = File.join(skills_dir, "#{basename}.yml")
+        yaml_data = YAML.load_file(yml_file, permitted_classes: [Time, Date, Symbol])
+
+        Core::Entry.new(
+          content: content,
+          title: yaml_data["title"],
+          updated_at: Time.now,
+          size: content.bytesize,
+          embedding: nil,
+          metadata: yaml_data,
+        )
+      end
 
       # Flatten path for disk storage
       # "concepts/ruby/classes" → "concepts--ruby--classes"
