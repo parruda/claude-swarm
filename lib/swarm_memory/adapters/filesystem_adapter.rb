@@ -39,6 +39,9 @@ module SwarmMemory
         # Create directory if it doesn't exist
         FileUtils.mkdir_p(@directory)
 
+        # Lock file for cross-process synchronization
+        @lock_file_path = File.join(@directory, ".lock")
+
         # Build in-memory index on boot (for fast lookups)
         @index = build_index
       end
@@ -52,88 +55,90 @@ module SwarmMemory
       # @param metadata [Hash, nil] Optional metadata
       # @return [Core::Entry] The created entry
       def write(file_path:, content:, title:, embedding: nil, metadata: nil)
-        @mutex.synchronize do
-          raise ArgumentError, "file_path is required" if file_path.nil? || file_path.to_s.strip.empty?
-          raise ArgumentError, "content is required" if content.nil?
-          raise ArgumentError, "title is required" if title.nil? || title.to_s.strip.empty?
+        with_write_lock do
+          @mutex.synchronize do
+            raise ArgumentError, "file_path is required" if file_path.nil? || file_path.to_s.strip.empty?
+            raise ArgumentError, "content is required" if content.nil?
+            raise ArgumentError, "title is required" if title.nil? || title.to_s.strip.empty?
 
-          # Content is stored as-is (no frontmatter extraction)
-          # Metadata comes from tool parameters, not from content
-          content_size = content.bytesize
+            # Content is stored as-is (no frontmatter extraction)
+            # Metadata comes from tool parameters, not from content
+            content_size = content.bytesize
 
-          # Ensure all metadata keys are strings
-          stringified_metadata = metadata ? Utils.stringify_keys(metadata) : {}
+            # Ensure all metadata keys are strings
+            stringified_metadata = metadata ? Utils.stringify_keys(metadata) : {}
 
-          # Check entry size limit
-          if content_size > MAX_ENTRY_SIZE
-            raise ArgumentError, "Content exceeds maximum size (#{format_bytes(MAX_ENTRY_SIZE)}). " \
-              "Current: #{format_bytes(content_size)}"
+            # Check entry size limit
+            if content_size > MAX_ENTRY_SIZE
+              raise ArgumentError, "Content exceeds maximum size (#{format_bytes(MAX_ENTRY_SIZE)}). " \
+                "Current: #{format_bytes(content_size)}"
+            end
+
+            # Calculate new total size
+            existing_size = get_entry_size(file_path)
+            new_total_size = @total_size - existing_size + content_size
+
+            # Check total size limit
+            if new_total_size > MAX_TOTAL_SIZE
+              raise ArgumentError, "Memory storage full (#{format_bytes(MAX_TOTAL_SIZE)} limit). " \
+                "Current: #{format_bytes(@total_size)}, " \
+                "Would be: #{format_bytes(new_total_size)}. " \
+                "Clear old entries or use smaller content."
+            end
+
+            # Strip .md extension and flatten path for disk storage
+            # "concepts/ruby/classes.md" → "concepts--ruby--classes"
+            base_path = file_path.sub(/\.md\z/, "")
+            disk_path = flatten_path(base_path)
+
+            # 1. Write content to .md file (stored exactly as provided)
+            md_file = File.join(@directory, "#{disk_path}.md")
+            FileUtils.mkdir_p(File.dirname(md_file))
+            File.write(md_file, content)
+
+            # 2. Write metadata to .yml file
+            yaml_file = File.join(@directory, "#{disk_path}.yml")
+            existing_hits = read_yaml_field(yaml_file, :hits) || 0
+
+            yaml_data = {
+              title: title,
+              file_path: file_path, # Logical path with .md extension
+              updated_at: Time.now,
+              size: content_size,
+              hits: existing_hits, # Preserve hit count
+              metadata: stringified_metadata, # Metadata from tool parameters
+              embedding_checksum: embedding ? checksum(embedding) : nil,
+            }
+            # Convert symbol keys to strings for clean YAML output
+            File.write(yaml_file, YAML.dump(Utils.stringify_keys(yaml_data)))
+
+            # 3. Write embedding to .emb file (binary, optional)
+            if embedding
+              emb_file = File.join(@directory, "#{disk_path}.emb")
+              File.write(emb_file, embedding.pack("f*"))
+            end
+
+            # Update total size
+            @total_size = new_total_size
+
+            # Update index
+            @index[file_path] = {
+              disk_path: disk_path,
+              title: title,
+              size: content_size,
+              updated_at: Time.now,
+            }
+
+            # Return entry object
+            Core::Entry.new(
+              content: content,
+              title: title,
+              updated_at: Time.now,
+              size: content_size,
+              embedding: embedding,
+              metadata: stringified_metadata,
+            )
           end
-
-          # Calculate new total size
-          existing_size = get_entry_size(file_path)
-          new_total_size = @total_size - existing_size + content_size
-
-          # Check total size limit
-          if new_total_size > MAX_TOTAL_SIZE
-            raise ArgumentError, "Memory storage full (#{format_bytes(MAX_TOTAL_SIZE)} limit). " \
-              "Current: #{format_bytes(@total_size)}, " \
-              "Would be: #{format_bytes(new_total_size)}. " \
-              "Clear old entries or use smaller content."
-          end
-
-          # Strip .md extension and flatten path for disk storage
-          # "concepts/ruby/classes.md" → "concepts--ruby--classes"
-          base_path = file_path.sub(/\.md\z/, "")
-          disk_path = flatten_path(base_path)
-
-          # 1. Write content to .md file (stored exactly as provided)
-          md_file = File.join(@directory, "#{disk_path}.md")
-          FileUtils.mkdir_p(File.dirname(md_file))
-          File.write(md_file, content)
-
-          # 2. Write metadata to .yml file
-          yaml_file = File.join(@directory, "#{disk_path}.yml")
-          existing_hits = read_yaml_field(yaml_file, :hits) || 0
-
-          yaml_data = {
-            title: title,
-            file_path: file_path, # Logical path with .md extension
-            updated_at: Time.now,
-            size: content_size,
-            hits: existing_hits, # Preserve hit count
-            metadata: stringified_metadata, # Metadata from tool parameters
-            embedding_checksum: embedding ? checksum(embedding) : nil,
-          }
-          # Convert symbol keys to strings for clean YAML output
-          File.write(yaml_file, YAML.dump(Utils.stringify_keys(yaml_data)))
-
-          # 3. Write embedding to .emb file (binary, optional)
-          if embedding
-            emb_file = File.join(@directory, "#{disk_path}.emb")
-            File.write(emb_file, embedding.pack("f*"))
-          end
-
-          # Update total size
-          @total_size = new_total_size
-
-          # Update index
-          @index[file_path] = {
-            disk_path: disk_path,
-            title: title,
-            size: content_size,
-            updated_at: Time.now,
-          }
-
-          # Return entry object
-          Core::Entry.new(
-            content: content,
-            title: title,
-            updated_at: Time.now,
-            size: content_size,
-            embedding: embedding,
-            metadata: stringified_metadata,
-          )
         end
       end
 
@@ -215,29 +220,31 @@ module SwarmMemory
       # @param file_path [String] Logical path with .md extension
       # @return [void]
       def delete(file_path:)
-        @mutex.synchronize do
-          raise ArgumentError, "file_path is required" if file_path.nil? || file_path.to_s.strip.empty?
+        with_write_lock do
+          @mutex.synchronize do
+            raise ArgumentError, "file_path is required" if file_path.nil? || file_path.to_s.strip.empty?
 
-          # Strip .md extension and flatten path
-          base_path = file_path.sub(/\.md\z/, "")
-          disk_path = flatten_path(base_path)
-          md_file = File.join(@directory, "#{disk_path}.md")
+            # Strip .md extension and flatten path
+            base_path = file_path.sub(/\.md\z/, "")
+            disk_path = flatten_path(base_path)
+            md_file = File.join(@directory, "#{disk_path}.md")
 
-          raise ArgumentError, "memory://#{file_path} not found" unless File.exist?(md_file)
+            raise ArgumentError, "memory://#{file_path} not found" unless File.exist?(md_file)
 
-          # Get size before deletion
-          entry_size = get_entry_size(file_path)
+            # Get size before deletion
+            entry_size = get_entry_size(file_path)
 
-          # Delete all related files
-          File.delete(md_file) if File.exist?(md_file)
-          File.delete(File.join(@directory, "#{disk_path}.yaml")) if File.exist?(File.join(@directory, "#{disk_path}.yaml"))
-          File.delete(File.join(@directory, "#{disk_path}.emb")) if File.exist?(File.join(@directory, "#{disk_path}.emb"))
+            # Delete all related files
+            File.delete(md_file) if File.exist?(md_file)
+            File.delete(File.join(@directory, "#{disk_path}.yaml")) if File.exist?(File.join(@directory, "#{disk_path}.yaml"))
+            File.delete(File.join(@directory, "#{disk_path}.emb")) if File.exist?(File.join(@directory, "#{disk_path}.emb"))
 
-          # Update total size
-          @total_size -= entry_size
+            # Update total size
+            @total_size -= entry_size
 
-          # Update index
-          @index.delete(file_path)
+            # Update index
+            @index.delete(file_path)
+          end
         end
       end
 
@@ -637,6 +644,29 @@ module SwarmMemory
         Time.parse(value.to_s)
       rescue ArgumentError
         nil
+      end
+
+      # Execute block with cross-process write lock
+      #
+      # Uses flock to ensure exclusive access across processes.
+      # This prevents corruption when agent writes while defrag runs.
+      #
+      # @yield Block to execute with lock held
+      # @return [Object] Result of block
+      def with_write_lock
+        # Open lock file (create if doesn't exist)
+        File.open(@lock_file_path, File::RDWR | File::CREAT, 0o644) do |lock_file|
+          # Acquire exclusive lock (blocks if another process has it)
+          lock_file.flock(File::LOCK_EX)
+
+          begin
+            # Execute the block with lock held
+            yield
+          ensure
+            # Release lock
+            lock_file.flock(File::LOCK_UN)
+          end
+        end
       end
     end
   end
