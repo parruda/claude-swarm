@@ -92,6 +92,9 @@ module SwarmSDK
         # Agent identifier (for plugin callbacks)
         @agent_name = agent_name
 
+        # Context manager for ephemeral messages and future context optimization
+        @context_manager = ContextManager.new
+
         # Rate limiting semaphores
         @global_semaphore = global_semaphore
         @local_semaphore = max_concurrent_tools ? Async::Semaphore.new(max_concurrent_tools) : nil
@@ -231,11 +234,18 @@ module SwarmSDK
         is_first = SystemReminderInjector.first_message?(self)
 
         if is_first
-          # Manually construct the first message sequence with system reminders
-          SystemReminderInjector.inject_first_message_reminders(self, prompt)
+          # Collect plugin reminders first
+          plugin_reminders = collect_plugin_reminders(prompt, is_first_message: true)
 
-          # Collect and inject plugin reminders
-          inject_plugin_reminders(prompt, is_first_message: true)
+          # Build full prompt with embedded plugin reminders
+          full_prompt = prompt
+          plugin_reminders.each do |reminder|
+            full_prompt = "#{full_prompt}\n\n#{reminder}"
+          end
+
+          # Inject first message reminders (includes system reminders + toolset + after)
+          # SystemReminderInjector will embed all reminders in the prompt via add_message
+          SystemReminderInjector.inject_first_message_reminders(self, full_prompt)
 
           # Trigger user_prompt hook manually since we're bypassing the normal ask flow
           if @hook_executor
@@ -257,45 +267,173 @@ module SwarmSDK
           # Call complete to get LLM response
           complete(**options)
         else
-          # Inject periodic TodoWrite reminder if needed
+          # Build prompt with embedded reminders (if needed)
+          full_prompt = prompt
+
+          # Add periodic TodoWrite reminder if needed
           if SystemReminderInjector.should_inject_todowrite_reminder?(self, @last_todowrite_message_index)
-            add_message(role: :user, content: SystemReminderInjector::TODOWRITE_PERIODIC_REMINDER)
+            full_prompt = "#{full_prompt}\n\n#{SystemReminderInjector::TODOWRITE_PERIODIC_REMINDER}"
             # Update tracking
             @last_todowrite_message_index = SystemReminderInjector.find_last_todowrite_index(self)
           end
 
-          # Collect and inject plugin reminders
-          inject_plugin_reminders(prompt, is_first_message: false)
+          # Collect plugin reminders and embed them
+          plugin_reminders = collect_plugin_reminders(full_prompt, is_first_message: false)
+          plugin_reminders.each do |reminder|
+            full_prompt = "#{full_prompt}\n\n#{reminder}"
+          end
 
           # Normal ask behavior for subsequent messages
           # This calls super which goes to HookIntegration's ask override
-          super(prompt, **options)
+          # HookIntegration will call add_message, and we'll extract reminders there
+          super(full_prompt, **options)
         end
       end
 
-      # Collect and inject reminders from all plugins
+      # Override add_message to automatically extract and strip system reminders
+      #
+      # System reminders are extracted and tracked as ephemeral content (embedded
+      # when sent to LLM but not persisted in conversation history).
+      #
+      # @param message_or_attributes [RubyLLM::Message, Hash] Message object or attributes hash
+      # @return [RubyLLM::Message] The added message (with clean content)
+      def add_message(message_or_attributes)
+        # Handle both forms: add_message(message) and add_message({role: :user, content: "text"})
+        if message_or_attributes.is_a?(RubyLLM::Message)
+          # Message object provided
+          msg = message_or_attributes
+          content_str = msg.content.is_a?(RubyLLM::Content) ? msg.content.text : msg.content.to_s
+
+          # Extract system reminders
+          if @context_manager.has_system_reminders?(content_str)
+            reminders = @context_manager.extract_system_reminders(content_str)
+            clean_content_str = @context_manager.strip_system_reminders(content_str)
+
+            clean_content = if msg.content.is_a?(RubyLLM::Content)
+              RubyLLM::Content.new(clean_content_str, msg.content.attachments)
+            else
+              clean_content_str
+            end
+
+            clean_message = RubyLLM::Message.new(
+              role: msg.role,
+              content: clean_content,
+              tool_call_id: msg.tool_call_id,
+            )
+
+            result = super(clean_message)
+
+            # Track reminders as ephemeral
+            reminders.each do |reminder|
+              @context_manager.add_ephemeral_reminder(reminder, messages_array: @messages)
+            end
+
+            result
+          else
+            # No reminders - call parent normally
+            super(msg)
+          end
+        else
+          # Hash attributes provided
+          attrs = message_or_attributes
+          content_value = attrs[:content] || attrs["content"]
+          content_str = content_value.is_a?(RubyLLM::Content) ? content_value.text : content_value.to_s
+
+          # Extract system reminders
+          if @context_manager.has_system_reminders?(content_str)
+            reminders = @context_manager.extract_system_reminders(content_str)
+            clean_content_str = @context_manager.strip_system_reminders(content_str)
+
+            clean_content = if content_value.is_a?(RubyLLM::Content)
+              RubyLLM::Content.new(clean_content_str, content_value.attachments)
+            else
+              clean_content_str
+            end
+
+            clean_attrs = attrs.merge(content: clean_content)
+            result = super(clean_attrs)
+
+            # Track reminders as ephemeral
+            reminders.each do |reminder|
+              @context_manager.add_ephemeral_reminder(reminder, messages_array: @messages)
+            end
+
+            result
+          else
+            # No reminders - call parent normally
+            super(attrs)
+          end
+        end
+      end
+
+      # Collect reminders from all plugins
       #
       # Plugins can contribute system reminders based on the user's message.
-      # This enables semantic skill discovery, context injection, etc.
+      # Returns array of reminder strings to be embedded in the user prompt.
       #
       # @param prompt [String] User's message
       # @param is_first_message [Boolean] True if first message
-      # @return [void]
-      def inject_plugin_reminders(prompt, is_first_message:)
-        return unless @agent_name # Skip if agent_name not set
+      # @return [Array<String>] Array of reminder strings
+      def collect_plugin_reminders(prompt, is_first_message:)
+        return [] unless @agent_name # Skip if agent_name not set
 
         # Collect reminders from all plugins
-        plugin_reminders = PluginRegistry.all.flat_map do |plugin|
+        PluginRegistry.all.flat_map do |plugin|
           plugin.on_user_message(
             agent_name: @agent_name,
             prompt: prompt,
             is_first_message: is_first_message,
           )
         end.compact
+      end
 
-        # Inject all plugin reminders as user messages
-        plugin_reminders.each do |reminder|
-          add_message(role: :user, content: reminder)
+      # Override complete() to inject ephemeral messages
+      #
+      # Ephemeral messages are sent to the LLM for the current turn only
+      # and are NOT stored in the conversation history. This prevents
+      # system reminders from accumulating and being resent every turn.
+      #
+      # @param options [Hash] Options to pass to provider
+      # @return [RubyLLM::Message] LLM response
+      def complete(**options, &block)
+        # Prepare messages: persistent + ephemeral for this turn
+        messages_for_llm = @context_manager.prepare_for_llm(@messages)
+
+        # Call provider with combined messages
+        response = @provider.complete(
+          messages_for_llm,
+          tools: @tools,
+          temperature: @temperature,
+          model: @model,
+          params: @params,
+          headers: @headers,
+          schema: @schema,
+          &wrap_streaming_block(&block)
+        )
+
+        @on[:new_message]&.call unless block
+
+        # Handle schema parsing if needed
+        if @schema && response.content.is_a?(String)
+          begin
+            response.content = JSON.parse(response.content)
+          rescue JSON::ParserError
+            # Keep as string if parsing fails
+          end
+        end
+
+        # Add response to persistent history
+        add_message(response)
+        @on[:end_message]&.call(response)
+
+        # Clear ephemeral messages after use
+        @context_manager.clear_ephemeral
+
+        # Handle tool calls if present
+        if response.tool_call?
+          handle_tool_calls(response, &block)
+        else
+          response
         end
       end
 
@@ -386,6 +524,7 @@ module SwarmSDK
           return result if result.is_a?(RubyLLM::Tool::Halt)
 
           # Add tool result to conversation
+          # add_message automatically extracts reminders and stores them as ephemeral
           content = result.is_a?(RubyLLM::Content) ? result : result.to_s
           message = add_message(
             role: :tool,
@@ -429,6 +568,7 @@ module SwarmSDK
                     result = pre_result[:custom_result] || "Tool execution blocked by hook"
                     @on[:tool_result]&.call(result)
 
+                    # add_message automatically extracts reminders
                     content = result.is_a?(RubyLLM::Content) ? result : result.to_s
                     message = add_message(
                       role: :tool,
@@ -457,6 +597,7 @@ module SwarmSDK
                   { tool_call: tool_call, result: result, message: nil }
                 else
                   # Add tool result to conversation
+                  # add_message automatically extracts reminders and stores them as ephemeral
                   content = result.is_a?(RubyLLM::Content) ? result : result.to_s
                   message = add_message(
                     role: :tool,
@@ -519,7 +660,7 @@ module SwarmSDK
       # This is needed for setting agent_name and other provider-specific settings.
       #
       # @return [RubyLLM::Provider::Base] Provider instance
-      attr_reader :provider, :global_semaphore, :local_semaphore, :real_model_info, :context_tracker
+      attr_reader :provider, :global_semaphore, :local_semaphore, :real_model_info, :context_tracker, :context_manager
 
       # Get context window limit for the current model
       #
