@@ -5,6 +5,15 @@ All notable changes to SwarmCLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **`/defrag` Slash Command** - Automated memory defragmentation workflow
+  - Discovers semantically related memory entries (60-85% similarity)
+  - Creates bidirectional links to build knowledge graph
+  - Runs `MemoryDefrag(action: "find_related")` then `MemoryDefrag(action: "link_related")`
+  - Accessible via `/defrag` in interactive REPL
+
 ## [2.0.2]
 
 ### Added
