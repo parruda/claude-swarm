@@ -66,10 +66,26 @@ module SwarmSDK
           # @param prompt [String] The user's actual prompt
           # @return [void]
           def inject_first_message_reminders(chat, prompt)
-            chat.add_message(role: :user, content: BEFORE_FIRST_MESSAGE_REMINDER)
-            chat.add_message(role: :user, content: build_toolset_reminder(chat))
-            chat.add_message(role: :user, content: prompt)
-            chat.add_message(role: :user, content: AFTER_FIRST_MESSAGE_REMINDER)
+            # Build user message with embedded reminders
+            # Reminders are embedded in the content, not separate messages
+            full_content = [
+              prompt,
+              BEFORE_FIRST_MESSAGE_REMINDER,
+              build_toolset_reminder(chat),
+              AFTER_FIRST_MESSAGE_REMINDER,
+            ].join("\n\n")
+
+            # Extract reminders and add clean prompt to persistent history
+            reminders = chat.context_manager.extract_system_reminders(full_content)
+            clean_prompt = chat.context_manager.strip_system_reminders(full_content)
+
+            # Store clean prompt (without reminders) in conversation history
+            chat.add_message(role: :user, content: clean_prompt)
+
+            # Track reminders to embed in this message when sending to LLM
+            reminders.each do |reminder|
+              chat.context_manager.add_ephemeral_reminder(reminder, messages_array: chat.messages)
+            end
           end
 
           # Build toolset reminder listing all available tools
