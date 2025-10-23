@@ -4,36 +4,26 @@ module SwarmMemory
   module Integration
     # Auto-registration with SwarmSDK
     #
-    # Registers memory tools with SwarmSDK's extension mechanism when
-    # the swarm_memory gem is required.
+    # Registers SwarmMemory plugin with SwarmSDK when the swarm_memory gem is loaded.
+    # This enables SwarmSDK to automatically use SwarmMemory features.
     class Registration
       class << self
-        # Register memory tools with SwarmSDK
+        # Register SwarmMemory plugin with SwarmSDK
         #
         # This is called automatically when swarm_memory is required.
-        # It registers all memory tools so SwarmSDK can create them.
+        # It registers the plugin so SwarmSDK can provide memory tools and storage.
         #
         # @return [void]
         def register!
           # Only register if SwarmSDK is present
           return unless defined?(SwarmSDK)
+          return unless defined?(SwarmSDK::PluginRegistry)
 
-          # Register all memory tools with SwarmSDK's extension mechanism
-          memory_tools = {
-            MemoryWrite: :special,
-            MemoryRead: :special,
-            MemoryEdit: :special,
-            MemoryMultiEdit: :special,
-            MemoryDelete: :special,
-            MemoryGlob: :special,
-            MemoryGrep: :special,
-            MemoryDefrag: :special,
-            LoadSkill: :special,
-          }
-
-          SwarmSDK::Tools::Registry.register_extension(:memory, memory_tools)
+          # Register plugin with SwarmSDK
+          plugin = SDKPlugin.new
+          SwarmSDK::PluginRegistry.register(plugin)
         rescue StandardError => e
-          warn("Warning: Failed to register SwarmMemory tools with SwarmSDK: #{e.message}")
+          warn("Warning: Failed to register SwarmMemory plugin with SwarmSDK: #{e.message}")
         end
       end
     end

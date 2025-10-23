@@ -26,6 +26,7 @@ module SwarmCLI
       "/clear" => "Clear the lead agent's conversation context",
       "/tools" => "List the lead agent's available tools",
       "/history" => "Show conversation history",
+      "/defrag" => "Run memory defragmentation workflow (find and link related entries)",
       "/exit" => "Exit the REPL (or press Ctrl+D)",
     }.freeze
 
@@ -153,6 +154,8 @@ module SwarmCLI
         list_tools
       when "/history"
         display_history
+      when "/defrag"
+        defrag_memory
       when "/exit"
         # Break from main loop to trigger session summary
         throw(:exit_repl)
@@ -655,6 +658,26 @@ module SwarmCLI
       end
 
       puts @colors[:divider].call("─" * 60)
+    end
+
+    def defrag_memory
+      puts ""
+      puts @colors[:header].call("🔧 Memory Defragmentation Workflow")
+      puts @colors[:divider].call("─" * 60)
+      puts ""
+
+      # Inject prompt to run find_related then link_related
+      prompt = <<~PROMPT.strip
+        Run memory defragmentation workflow:
+
+        1. First, run MemoryDefrag(action: "find_related") to discover related entries
+        2. Review the results carefully
+        3. Then run MemoryDefrag(action: "link_related", dry_run: false) to create bidirectional links
+
+        Report what you found and what links were created.
+      PROMPT
+
+      handle_message(prompt)
     end
 
     def display_goodbye

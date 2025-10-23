@@ -2,6 +2,23 @@
 
 Use this when asked to learn deeply about a topic.
 
+## CRITICAL: Use Memory Tools ONLY
+
+**NEVER use Write, Edit, or file tools during learning.**
+
+All knowledge MUST be stored using Memory* tools:
+- MemoryWrite - Store concepts, facts, skills
+- MemoryRead - Recall what you've learned
+- MemoryGrep - Search your knowledge
+- MemoryEdit - Update existing knowledge
+
+**Do NOT:**
+- Write to disk files (Write, Edit, MultiEdit)
+- Create temporary files
+- Store knowledge anywhere except Memory
+
+**Only use Memory* tools for persistence.**
+
 ## Steps
 
 1. **Define Scope**
@@ -13,19 +30,19 @@ Use this when asked to learn deeply about a topic.
    - Official documentation (WebFetch)
    - Key concepts and terminology
    - Main use cases and applications
-   - Store concept entries for high-level understanding
+   - **Use MemoryWrite** to store concept entries for high-level understanding
 
 3. **Research Deeply** (Specifics)
    - API details, syntax, configuration
    - Best practices and patterns
    - Common pitfalls and anti-patterns
-   - Store fact entries for concrete details
+   - **Use MemoryWrite** to store fact entries for concrete details
 
 4. **Build Practical Skills**
    - How to set up / configure
    - How to use for common tasks
    - How to debug and troubleshoot
-   - Store skill entries with comprehensive tags
+   - **Use MemoryWrite** to store skill entries with comprehensive tags
 
 5. **Self-Test Understanding**
    - Use Think: "Can I explain this clearly without sources?"

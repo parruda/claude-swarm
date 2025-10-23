@@ -30,27 +30,12 @@ module SwarmSDK
         :ScratchpadList,
       ].freeze
 
-      # Memory tools (added if memory is configured for the agent)
-      # Provided by swarm_memory gem
-      #
-      # Note: LoadSkill is NOT included in this list because it requires special
-      # handling (needs chat, tool_configurator, agent_definition) and is registered
-      # separately in AgentInitializer#register_load_skill_tool after the chat is created.
-      MEMORY_TOOLS = [
-        :MemoryWrite,
-        :MemoryRead,
-        :MemoryEdit,
-        :MemoryMultiEdit,
-        :MemoryGlob,
-        :MemoryGrep,
-        :MemoryDelete,
-        :MemoryDefrag,
-      ].freeze
-
-      def initialize(swarm, scratchpad_storage, memory_storages)
+      def initialize(swarm, scratchpad_storage, plugin_storages = {})
         @swarm = swarm
         @scratchpad_storage = scratchpad_storage
-        @memory_storages = memory_storages
+        # Plugin storages: { plugin_name => { agent_name => storage } }
+        # e.g., { memory: { agent1: storage1, agent2: storage2 } }
+        @plugin_storages = plugin_storages
       end
 
       # Register all tools for an agent (both explicit and default)
@@ -67,15 +52,23 @@ module SwarmSDK
       #
       # File tools and TodoWrite require agent context for tracking state.
       # Scratchpad tools require shared scratchpad instance.
+      # Plugin tools are delegated to their respective plugins.
       #
       # This method is public for testing delegation from Swarm.
       #
       # @param tool_name [Symbol, String] Tool name
       # @param agent_name [Symbol] Agent name for context
       # @param directory [String] Agent's working directory
+      # @param chat [Agent::Chat, nil] Optional chat instance for tools that need it
+      # @param agent_definition [Agent::Definition, nil] Optional agent definition
       # @return [RubyLLM::Tool] Tool instance
-      def create_tool_instance(tool_name, agent_name, directory)
+      def create_tool_instance(tool_name, agent_name, directory, chat: nil, agent_definition: nil)
         tool_name_sym = tool_name.to_sym
+
+        # Check if tool is provided by a plugin
+        if PluginRegistry.plugin_tool?(tool_name_sym)
+          return create_plugin_tool(tool_name_sym, agent_name, directory, chat, agent_definition)
+        end
 
         case tool_name_sym
         when :Read
@@ -104,24 +97,17 @@ module SwarmSDK
           Tools::Think.new
         when :Clock
           Tools::Clock.new
-
-        # Memory tools - delegate to SwarmMemory gem if available
-        when :MemoryWrite, :MemoryRead, :MemoryEdit, :MemoryMultiEdit,
-             :MemoryDelete, :MemoryGlob, :MemoryGrep, :MemoryDefrag
-
-          unless defined?(SwarmMemory)
-            raise ConfigurationError,
-              "Memory tools require 'swarm_memory' gem. " \
-                "Add to Gemfile: gem 'swarm_memory'"
-          end
-
-          # Delegate to SwarmMemory for tool creation
-          storage = @memory_storages[agent_name]
-          SwarmMemory.create_tool(tool_name_sym, storage: storage, agent_name: agent_name)
         else
           # Regular tools - get class from registry and instantiate
           tool_class = Tools::Registry.get(tool_name_sym)
           raise ConfigurationError, "Unknown tool: #{tool_name}" unless tool_class
+
+          # Check if tool is marked as :special but not handled in case statement
+          if tool_class == :special
+            raise ConfigurationError,
+              "Tool '#{tool_name}' requires special initialization but is not handled in create_tool_instance. " \
+                "This is a bug - #{tool_name} should be added to the case statement above."
+          end
 
           tool_class.new
         end
@@ -202,30 +188,10 @@ module SwarmSDK
           end
         end
 
-        # Register memory tools if configured for this agent
-        # Memory tools are NOT affected by disable_default_tools since they're
-        # explicitly configured via memory {} block
-        if agent_definition.memory_enabled?
-          MEMORY_TOOLS.each do |tool_name|
-            # Skip if already registered explicitly
-            next if explicit_tool_names.include?(tool_name)
-
-            tool_instance = create_tool_instance(tool_name, agent_name, agent_definition.directory)
-
-            # Resolve permissions for memory tool
-            permissions_config = agent_definition.agent_permissions[tool_name] ||
-              agent_definition.default_permissions[tool_name]
-
-            # Wrap with permissions validator if configured
-            tool_instance = wrap_tool_with_permissions(
-              tool_instance,
-              permissions_config,
-              agent_definition,
-            )
-
-            chat.with_tool(tool_instance)
-          end
-        end
+        # Register plugin tools if plugin storage is enabled for this agent
+        # Plugin tools are NOT affected by disable_default_tools since they're
+        # explicitly configured via plugin config blocks (e.g., memory {} block)
+        register_plugin_tools(chat, agent_name, agent_definition, explicit_tool_names)
       end
 
       # Register a tool if not already explicit or disabled
@@ -250,6 +216,81 @@ module SwarmSDK
         )
 
         chat.with_tool(tool_instance)
+      end
+
+      # Create a tool instance via plugin
+      #
+      # @param tool_name [Symbol] Tool name
+      # @param agent_name [Symbol] Agent name
+      # @param directory [String] Working directory
+      # @param chat [Agent::Chat, nil] Chat instance
+      # @param agent_definition [Agent::Definition, nil] Agent definition
+      # @return [RubyLLM::Tool] Tool instance
+      def create_plugin_tool(tool_name, agent_name, directory, chat, agent_definition)
+        plugin = PluginRegistry.plugin_for_tool(tool_name)
+        raise ConfigurationError, "Tool #{tool_name} is not provided by any plugin" unless plugin
+
+        # Get plugin storage for this agent
+        plugin_storages = @plugin_storages[plugin.name] || {}
+        storage = plugin_storages[agent_name]
+
+        # Build context for tool creation
+        context = {
+          agent_name: agent_name,
+          directory: directory,
+          storage: storage,
+          agent_definition: agent_definition,
+          chat: chat,
+          tool_configurator: self,
+        }
+
+        plugin.create_tool(tool_name, context)
+      end
+
+      # Register plugin-provided tools for an agent
+      #
+      # Asks all plugins if they have tools to register for this agent.
+      #
+      # @param chat [Agent::Chat] Chat instance
+      # @param agent_name [Symbol] Agent name
+      # @param agent_definition [Agent::Definition] Agent definition
+      # @param explicit_tool_names [Set<Symbol>] Already-registered tool names
+      def register_plugin_tools(chat, agent_name, agent_definition, explicit_tool_names)
+        PluginRegistry.all.each do |plugin|
+          # Check if plugin has storage enabled for this agent
+          next unless plugin.storage_enabled?(agent_definition)
+
+          # Get plugin storage for this agent
+          plugin_storages = @plugin_storages[plugin.name] || {}
+          plugin_storages[agent_name]
+
+          # Register each tool provided by the plugin
+          plugin.tools.each do |tool_name|
+            # Skip if already registered explicitly
+            next if explicit_tool_names.include?(tool_name)
+
+            tool_instance = create_tool_instance(
+              tool_name,
+              agent_name,
+              agent_definition.directory,
+              chat: chat,
+              agent_definition: agent_definition,
+            )
+
+            # Resolve permissions for plugin tool
+            permissions_config = agent_definition.agent_permissions[tool_name] ||
+              agent_definition.default_permissions[tool_name]
+
+            # Wrap with permissions validator if configured
+            tool_instance = wrap_tool_with_permissions(
+              tool_instance,
+              permissions_config,
+              agent_definition,
+            )
+
+            chat.with_tool(tool_instance)
+          end
+        end
       end
 
       # Check if a tool should be disabled based on disable_default_tools config

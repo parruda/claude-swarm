@@ -420,8 +420,8 @@ module SwarmSDK
       # First ask should inject system reminders
       chat.ask("Hello")
 
-      # Verify 3 messages were added (before reminder, prompt, after reminder)
-      assert_equal(3, added_messages.size)
+      # Verify 4 messages were added (before reminder, toolset reminder, prompt, after reminder)
+      assert_equal(4, added_messages.size)
 
       # Verify order and content
       assert_equal(:user, added_messages[0][:role])
@@ -429,10 +429,13 @@ module SwarmSDK
       assert_match(/NEVER create files unless/, added_messages[0][:content])
 
       assert_equal(:user, added_messages[1][:role])
-      assert_equal("Hello", added_messages[1][:content])
+      assert_match(/Tools available:/, added_messages[1][:content])
 
       assert_equal(:user, added_messages[2][:role])
-      assert_match(/todo list is currently empty/, added_messages[2][:content])
+      assert_equal("Hello", added_messages[2][:content])
+
+      assert_equal(:user, added_messages[3][:role])
+      assert_match(/todo list is currently empty/, added_messages[3][:content])
     end
 
     def test_system_reminders_not_injected_on_subsequent_ask

@@ -14,7 +14,7 @@ class VirtualEntriesTest < Minitest::Test
 
   def test_deep_learning_protocol_skill_is_always_available
     # Virtual skill should be readable even without being written
-    entry = @storage.read_entry(file_path: "skill/meta/deep-learning-protocol.md")
+    entry = @storage.read_entry(file_path: "skill/meta/deep-learning.md")
 
     assert_equal("Deep Learning Protocol", entry.title)
     assert_equal("skill", entry.metadata["type"])
@@ -31,7 +31,7 @@ class VirtualEntriesTest < Minitest::Test
   def test_virtual_skill_works_with_memory_read_tool
     # MemoryRead should return JSON for virtual entries
     tool = SwarmMemory::Tools::MemoryRead.new(storage: @storage, agent_name: :test)
-    result = tool.execute(file_path: "skill/meta/deep-learning-protocol.md")
+    result = tool.execute(file_path: "skill/meta/deep-learning.md")
 
     # Should return JSON
     parsed = JSON.parse(result)
@@ -61,7 +61,7 @@ class VirtualEntriesTest < Minitest::Test
     chat.add_tool(MockTool.new("Write"))
 
     # Load the virtual skill
-    result = load_skill.execute(file_path: "skill/meta/deep-learning-protocol.md")
+    result = load_skill.execute(file_path: "skill/meta/deep-learning.md")
 
     # Should succeed
     assert_match(/Loaded skill: Deep Learning Protocol/, result)
@@ -78,7 +78,7 @@ class VirtualEntriesTest < Minitest::Test
     assert_equal(0, @storage.total_size)
 
     # Read virtual entry
-    @storage.read_entry(file_path: "skill/meta/deep-learning-protocol.md")
+    @storage.read_entry(file_path: "skill/meta/deep-learning.md")
 
     # Storage should still be empty
     assert_equal(0, @storage.size)
@@ -88,14 +88,14 @@ class VirtualEntriesTest < Minitest::Test
   def test_virtual_entry_cannot_be_overwritten
     # Try to write to the same path as virtual entry
     @storage.write(
-      file_path: "skill/meta/deep-learning-protocol.md",
+      file_path: "skill/meta/deep-learning.md",
       content: "Overwrite attempt",
       title: "Should Not Work",
       metadata: { "type" => "skill" },
     )
 
     # Virtual entry should still be returned (not the written one)
-    entry = @storage.read_entry(file_path: "skill/meta/deep-learning-protocol.md")
+    entry = @storage.read_entry(file_path: "skill/meta/deep-learning.md")
 
     assert_equal("Deep Learning Protocol", entry.title)
     assert_match(/Deep Learning Protocol/, entry.content)

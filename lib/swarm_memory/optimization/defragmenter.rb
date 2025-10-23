@@ -260,6 +260,113 @@ module SwarmMemory
         report.join("\n")
       end
 
+      # Find related entries that should be cross-linked
+      #
+      # Finds entry pairs with semantic similarity in the "related" range
+      # but NOT duplicates. Uses pure semantic similarity (no keyword boost).
+      #
+      # @param min_threshold [Float] Minimum similarity for relationships (default: 0.60)
+      # @param max_threshold [Float] Maximum similarity (above = duplicates) (default: 0.85)
+      # @return [Array<Hash>] Related pairs
+      def find_related(min_threshold: 0.60, max_threshold: 0.85)
+        entries = @adapter.list
+        return [] if entries.size < 2
+
+        related_pairs = []
+        all_entries = @adapter.all_entries
+
+        # Compare all pairs
+        entry_paths = entries.map { |e| e[:path] }
+        entry_paths.combination(2).each do |path1, path2|
+          entry1 = all_entries[path1]
+          entry2 = all_entries[path2]
+
+          # Skip if no embeddings (need semantic similarity)
+          next unless entry1.embedded? && entry2.embedded?
+
+          # Calculate PURE semantic similarity (no keyword boosting for merging)
+          semantic_sim = Search::TextSimilarity.cosine(entry1.embedding, entry2.embedding)
+
+          # Must be in the "related" range
+          next if semantic_sim < min_threshold
+          next if semantic_sim >= max_threshold
+
+          # Check current linking status
+          entry1_related = (entry1.metadata["related"] || []).map { |r| r.sub(%r{^memory://}, "") }
+          entry2_related = (entry2.metadata["related"] || []).map { |r| r.sub(%r{^memory://}, "") }
+
+          linked_1_to_2 = entry1_related.include?(path2)
+          linked_2_to_1 = entry2_related.include?(path1)
+          already_linked = linked_1_to_2 && linked_2_to_1
+
+          # Extract metadata
+          type1 = entry1.metadata["type"] || "unknown"
+          type2 = entry2.metadata["type"] || "unknown"
+
+          related_pairs << {
+            path1: path1,
+            path2: path2,
+            similarity: (semantic_sim * 100).round(1),
+            title1: entry1.title,
+            title2: entry2.title,
+            type1: type1,
+            type2: type2,
+            already_linked: already_linked,
+            linked_1_to_2: linked_1_to_2,
+            linked_2_to_1: linked_2_to_1,
+          }
+        end
+
+        related_pairs.sort_by { |d| -d[:similarity] }
+      end
+
+      # Generate formatted report for related entries
+      #
+      # @param min_threshold [Float] Minimum similarity
+      # @param max_threshold [Float] Maximum similarity
+      # @return [String] Formatted report
+      def find_related_report(min_threshold: 0.60, max_threshold: 0.85)
+        pairs = find_related(min_threshold: min_threshold, max_threshold: max_threshold)
+
+        return "No related entry pairs found in #{(min_threshold * 100).round}-#{(max_threshold * 100).round}% similarity range." if pairs.empty?
+
+        report = []
+        report << "# Related Entries (#{pairs.size} pairs)"
+        report << ""
+        report << "Found #{pairs.size} pair(s) of semantically related entries."
+        report << "Similarity range: #{(min_threshold * 100).round}-#{(max_threshold * 100).round}% (pure semantic, no keyword boost)"
+        report << ""
+
+        pairs.each_with_index do |pair, index|
+          report << "## Pair #{index + 1}: #{pair[:similarity]}% similar"
+          report << "- memory://#{pair[:path1]} (#{pair[:type1]})"
+          report << "  \"#{pair[:title1]}\""
+          report << "- memory://#{pair[:path2]} (#{pair[:type2]})"
+          report << "  \"#{pair[:title2]}\""
+          report << ""
+
+          if pair[:already_linked]
+            report << "  ✓ Already linked bidirectionally"
+          elsif pair[:linked_1_to_2]
+            report << "  → Entry 1 links to Entry 2, but not vice versa"
+            report << "  **Suggestion:** Add backward link from Entry 2 to Entry 1"
+          elsif pair[:linked_2_to_1]
+            report << "  → Entry 2 links to Entry 1, but not vice versa"
+            report << "  **Suggestion:** Add backward link from Entry 1 to Entry 2"
+          else
+            report << "  **Suggestion:** Add bidirectional links to cross-reference these related entries"
+          end
+          report << ""
+        end
+
+        report << "To automatically create missing links, use:"
+        report << "  MemoryDefrag(action: \"link_related\", dry_run: true)  # Preview first"
+        report << "  MemoryDefrag(action: \"link_related\", dry_run: false) # Execute"
+        report << ""
+
+        report.join("\n")
+      end
+
       # ============================================================================
       # ACTIVE OPTIMIZATION OPERATIONS (Actually modify memory)
       # ============================================================================
@@ -368,6 +475,70 @@ module SwarmMemory
         format_compact_report(results, low_value.size, freed_bytes, dry_run)
       end
 
+      # Create bidirectional links between related entries
+      #
+      # Finds related pairs and updates their 'related' metadata to cross-reference each other.
+      #
+      # @param min_threshold [Float] Minimum similarity (default: 0.60)
+      # @param max_threshold [Float] Maximum similarity (default: 0.85)
+      # @param dry_run [Boolean] Preview mode (default: true)
+      # @return [String] Result report
+      def link_related_active(min_threshold: 0.60, max_threshold: 0.85, dry_run: true)
+        pairs = find_related(min_threshold: min_threshold, max_threshold: max_threshold)
+
+        # Filter to only pairs that need linking
+        needs_linking = pairs.reject { |p| p[:already_linked] }
+
+        if needs_linking.empty?
+          return "No related entries found that need linking. All similar entries are already cross-referenced."
+        end
+
+        report = []
+        report << (dry_run ? "# Link Related Entries (DRY RUN)" : "# Link Related Entries")
+        report << ""
+        report << "Found #{needs_linking.size} pair(s) that should be cross-linked."
+        report << ""
+
+        links_created = 0
+
+        needs_linking.each_with_index do |pair, index|
+          report << "## Pair #{index + 1}: #{pair[:similarity]}% similar"
+          report << "- memory://#{pair[:path1]}"
+          report << "- memory://#{pair[:path2]}"
+          report << ""
+
+          if dry_run
+            # Show what would happen
+            if !pair[:linked_1_to_2] && !pair[:linked_2_to_1]
+              report << "  Would add bidirectional links:"
+              report << "    - Add #{pair[:path2]} to #{pair[:path1]}'s related array"
+              report << "    - Add #{pair[:path1]} to #{pair[:path2]}'s related array"
+            elsif !pair[:linked_1_to_2]
+              report << "  Would add backward link:"
+              report << "    - Add #{pair[:path2]} to #{pair[:path1]}'s related array"
+            elsif !pair[:linked_2_to_1]
+              report << "  Would add backward link:"
+              report << "    - Add #{pair[:path1]} to #{pair[:path2]}'s related array"
+            end
+          else
+            # Actually create links
+            created = create_bidirectional_links(pair[:path1], pair[:path2], pair[:linked_1_to_2], pair[:linked_2_to_1])
+            links_created += created
+
+            report << "  ✓ Created #{created} link(s)"
+          end
+          report << ""
+        end
+
+        report << if dry_run
+          "**DRY RUN:** No changes made. Set dry_run=false to execute."
+        else
+          "**COMPLETED:** Created #{links_created} link(s) across #{needs_linking.size} pairs."
+        end
+
+        report.join("\n")
+      end
+
       # Full optimization (all operations)
       #
       # @param dry_run [Boolean] Preview mode (default: true)
@@ -456,6 +627,64 @@ module SwarmMemory
       # ============================================================================
       # HELPER METHODS FOR ACTIVE OPERATIONS
       # ============================================================================
+
+      # Create bidirectional links between two entries
+      #
+      # Updates the 'related' metadata arrays to cross-reference entries.
+      #
+      # @param path1 [String] First entry path
+      # @param path2 [String] Second entry path
+      # @param already_linked_1_to_2 [Boolean] If entry1 already links to entry2
+      # @param already_linked_2_to_1 [Boolean] If entry2 already links to entry1
+      # @return [Integer] Number of links created (0-2)
+      def create_bidirectional_links(path1, path2, already_linked_1_to_2, already_linked_2_to_1)
+        links_created = 0
+        all_entries = @adapter.all_entries
+
+        # Add path2 to entry1's related array (if not already there)
+        unless already_linked_1_to_2
+          entry1 = all_entries[path1]
+          related_array = entry1.metadata["related"] || []
+          related_array << "memory://#{path2}"
+
+          # Update entry1
+          metadata = entry1.metadata.dup
+          metadata["related"] = related_array.uniq
+
+          @adapter.write(
+            file_path: path1,
+            content: entry1.content,
+            title: entry1.title,
+            embedding: entry1.embedding,
+            metadata: metadata,
+          )
+
+          links_created += 1
+        end
+
+        # Add path1 to entry2's related array (if not already there)
+        unless already_linked_2_to_1
+          entry2 = all_entries[path2]
+          related_array = entry2.metadata["related"] || []
+          related_array << "memory://#{path1}"
+
+          # Update entry2
+          metadata = entry2.metadata.dup
+          metadata["related"] = related_array.uniq
+
+          @adapter.write(
+            file_path: path2,
+            content: entry2.content,
+            title: entry2.title,
+            embedding: entry2.embedding,
+            metadata: metadata,
+          )
+
+          links_created += 1
+        end
+
+        links_created
+      end
 
       # Merge a pair of duplicate entries
       #

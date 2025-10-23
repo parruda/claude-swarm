@@ -6,10 +6,11 @@ module SwarmSDK
     #
     # Maps tool names (symbols) to their RubyLLM::Tool classes.
     # Provides validation and lookup functionality for tool registration.
-    # Supports runtime extension registration for gems like swarm_memory.
+    #
+    # Note: Plugin-provided tools (e.g., memory tools) are NOT in this registry.
+    # They are registered via SwarmSDK::PluginRegistry instead.
     class Registry
       # All available built-in tools
-      # Memory tools removed - provided by swarm_memory gem
       BUILTIN_TOOLS = {
         Read: :special, # Requires agent context for read tracking
         Write: :special, # Requires agent context for read-before-write enforcement
@@ -27,45 +28,17 @@ module SwarmSDK
         Clock: SwarmSDK::Tools::Clock,
       }.freeze
 
-      # Runtime extension registry for gems that provide tools
-      @extensions = {}
-
       class << self
-        # Register tools from an extension gem
+        # Get tool class by name
         #
-        # This allows gems like swarm_memory to register their tools at runtime.
-        # Extensions are checked after built-in tools in get() and exists?().
-        #
-        # @param namespace [Symbol] Extension namespace (e.g., :memory)
-        # @param tools [Hash] Tool name => :special or Class
-        # @return [void]
-        #
-        # @example
-        #   Registry.register_extension(:memory, {
-        #     MemoryWrite: :special,
-        #     MemoryRead: :special
-        #   })
-        def register_extension(namespace, tools)
-          @extensions ||= {}
-          @extensions[namespace] = tools
-        end
-
-        # Get tool class by name (checks extensions too)
+        # Note: Plugin-provided tools are NOT returned by this method.
+        # They are managed by SwarmSDK::PluginRegistry instead.
         #
         # @param name [Symbol, String] Tool name
         # @return [Class, Symbol, nil] Tool class, :special, or nil if not found
         def get(name)
           name_sym = name.to_sym
-
-          # Check built-in first
-          return BUILTIN_TOOLS[name_sym] if BUILTIN_TOOLS.key?(name_sym)
-
-          # Check extensions
-          @extensions&.each_value do |tools|
-            return tools[name_sym] if tools.key?(name_sym)
-          end
-
-          nil
+          BUILTIN_TOOLS[name_sym]
         end
 
         # Get multiple tool classes by names
@@ -85,23 +58,26 @@ module SwarmSDK
           end
         end
 
-        # Check if a tool exists (checks extensions too)
+        # Check if a tool exists
+        #
+        # Note: Only checks built-in tools. Plugin-provided tools are checked
+        # via SwarmSDK::PluginRegistry.plugin_tool?() instead.
         #
         # @param name [Symbol, String] Tool name
         # @return [Boolean]
         def exists?(name)
           name_sym = name.to_sym
-          BUILTIN_TOOLS.key?(name_sym) ||
-            @extensions&.any? { |_, tools| tools.key?(name_sym) }
+          BUILTIN_TOOLS.key?(name_sym)
         end
 
-        # Get all available tool names (includes extensions)
+        # Get all available built-in tool names
+        #
+        # Note: Does NOT include plugin-provided tools. To get all available tools
+        # including plugins, combine with SwarmSDK::PluginRegistry.tools.
         #
         # @return [Array<Symbol>]
         def available_names
-          names = BUILTIN_TOOLS.keys.dup
-          @extensions&.each_value { |tools| names.concat(tools.keys) }
-          names.uniq
+          BUILTIN_TOOLS.keys
         end
 
         # Validate tool names

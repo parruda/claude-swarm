@@ -15,14 +15,14 @@ module SwarmSDK
     # embedded in Swarm#initialize_agents.
     class AgentInitializer
       # rubocop:disable Metrics/ParameterLists
-      def initialize(swarm, agent_definitions, global_semaphore, hook_registry, scratchpad_storage, memory_storages, config_for_hooks: nil)
+      def initialize(swarm, agent_definitions, global_semaphore, hook_registry, scratchpad_storage, plugin_storages, config_for_hooks: nil)
         # rubocop:enable Metrics/ParameterLists
         @swarm = swarm
         @agent_definitions = agent_definitions
         @global_semaphore = global_semaphore
         @hook_registry = hook_registry
         @scratchpad_storage = scratchpad_storage
-        @memory_storages = memory_storages
+        @plugin_storages = plugin_storages
         @config_for_hooks = config_for_hooks
         @agents = {}
         @agent_contexts = {}
@@ -80,35 +80,17 @@ module SwarmSDK
       # This creates the Agent::Chat instances but doesn't wire them together yet.
       # Each agent gets its own chat instance with configured tools.
       def pass_1_create_agents
-        # Create memory storage for agents that have memory configured
-        @agent_definitions.each do |agent_name, agent_definition|
-          next unless agent_definition.memory_enabled?
+        # Create plugin storages for agents
+        create_plugin_storages
 
-          # Check if SwarmMemory gem is available
-          unless defined?(SwarmMemory)
-            raise SwarmSDK::ConfigurationError,
-              "Memory configuration requires 'swarm_memory' gem. " \
-                "Add to Gemfile: gem 'swarm_memory'"
-          end
-
-          # Get configured directory
-          memory_config = agent_definition.memory
-          memory_dir = if memory_config.respond_to?(:directory)
-            memory_config.directory # MemoryConfig object (from DSL)
-          else
-            memory_config[:directory] || memory_config["directory"] # Hash (from YAML)
-          end
-
-          # Create SwarmMemory storage with real filesystem
-          adapter = SwarmMemory::Adapters::FilesystemAdapter.new(directory: memory_dir)
-          @memory_storages[agent_name] = SwarmMemory::Core::Storage.new(adapter: adapter)
-        end
-
-        tool_configurator = ToolConfigurator.new(@swarm, @scratchpad_storage, @memory_storages)
+        tool_configurator = ToolConfigurator.new(@swarm, @scratchpad_storage, @plugin_storages)
 
         @agent_definitions.each do |name, agent_definition|
           chat = create_agent_chat(name, agent_definition, tool_configurator)
           @agents[name] = chat
+
+          # Notify plugins that agent was initialized
+          notify_plugins_agent_initialized(name, chat, agent_definition, tool_configurator)
         end
       end
 
@@ -221,6 +203,7 @@ module SwarmSDK
       def create_agent_chat(agent_name, agent_definition, tool_configurator)
         chat = Agent::Chat.new(
           definition: agent_definition.to_h,
+          agent_name: agent_name,
           global_semaphore: @global_semaphore,
         )
 
@@ -233,13 +216,6 @@ module SwarmSDK
           agent_name: agent_name,
           agent_definition: agent_definition,
         )
-
-        # Register LoadSkill specially if memory is enabled
-        # LoadSkill needs access to chat, tool_configurator, and agent_definition
-        # for dynamic tool swapping, so it must be created after the chat exists
-        if agent_definition.memory_enabled?
-          register_load_skill_tool(chat, agent_name, agent_definition, tool_configurator)
-        end
 
         # Register MCP servers using McpConfigurator
         if agent_definition.mcp_servers.any?
@@ -283,39 +259,75 @@ module SwarmSDK
         end
       end
 
-      # Register LoadSkill tool with full context
+      # Create plugin storages for all agents
       #
-      # LoadSkill needs access to chat, tool_configurator, and agent_definition
-      # to swap tools dynamically. It must be created after the chat exists.
+      # Iterates through all registered plugins and asks each to create
+      # storage for agents that need it.
       #
-      # This method is only called when memory is enabled for the agent.
-      #
-      # @param chat [Agent::Chat] The chat instance
-      # @param agent_name [Symbol] Agent name
-      # @param agent_definition [Agent::Definition] Agent definition
-      # @param tool_configurator [ToolConfigurator] Tool configuration helper
       # @return [void]
-      def register_load_skill_tool(chat, agent_name, agent_definition, tool_configurator)
-        # Check if SwarmMemory is available
-        unless defined?(SwarmMemory)
-          raise ConfigurationError,
-            "Memory configuration requires 'swarm_memory' gem. " \
-              "Add to Gemfile: gem 'swarm_memory'"
+      def create_plugin_storages
+        PluginRegistry.all.each do |plugin|
+          @agent_definitions.each do |agent_name, agent_definition|
+            # Check if this plugin needs storage for this agent
+            next unless plugin.storage_enabled?(agent_definition)
+
+            # Get plugin config for this agent
+            config = get_plugin_config(agent_definition, plugin.name)
+            next unless config
+
+            # Parse config through plugin
+            parsed_config = plugin.parse_config(config)
+
+            # Create plugin storage
+            storage = plugin.create_storage(agent_name: agent_name, config: parsed_config)
+
+            # Store in plugin_storages: { plugin_name => { agent_name => storage } }
+            @plugin_storages[plugin.name] ||= {}
+            @plugin_storages[plugin.name][agent_name] = storage
+          end
         end
+      end
 
-        storage = @memory_storages[agent_name]
+      # Get plugin-specific config from agent definition
+      #
+      # Plugins can store their config in agent definition under their plugin name.
+      # E.g., memory plugin looks for `agent_definition.memory`
+      #
+      # @param agent_definition [Agent::Definition] Agent definition
+      # @param plugin_name [Symbol] Plugin name
+      # @return [Object, nil] Plugin config or nil
+      def get_plugin_config(agent_definition, plugin_name)
+        # Try to call method named after plugin (e.g., .memory for :memory plugin)
+        if agent_definition.respond_to?(plugin_name)
+          agent_definition.public_send(plugin_name)
+        end
+      end
 
-        # Create LoadSkill tool with full context
-        load_skill_tool = SwarmMemory.create_tool(
-          :LoadSkill,
-          storage: storage,
-          agent_name: agent_name,
-          chat: chat,
-          tool_configurator: tool_configurator,
-          agent_definition: agent_definition,
-        )
+      # Notify all plugins that an agent was initialized
+      #
+      # Plugins can register additional tools, mark tools immutable, etc.
+      #
+      # @param agent_name [Symbol] Agent name
+      # @param chat [Agent::Chat] Chat instance
+      # @param agent_definition [Agent::Definition] Agent definition
+      # @param tool_configurator [ToolConfigurator] Tool configurator
+      # @return [void]
+      def notify_plugins_agent_initialized(agent_name, chat, agent_definition, tool_configurator)
+        PluginRegistry.all.each do |plugin|
+          # Get plugin storage for this agent (if any)
+          plugin_storages = @plugin_storages[plugin.name] || {}
+          storage = plugin_storages[agent_name]
 
-        chat.with_tool(load_skill_tool)
+          # Build context for plugin
+          context = {
+            storage: storage,
+            agent_definition: agent_definition,
+            tool_configurator: tool_configurator,
+          }
+
+          # Notify plugin
+          plugin.on_agent_initialized(agent_name: agent_name, agent: chat, context: context)
+        end
       end
     end
   end

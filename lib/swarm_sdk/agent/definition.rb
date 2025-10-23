@@ -280,13 +280,14 @@ module SwarmSDK
           (custom_prompt || "").to_s
         end
 
-        # Append memory instructions if memory is enabled
-        if memory_enabled?
-          memory_prompt = render_memory_prompt
+        # Append plugin contributions to system prompt
+        plugin_contributions = collect_plugin_prompt_contributions
+        if plugin_contributions.any?
+          combined_contributions = plugin_contributions.join("\n\n")
           prompt = if prompt && !prompt.strip.empty?
-            "#{prompt}\n\n#{memory_prompt}"
+            "#{prompt}\n\n#{combined_contributions}"
           else
-            memory_prompt
+            combined_contributions
           end
         end
 
@@ -314,18 +315,26 @@ module SwarmSDK
         ERB.new(template_content).result(binding)
       end
 
-      def render_memory_prompt
-        # Check if SwarmMemory gem is available
-        unless defined?(SwarmMemory)
-          raise ConfigurationError,
-            "Memory configuration requires 'swarm_memory' gem. " \
-              "Add to Gemfile: gem 'swarm_memory'"
+      # Collect system prompt contributions from all plugins
+      #
+      # Asks each registered plugin if it wants to contribute to the system prompt.
+      # Plugins can return custom instructions based on their configuration.
+      #
+      # @return [Array<String>] Array of prompt contributions from plugins
+      def collect_plugin_prompt_contributions
+        contributions = []
+
+        PluginRegistry.all.each do |plugin|
+          # Check if plugin has storage enabled for this agent
+          next unless plugin.storage_enabled?(self)
+
+          # Ask plugin for prompt contribution
+          # Note: storage is not available yet at this point, so we pass nil
+          contribution = plugin.system_prompt_contribution(agent_definition: self, storage: nil)
+          contributions << contribution if contribution && !contribution.strip.empty?
         end
 
-        # Load memory prompt from SwarmMemory gem
-        memory_prompt_path = File.expand_path("../../swarm_memory/prompts/memory.md.erb", __dir__)
-        template_content = File.read(memory_prompt_path)
-        ERB.new(template_content).result(binding)
+        contributions
       end
 
       def render_non_coding_base_prompt

@@ -21,6 +21,9 @@ module SwarmCLI
       @original_swarm_history = ENV["SWARM_HISTORY"]
       @test_history_file = File.join(@temp_dir, "test_history")
       ENV["SWARM_HISTORY"] = @test_history_file
+
+      # Clear Reline history at start (may be polluted from other tests)
+      Reline::HISTORY.clear
     end
 
     def teardown

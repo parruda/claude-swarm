@@ -151,9 +151,10 @@ module SwarmSDK
       # Use provided scratchpad storage (for testing) or create volatile one
       @scratchpad_storage = scratchpad || Tools::Stores::ScratchpadStorage.new
 
-      # Per-agent memory storage (persistent)
+      # Per-agent plugin storages (persistent)
+      # Format: { plugin_name => { agent_name => storage } }
       # Will be populated when agents are initialized
-      @memory_storages = {}
+      @plugin_storages = {}
 
       # Hook registry for named hooks and swarm defaults
       @hook_registry = Hooks::Registry.new
@@ -551,7 +552,7 @@ module SwarmSDK
         @global_semaphore,
         @hook_registry,
         @scratchpad_storage,
-        @memory_storages,
+        @plugin_storages,
         config_for_hooks: @config_for_hooks,
       )
 
@@ -571,6 +572,18 @@ module SwarmSDK
       @agents.each do |agent_name, chat|
         agent_def = @agent_definitions[agent_name]
 
+        # Build plugin storage info for logging
+        plugin_storage_info = {}
+        @plugin_storages.each do |plugin_name, agent_storages|
+          next unless agent_storages.key?(agent_name)
+
+          plugin_storage_info[plugin_name] = {
+            enabled: true,
+            # Get additional info from agent definition if available
+            config: agent_def.respond_to?(plugin_name) ? extract_plugin_config_info(agent_def.public_send(plugin_name)) : nil,
+          }
+        end
+
         LogStream.emit(
           type: "agent_start",
           agent: agent_name,
@@ -581,8 +594,7 @@ module SwarmSDK
           system_prompt: agent_def.system_prompt,
           tools: chat.tools.keys,
           delegates_to: agent_def.delegates_to,
-          memory_enabled: agent_def.memory_enabled?,
-          memory_directory: agent_def.memory_enabled? ? agent_def.memory.directory : nil,
+          plugin_storages: plugin_storage_info,
           timestamp: Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
         )
       end
@@ -620,12 +632,12 @@ module SwarmSDK
 
     # Create a tool instance (delegates to ToolConfigurator)
     def create_tool_instance(tool_name, agent_name, directory)
-      ToolConfigurator.new(self, @scratchpad_storage, @memory_storages).create_tool_instance(tool_name, agent_name, directory)
+      ToolConfigurator.new(self, @scratchpad_storage, @plugin_storages).create_tool_instance(tool_name, agent_name, directory)
     end
 
     # Wrap tool with permissions (delegates to ToolConfigurator)
     def wrap_tool_with_permissions(tool_instance, permissions_config, agent_definition)
-      ToolConfigurator.new(self, @scratchpad_storage, @memory_storages).wrap_tool_with_permissions(tool_instance, permissions_config, agent_definition)
+      ToolConfigurator.new(self, @scratchpad_storage, @plugin_storages).wrap_tool_with_permissions(tool_instance, permissions_config, agent_definition)
     end
 
     # Build MCP transport config (delegates to McpConfigurator)
@@ -635,8 +647,32 @@ module SwarmSDK
 
     # Create delegation tool (delegates to AgentInitializer)
     def create_delegation_tool(name:, description:, delegate_chat:, agent_name:)
-      AgentInitializer.new(self, @agent_definitions, @global_semaphore, @hook_registry, @scratchpad_storage, @memory_storages)
+      AgentInitializer.new(self, @agent_definitions, @global_semaphore, @hook_registry, @scratchpad_storage, @plugin_storages)
         .create_delegation_tool(name: name, description: description, delegate_chat: delegate_chat, agent_name: agent_name)
+    end
+
+    # Extract loggable info from plugin config
+    #
+    # Attempts to extract useful information from plugin configuration
+    # for logging purposes. Handles MemoryConfig, Hashes, and other objects.
+    #
+    # @param config [Object] Plugin configuration object
+    # @return [Hash, nil] Extracted config info or nil
+    def extract_plugin_config_info(config)
+      return if config.nil?
+
+      # Handle MemoryConfig object (has directory method)
+      if config.respond_to?(:directory)
+        return { directory: config.directory }
+      end
+
+      # Handle Hash
+      if config.is_a?(Hash)
+        return config.slice(:directory, "directory", :adapter, "adapter")
+      end
+
+      # Unknown config type
+      nil
     end
 
     # Register default logging hooks that emit LogStream events

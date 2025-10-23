@@ -8,14 +8,86 @@ module SwarmMemory
     # Each agent has its own isolated memory storage.
     class MemoryGrep < RubyLLM::Tool
       description <<~DESC
-        Search your memory content by pattern (like grep).
-        Use regex patterns to search content within memory entries.
-        Returns matching entries and optionally line numbers and content.
+        Search your memory content using regular expression patterns (like grep).
 
-        Output modes:
-        - files_with_matches: Only list paths containing matches (default)
-        - content: Show matching lines with line numbers
-        - count: Show number of matches per file
+        REQUIRED: Provide the pattern parameter - the regex pattern to search for in entry content.
+
+        MEMORY STRUCTURE: Searches across all 4 fixed categories (concept/, fact/, skill/, experience/)
+        NO OTHER top-level categories exist.
+
+        **Required Parameters:**
+        - pattern (REQUIRED): Regular expression pattern to search for (e.g., 'status: pending', 'TODO.*urgent', '\\btask_\\d+\\b')
+
+        **Optional Parameters:**
+        - case_insensitive: Set to true for case-insensitive search (default: false)
+        - output_mode: Choose output format - 'files_with_matches' (default), 'content', or 'count'
+
+        **Output Modes Explained:**
+        1. **files_with_matches** (default): Just shows which entries contain matches
+           - Fast and efficient for discovery
+           - Use when you want to know WHERE matches exist
+
+        2. **content**: Shows matching lines with line numbers
+           - See the actual matching content
+           - Use when you need to read the matches in context
+
+        3. **count**: Shows how many matches in each entry
+           - Quantify occurrences
+           - Use for statistics or finding entries with most matches
+
+        **Regular Expression Syntax:**
+        - Literal text: 'status: pending'
+        - Any character: 'task.done'
+        - Character classes: '[0-9]+' (digits), '[a-z]+' (lowercase)
+        - Word boundaries: '\\btodo\\b' (exact word)
+        - Anchors: '^Start' (line start), 'end$' (line end)
+        - Quantifiers: '*' (0+), '+' (1+), '?' (0 or 1), '{3}' (exactly 3)
+        - Alternation: 'pending|in-progress|blocked'
+
+        **Examples:**
+        ```
+        # Find entries containing "TODO" (case-sensitive)
+        MemoryGrep(pattern: "TODO")
+
+        # Find entries with any status (case-insensitive)
+        MemoryGrep(pattern: "status:", case_insensitive: true)
+
+        # Show actual content of matches
+        MemoryGrep(pattern: "error|warning|failed", output_mode: "content")
+
+        # Count how many times "completed" appears in each entry
+        MemoryGrep(pattern: "completed", output_mode: "count")
+
+        # Find task numbers
+        MemoryGrep(pattern: "task_\\d+")
+
+        # Find incomplete tasks
+        MemoryGrep(pattern: "^- \\[ \\]", output_mode: "content")
+
+        # Find entries mentioning specific functions
+        MemoryGrep(pattern: "\\bprocess_data\\(")
+        ```
+
+        **Use Cases:**
+        - Finding entries by keyword or phrase
+        - Locating TODO items or action items
+        - Searching for error messages or debugging info
+        - Finding entries about specific code/functions
+        - Identifying patterns in your memory
+        - Content-based discovery (vs MemoryGlob's path-based discovery)
+
+        **Combining with Other Tools:**
+        1. Use MemoryGrep to find entries containing specific content
+        2. Use MemoryRead to examine full entries
+        3. Use MemoryEdit to update the found content
+
+        **Tips:**
+        - Start with simple literal patterns before using complex regex
+        - Use case_insensitive=true for broader matches
+        - Use output_mode="content" to see context around matches
+        - Escape special regex characters with backslash: \\. \\* \\? \\[ \\]
+        - Test patterns on a small set before broad searches
+        - Use word boundaries (\\b) for exact word matching
       DESC
 
       param :pattern,

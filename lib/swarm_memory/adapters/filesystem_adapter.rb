@@ -28,7 +28,7 @@ module SwarmMemory
       # These are meta-skills and resources available to all agents
       # Mapped as: memory_path => gem_file_basename
       VIRTUAL_ENTRIES = {
-        "skill/meta/deep-learning-protocol.md" => "deep_learning",
+        "skill/meta/deep-learning.md" => "meta/deep-learning",
       }.freeze
 
       # Initialize filesystem adapter with directory
@@ -403,7 +403,74 @@ module SwarmMemory
         entries
       end
 
+      # Semantic search by embedding vector
+      #
+      # Searches all entries with embeddings and returns those similar to the query.
+      # Results are sorted by cosine similarity in descending order.
+      #
+      # @param embedding [Array<Float>] Query embedding vector
+      # @param top_k [Integer] Number of results to return
+      # @param threshold [Float] Minimum similarity score (0.0-1.0)
+      # @return [Array<Hash>] Results with similarity scores
+      #
+      # @example
+      #   results = adapter.semantic_search(
+      #     embedding: query_embedding,
+      #     top_k: 5,
+      #     threshold: 0.65
+      #   )
+      def semantic_search(embedding:, top_k: 10, threshold: 0.0)
+        results = []
+
+        # Iterate all entries in the index
+        @index.each do |logical_path, index_data|
+          # Load embedding file
+          emb_file = File.join(@directory, "#{index_data[:disk_path]}.emb")
+          next unless File.exist?(emb_file)
+
+          # Read and unpack embedding
+          entry_embedding = File.read(emb_file).unpack("f*")
+
+          # Compute cosine similarity
+          similarity = cosine_similarity(embedding, entry_embedding)
+          next if similarity < threshold
+
+          # Load metadata from YAML
+          yaml_file = File.join(@directory, "#{index_data[:disk_path]}.yml")
+          yaml_data = if File.exist?(yaml_file)
+            YAML.load_file(yaml_file, permitted_classes: [Time, Date, Symbol])
+          else
+            {}
+          end
+
+          # Build result
+          results << {
+            path: logical_path,
+            similarity: similarity,
+            title: index_data[:title],
+            size: index_data[:size],
+            updated_at: index_data[:updated_at],
+            metadata: yaml_data["metadata"],
+          }
+        end
+
+        # Sort by similarity descending, return top K
+        results.sort_by { |r| -r[:similarity] }.take(top_k)
+      end
+
       private
+
+      # Calculate cosine similarity between two vectors
+      #
+      # @param a [Array<Float>] First vector
+      # @param b [Array<Float>] Second vector
+      # @return [Float] Cosine similarity (0.0-1.0)
+      def cosine_similarity(a, b)
+        dot_product = a.zip(b).sum { |x, y| x * y }
+        magnitude_a = Math.sqrt(a.sum { |x| x**2 })
+        magnitude_b = Math.sqrt(b.sum { |x| x**2 })
+        dot_product / (magnitude_a * magnitude_b)
+      end
 
       # Load virtual built-in entry from gem files
       #

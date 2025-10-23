@@ -15,22 +15,116 @@ module SwarmMemory
     # - Include permissions hash in metadata (optional)
     class LoadSkill < RubyLLM::Tool
       description <<~DESC
-        Load a skill from memory and adapt your tools to execute it.
+        Load a skill from memory and dynamically adapt your toolset to execute it.
 
-        When you load a skill:
-        1. Your mutable tools are swapped to match the skill's requirements
-        2. Immutable tools (Memory*, Think, LoadSkill) always remain available
-        3. Tool permissions from the skill are applied
-        4. Returns the skill content (step-by-step instructions)
+        REQUIRED: Provide the file_path parameter - path to the skill in memory (must start with 'skill/').
 
-        Skills must be stored in the skill/ hierarchy with type: 'skill' in metadata.
+        **Parameters:**
+        - file_path (REQUIRED): Path to skill in memory - MUST start with 'skill/' (e.g., 'skill/debug-react-perf', 'skill/meta/deep-learning')
 
-        Example:
-          LoadSkill(file_path: "skill/debug-react-perf.md")
+        **What Happens When You Load a Skill:**
+
+        1. **Tool Swapping**: Your mutable tools are replaced with the skill's required tools
+           - Immutable tools (Memory*, LoadSkill) always remain available
+           - Skill's tool list completely replaces your current mutable tools
+
+        2. **Permissions Applied**: Tool permissions from skill metadata are applied
+           - Skill permissions override agent default permissions
+           - Allows/denies specific tool actions as defined in skill
+
+        3. **Skill Content Returned**: Returns the skill's step-by-step instructions
+           - Read and follow the instructions carefully
+           - Instructions are formatted with line numbers
+
+        4. **System Reminder Injected**: You'll see your complete updated toolset
+           - Lists all tools now available to you
+           - Only use tools from the updated list
+
+        **Skill Requirements:**
+
+        Skills MUST:
+        - Be stored in skill/ hierarchy ONLY (skill/ is one of exactly 4 memory categories)
+        - Path MUST start with 'skill/' (e.g., 'skill/debugging/api.md', 'skill/meta/deep-learning.md')
+        - Have type: 'skill' in metadata
+        - Optionally specify tools array in metadata
+        - Optionally specify permissions hash in metadata
+
+        **MEMORY CATEGORIES (4 Fixed Only):**
+        concept/, fact/, skill/, experience/ - NO OTHER top-level categories exist
+
+        **Skill Metadata Example:**
+        ```yaml
+        type: skill
+        tools: [Read, Edit, Bash, Grep]
+        permissions:
+          Bash:
+            allow_commands: ["npm", "pytest", "bundle"]
+            deny_commands: ["rm", "sudo"]
+        tags: [debugging, react, performance]
+        ```
+
+        **Usage Flow:**
+
+        ```
+        # 1. Find available skills (skill/ is one of 4 fixed memory categories)
+        MemoryGlob(pattern: "skill/**")
+
+        # 2. Read skill to understand it
+        MemoryRead(file_path: "skill/debugging/api-errors.md")
+
+        # 3. Load skill to adapt tools and get instructions
+        LoadSkill(file_path: "skill/debugging/api-errors.md")
+
+        # 4. Follow the skill's instructions using your updated toolset
+        ```
+
+        **Examples:**
+
+        ```
+        # Load a debugging skill
+        LoadSkill(file_path: "skill/debugging/api-errors.md")
+
+        # Load a meta-skill (skills about skills)
+        LoadSkill(file_path: "skill/meta/deep-learning.md")
+
+        # Load a testing skill
+        LoadSkill(file_path: "skill/testing/unit-tests.md")
+        ```
+
+        **Important Notes:**
+
+        - **Read Before Loading**: Use MemoryRead first to see what the skill does
+        - **Tool Swap**: Loading a skill changes your available tools - be aware of this
+        - **Immutable Tools**: Memory tools and LoadSkill are NEVER removed
+        - **Follow Instructions**: The skill content provides step-by-step guidance
+        - **One Skill at a Time**: Loading a new skill replaces the previous skill's toolset
+        - **Skill Validation**: Tool will fail if path doesn't start with 'skill/' or entry isn't type: 'skill'
+
+        **Skill Types:**
+
+        1. **Task Skills**: Specific procedures (debugging, testing, refactoring)
+        2. **Meta-Skills**: Skills about skills (deep-learning, skill-creation)
+        3. **Domain Skills**: Specialized knowledge (frontend, backend, data-analysis)
+
+        **Creating Your Own Skills:**
+
+        Skills are just memory entries with special metadata. To create one:
+        1. Write step-by-step instructions in markdown
+        2. Store in skill/ hierarchy
+        3. Add metadata: type='skill', tools array, optional permissions
+        4. Test by loading and following instructions
+
+        **Common Use Cases:**
+
+        - Following established procedures consistently
+        - Accessing specialized toolsets for specific tasks
+        - Learning new workflows via step-by-step guidance
+        - Enforcing tool restrictions for safety
+        - Standardizing approaches across sessions
       DESC
 
       param :file_path,
-        desc: "Path to skill in memory (must start with 'skill/', e.g., 'skill/debug-react-perf.md')",
+        desc: "Path to skill - MUST start with 'skill/' (one of 4 fixed memory categories). Examples: 'skill/debugging/api-errors.md', 'skill/meta/deep-learning.md'",
         required: true
 
       # Initialize with all context needed for tool swapping
@@ -110,10 +204,49 @@ module SwarmMemory
 
         # 7. Return content with confirmation message
         title = entry.title || "Untitled Skill"
-        "Loaded skill: #{title}\n\n" + format_with_line_numbers(entry.content)
+        result = "Loaded skill: #{title}\n\n"
+        result += format_with_line_numbers(entry.content)
+
+        # 8. Add system reminder if tools were swapped
+        if required_tools && !required_tools.empty?
+          result += "\n\n"
+          result += build_toolset_update_reminder(required_tools)
+        end
+
+        result
       end
 
       private
+
+      # Build system reminder for toolset updates
+      #
+      # @param new_tools [Array<String>] Tools that were added
+      # @return [String] System reminder message
+      def build_toolset_update_reminder(new_tools)
+        # Get current tool list from chat
+        # Handle both real Chat (hash) and MockChat (array)
+        tools_collection = @chat.tools
+        current_tools = if tools_collection.is_a?(Hash)
+          tools_collection.values.map(&:name).sort
+        else
+          tools_collection.map(&:name).sort
+        end
+
+        reminder = "<system-reminder>\n"
+        reminder += "Your available tools have been updated.\n\n"
+        reminder += "New tools loaded from skill:\n"
+        new_tools.each do |tool_name|
+          reminder += "  - #{tool_name}\n"
+        end
+        reminder += "\nYour complete toolset is now:\n"
+        current_tools.each do |tool_name|
+          reminder += "  - #{tool_name}\n"
+        end
+        reminder += "\nOnly use tools from this list. Do not attempt to use tools that are not listed here.\n"
+        reminder += "</system-reminder>"
+
+        reminder
+      end
 
       # Swap agent tools to match skill requirements
       #
