@@ -144,7 +144,7 @@ module SwarmSDK
     end
 
     def test_context_warning_thresholds_constant
-      assert_equal([80, 90], Agent::Context::CONTEXT_WARNING_THRESHOLDS)
+      assert_equal([60, 80, 90], Agent::Context::CONTEXT_WARNING_THRESHOLDS)
     end
   end
 end

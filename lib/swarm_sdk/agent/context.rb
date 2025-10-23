@@ -27,7 +27,11 @@ module SwarmSDK
     #   context.delegation?(call_id: "call_123") # => true
     class Context
       # Thresholds for context limit warnings (in percentage)
-      CONTEXT_WARNING_THRESHOLDS = [80, 90].freeze
+      # 60% triggers automatic compression, 80%/90% are informational warnings
+      CONTEXT_WARNING_THRESHOLDS = [60, 80, 90].freeze
+
+      # Threshold at which automatic compression is triggered
+      COMPRESSION_THRESHOLD = 60
 
       attr_reader :name, :delegation_tools, :metadata, :warning_thresholds_hit
 
