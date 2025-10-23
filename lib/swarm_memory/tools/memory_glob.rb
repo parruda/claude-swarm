@@ -8,19 +8,81 @@ module SwarmMemory
     # Each agent has its own isolated memory storage.
     class MemoryGlob < RubyLLM::Tool
       description <<~DESC
-        Search your memory entries by glob pattern.
-        Works like filesystem glob - use * for wildcards, ** for recursive matching.
-        Use this to discover entries matching specific patterns.
+        Search your memory entries using glob patterns (like filesystem glob).
 
-        Examples:
-        - "parallel/*" - all entries directly under parallel/
-        - "parallel/**" - all entries under parallel/ (recursive)
-        - "*/report" - all entries named "report" in any top-level directory
-        - "analysis/*/result_*" - entries like "analysis/foo/result_1"
+        REQUIRED: Provide the pattern parameter - the glob pattern to match entries against.
+
+        **Parameters:**
+        - pattern (REQUIRED): Glob pattern with wildcards (e.g., '**/*.txt', 'parallel/*/task_*', 'skill/**')
+
+        **Glob Pattern Syntax:**
+        - `*` - matches any characters within a single directory level (e.g., 'analysis/*')
+        - `**` - matches any characters across multiple directory levels recursively (e.g., 'parallel/**')
+        - `?` - matches any single character (e.g., 'task_?')
+        - `[abc]` - matches any character in the set (e.g., 'task_[0-9]')
+
+        **Returns:**
+        List of matching entries with:
+        - Full memory:// path
+        - Entry title
+        - Size in bytes/KB/MB
+
+        **MEMORY STRUCTURE (4 Fixed Categories Only):**
+        ALL patterns MUST target one of these 4 categories:
+        - concept/{domain}/** - Abstract ideas
+        - fact/{subfolder}/** - Concrete information
+        - skill/{domain}/** - Procedures
+        - experience/** - Lessons
+        INVALID: documentation/, reference/, parallel/, analysis/, tutorial/
+
+        **Common Use Cases:**
+        ```
+        # Find all skills
+        MemoryGlob(pattern: "skill/**")
+        Result: skill/debugging/api-errors.md, skill/meta/deep-learning.md, ...
+
+        # Find all concepts in a domain
+        MemoryGlob(pattern: "concept/ruby/**")
+        Result: concept/ruby/classes.md, concept/ruby/modules.md, ...
+
+        # Find all facts about people
+        MemoryGlob(pattern: "fact/people/*")
+        Result: fact/people/john.md, fact/people/jane.md, ...
+
+        # Find all experiences
+        MemoryGlob(pattern: "experience/**")
+        Result: experience/fixed-cors-bug.md, experience/optimization.md, ...
+
+        # Find debugging skills
+        MemoryGlob(pattern: "skill/debugging/*")
+        Result: skill/debugging/api-errors.md, skill/debugging/performance.md, ...
+
+        # Find all entries (all categories)
+        MemoryGlob(pattern: "**/*")
+        Result: All entries across all 4 categories
+        ```
+
+        **When to Use MemoryGlob:**
+        - Discovering what's in a memory hierarchy
+        - Finding all entries matching a naming convention
+        - Locating related entries by path pattern
+        - Exploring memory structure before reading specific entries
+        - Batch operations preparation (find all, then process each)
+
+        **Combining with Other Tools:**
+        1. Use MemoryGlob to find candidates
+        2. Use MemoryRead to examine specific entries
+        3. Use MemoryEdit/MemoryDelete to modify/remove them
+
+        **Tips:**
+        - Start with broad patterns and narrow down
+        - Use `**` for recursive searching entire hierarchies
+        - Combine with MemoryGrep if you need content-based search
+        - Check entry sizes to identify large entries
       DESC
 
       param :pattern,
-        desc: "Glob pattern to match (e.g., '**/*.txt', 'parallel/*/task_*')",
+        desc: "Glob pattern - target concept/, fact/, skill/, or experience/ only (e.g., 'skill/**', 'concept/ruby/*', 'fact/people/*.md')",
         required: true
 
       # Initialize with storage instance

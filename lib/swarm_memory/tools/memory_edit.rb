@@ -8,18 +8,71 @@ module SwarmMemory
     # Each agent has its own isolated memory storage.
     class MemoryEdit < RubyLLM::Tool
       description <<~DESC
-        Performs exact string replacements in memory entries.
-        Works like the Edit tool but operates on memory content instead of files.
-        You must use MemoryRead on the entry before editing it.
-        When editing text from MemoryRead output, ensure you preserve the exact indentation as it appears AFTER the line number prefix.
-        The line number prefix format is: spaces + line number + tab. Everything after that tab is the actual content to match.
-        Never include any part of the line number prefix in the old_string or new_string.
-        The edit will FAIL if old_string is not unique in the entry. Either provide a larger string with more surrounding context to make it unique or use replace_all to change every instance of old_string.
-        Use replace_all for replacing and renaming strings across the entry.
+        Perform exact string replacements in memory entries (works like Edit tool but for memory content).
+
+        REQUIRED: Provide ALL THREE parameters - file_path, old_string, and new_string.
+
+        **Required Parameters:**
+        - file_path (REQUIRED): Path to memory entry - MUST start with concept/, fact/, skill/, or experience/
+        - old_string (REQUIRED): The exact text to replace - must match exactly including all whitespace and indentation
+        - new_string (REQUIRED): The replacement text - must be different from old_string
+
+        **MEMORY STRUCTURE (4 Fixed Categories Only):**
+        - concept/{domain}/{name}.md - Abstract ideas
+        - fact/{subfolder}/{name}.md - Concrete information
+        - skill/{domain}/{name}.md - Procedures
+        - experience/{name}.md - Lessons
+        INVALID: documentation/, reference/, analysis/, parallel/, tutorial/
+
+        **Optional Parameters:**
+        - replace_all: Set to true to replace all occurrences (default: false, replaces only first occurrence)
+
+        **CRITICAL - Before Using This Tool:**
+        1. You MUST use MemoryRead on the entry first - edits without reading will FAIL
+        2. Copy text exactly from MemoryRead output, EXCLUDING the line number prefix
+        3. Line number format: "    123→actual content" - only use text AFTER the arrow
+        4. Preserve exact indentation and whitespace from the original content
+
+        **How It Works:**
+        - If old_string appears once: replacement succeeds
+        - If old_string appears multiple times: FAILS unless replace_all=true
+        - If old_string not found: FAILS with helpful error
+        - Make old_string unique by including more surrounding context
+
+        **Examples:**
+        ```
+        # Update a fact
+        MemoryEdit(
+          file_path: "fact/people/john.md",
+          old_string: "status: active",
+          new_string: "status: inactive"
+        )
+
+        # Update a skill
+        MemoryEdit(
+          file_path: "skill/debugging/api-errors.md",
+          old_string: "TODO: Add error codes",
+          new_string: "Common error codes: 401, 403, 404, 500",
+          replace_all: true
+        )
+
+        # Update a concept
+        MemoryEdit(
+          file_path: "concept/ruby/classes.md",
+          old_string: "def calculate_total(items)\n  return sum(items)\nend",
+          new_string: "def compute_sum(items)\n  items.sum\nend"
+        )
+        ```
+
+        **Common Mistakes to Avoid:**
+        - Including line numbers in old_string or new_string
+        - Not reading the entry first with MemoryRead
+        - Not matching whitespace exactly
+        - Trying to replace non-unique text without replace_all
       DESC
 
       param :file_path,
-        desc: "Path to the memory entry (e.g., 'analysis/report', 'parallel/batch1/task_0')",
+        desc: "Path to memory entry - MUST start with concept/, fact/, skill/, or experience/ (e.g., 'concept/ruby/classes.md', 'skill/debugging/api.md')",
         required: true
 
       param :old_string,

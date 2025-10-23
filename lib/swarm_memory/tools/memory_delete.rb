@@ -8,15 +8,61 @@ module SwarmMemory
     # Each agent has its own isolated memory storage.
     class MemoryDelete < RubyLLM::Tool
       description <<~DESC
-        Delete content from your memory when it's no longer relevant.
-        Use this to remove outdated information, completed tasks, or data that's no longer needed.
-        This helps keep your memory organized and prevents it from filling up.
+        Delete entries from your memory storage when they're no longer needed.
 
-        IMPORTANT: Only delete entries that are truly no longer needed. Once deleted, the content cannot be recovered.
+        REQUIRED: Provide the file_path parameter - the path to the entry you want to delete.
+
+        **Parameters:**
+        - file_path (REQUIRED): Path to memory entry - MUST start with concept/, fact/, skill/, or experience/
+
+        **MEMORY STRUCTURE (4 Fixed Categories Only):**
+        - concept/{domain}/{name}.md - Abstract ideas
+        - fact/{subfolder}/{name}.md - Concrete information
+        - skill/{domain}/{name}.md - Procedures
+        - experience/{name}.md - Lessons
+        INVALID: documentation/, reference/, analysis/, parallel/, temp/, notes/
+
+        **When to Delete:**
+        - Outdated information that's been superseded
+        - Completed tasks that are no longer relevant
+        - Duplicate entries (after consolidating)
+        - Test data or temporary calculations
+        - Low-quality entries with minimal value
+
+        **IMPORTANT WARNINGS:**
+        - Deletion is PERMANENT - content cannot be recovered
+        - Think carefully before deleting - consider if it might be useful later
+        - Use MemoryDefrag to identify candidates for deletion (find_archival_candidates, compact)
+        - Consider reading the entry first to verify you're deleting the right thing
+
+        **Examples:**
+        ```
+        # Delete outdated concept
+        MemoryDelete(file_path: "concept/old-api/deprecated.md")
+
+        # Delete completed experience
+        MemoryDelete(file_path: "experience/temp-experiment.md")
+
+        # Delete obsolete fact
+        MemoryDelete(file_path: "fact/orgs/defunct-company.md")
+        ```
+
+        **Best Practices:**
+        1. Read entry first with MemoryRead to confirm it's the right one
+        2. Use MemoryDefrag(action: "find_archival_candidates") to find old, unused entries
+        3. Delete in batches during memory maintenance sessions
+        4. Keep entries that might provide historical context
+        5. Don't delete skills unless you're certain they won't be needed
+
+        **Alternative to Deletion:**
+        Instead of deleting, consider:
+        - Updating entries to mark them as archived
+        - Consolidating multiple entries into one comprehensive entry
+        - Moving entries to an "archive/" hierarchy for later reference
       DESC
 
       param :file_path,
-        desc: "Path to delete from memory (e.g., 'analysis/old_report', 'parallel/batch1/task_0')",
+        desc: "Path to delete from memory - MUST start with concept/, fact/, skill/, or experience/ (e.g., 'concept/old-api/deprecated.md', 'experience/temp.md')",
         required: true
 
       # Initialize with storage instance

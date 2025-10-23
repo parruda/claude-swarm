@@ -28,6 +28,10 @@ loader.inflector.inflect(
 )
 loader.setup
 
+# Load plugin system explicitly (core infrastructure)
+require_relative "swarm_sdk/plugin"
+require_relative "swarm_sdk/plugin_registry"
+
 # Load custom providers explicitly (Zeitwerk doesn't eager load by default)
 require_relative "swarm_sdk/providers/openai_with_responses"
 

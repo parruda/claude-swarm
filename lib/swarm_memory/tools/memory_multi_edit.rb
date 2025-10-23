@@ -10,18 +10,84 @@ module SwarmMemory
     # Each agent has its own isolated memory storage.
     class MemoryMultiEdit < RubyLLM::Tool
       description <<~DESC
-        Performs multiple exact string replacements in a single memory entry.
-        Edits are applied sequentially, so later edits see the results of earlier ones.
-        You must use MemoryRead on the entry before editing it.
-        When editing text from MemoryRead output, ensure you preserve the exact indentation as it appears AFTER the line number prefix.
-        The line number prefix format is: spaces + line number + tab. Everything after that tab is the actual content to match.
-        Never include any part of the line number prefix in the old_string or new_string.
-        Each edit will FAIL if old_string is not unique in the entry. Either provide a larger string with more surrounding context to make it unique or use replace_all to change every instance of old_string.
-        Use replace_all for replacing and renaming strings across the entry.
+        Perform multiple exact string replacements in a single memory entry (applies edits sequentially).
+
+        REQUIRED: Provide BOTH parameters - file_path and edits_json.
+
+        **Required Parameters:**
+        - file_path (REQUIRED): Path to memory entry - MUST start with concept/, fact/, skill/, or experience/
+        - edits_json (REQUIRED): JSON array of edit operations - each must have old_string, new_string, and optionally replace_all
+
+        **MEMORY STRUCTURE (4 Fixed Categories Only):**
+        - concept/{domain}/** - Abstract ideas
+        - fact/{subfolder}/** - Concrete information
+        - skill/{domain}/** - Procedures
+        - experience/** - Lessons
+        INVALID: documentation/, reference/, project/, code/, parallel/
+
+        **JSON Format:**
+        ```json
+        [
+          {"old_string": "text to find", "new_string": "replacement text", "replace_all": false},
+          {"old_string": "another find", "new_string": "another replace", "replace_all": true}
+        ]
+        ```
+
+        **CRITICAL - Before Using This Tool:**
+        1. You MUST use MemoryRead on the entry first - edits without reading will FAIL
+        2. Copy text exactly from MemoryRead output, EXCLUDING the line number prefix
+        3. Line number format: "    123→actual content" - only use text AFTER the arrow
+        4. Edits are applied SEQUENTIALLY - later edits see results of earlier edits
+        5. If ANY edit fails, NO changes are saved (all-or-nothing)
+
+        **How Sequential Edits Work:**
+        ```
+        Original: "status: pending, priority: low"
+
+        Edit 1: "pending" → "in-progress"
+        Result: "status: in-progress, priority: low"
+
+        Edit 2: "low" → "high"  (sees Edit 1's result)
+        Final: "status: in-progress, priority: high"
+        ```
+
+        **Use Cases:**
+        - Making multiple coordinated changes in one operation
+        - Updating several related fields at once
+        - Chaining transformations where order matters
+        - Bulk find-and-replace operations
+
+        **Examples:**
+        ```
+        # Update multiple fields in an experience
+        MemoryMultiEdit(
+          file_path: "experience/api-debugging.md",
+          edits_json: '[
+            {"old_string": "status: in-progress", "new_string": "status: resolved"},
+            {"old_string": "confidence: medium", "new_string": "confidence: high"}
+          ]'
+        )
+
+        # Rename function and update calls in a concept
+        MemoryMultiEdit(
+          file_path: "concept/ruby/functions.md",
+          edits_json: '[
+            {"old_string": "def old_func_name", "new_string": "def new_func_name"},
+            {"old_string": "old_func_name()", "new_string": "new_func_name()", "replace_all": true}
+          ]'
+        )
+        ```
+
+        **Important Notes:**
+        - All edits in the array must be valid JSON objects
+        - Each old_string must be different from its new_string
+        - Each old_string must be unique in content UNLESS replace_all is true
+        - Failed edit shows which previous edits succeeded
+        - More efficient than multiple MemoryEdit calls
       DESC
 
       param :file_path,
-        desc: "Path to the memory entry (e.g., 'analysis/report', 'parallel/batch1/task_0')",
+        desc: "Path to memory entry - MUST start with concept/, fact/, skill/, or experience/ (e.g., 'experience/api-debugging.md', 'concept/ruby/functions.md')",
         required: true
 
       param :edits_json,

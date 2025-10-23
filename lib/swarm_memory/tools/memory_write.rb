@@ -8,20 +8,45 @@ module SwarmMemory
     # Each agent has its own isolated memory storage that persists across sessions.
     class MemoryWrite < RubyLLM::Tool
       description <<~DESC
-        Store content in memory for later retrieval with structured metadata.
+        Store content in persistent memory with structured metadata for semantic search and retrieval.
 
-        Content is stored in .md files, metadata in sidecar .yml files.
-        You only reference .md files - the .yml sidecars are managed automatically.
+        CRITICAL: ALL 8 required parameters MUST be provided. Do NOT skip any. If you're missing information, ask the user or infer reasonable defaults.
 
-        Choose logical paths based on content type:
-        - concept/ruby/classes.md - Abstract ideas
-        - fact/people/paulo.md - Concrete information
-        - skill/ruby/testing.md - How-to procedures
-        - experience/bug-fix.md - Lessons learned
+        REQUIRED PARAMETERS (provide ALL 8):
+        1. file_path - Where to store (e.g., 'concept/ruby/classes.md', 'skill/debugging/trace-errors.md')
+        2. content - Pure markdown content (no frontmatter)
+        3. title - Brief descriptive title
+        4. type - Entry category: "concept", "fact", "skill", or "experience"
+        5. confidence - How sure you are: "high", "medium", or "low"
+        6. tags - Array of search keywords (e.g., ['ruby', 'classes', 'oop']) - be comprehensive!
+        7. related - Array of related memory paths (e.g., ['memory://concept/ruby/modules.md']) or [] if none
+        8. domain - Category like 'programming/ruby', 'people', 'debugging'
+        9. source - Where this came from: "user", "documentation", "experimentation", or "inference"
+
+        OPTIONAL (for skills only):
+        - tools - Array of tool names needed (e.g., ['Read', 'Edit', 'Bash']) or []
+        - permissions - Tool restrictions hash or {}
+
+        PATH STRUCTURE (EXACTLY 4 TOP-LEVEL CATEGORIES - NEVER CREATE OTHERS):
+        Memory has EXACTLY 4 fixed top-level categories. ALL paths MUST start with one of these:
+
+        1. concept/{domain}/{name}.md - Abstract ideas (e.g., concept/ruby/classes.md)
+        2. fact/{subfolder}/{name}.md - Concrete info (e.g., fact/people/john.md)
+        3. skill/{domain}/{name}.md - How-to procedures (e.g., skill/debugging/api-errors.md)
+        4. experience/{name}.md - Lessons learned (e.g., experience/fixed-cors-bug.md)
+
+        INVALID (do NOT create): documentation/, reference/, tutorial/, knowledge/, notes/
+        These categories do NOT exist. Use concept/, fact/, skill/, or experience/ instead.
+
+        TAGS ARE CRITICAL: Think "What would I search for in 6 months?" For skills especially, be VERY comprehensive with tags - they're your search index.
+
+        EXAMPLES:
+        - For concept: tags: ['ruby', 'oop', 'classes', 'inheritance', 'methods']
+        - For skill: tags: ['debugging', 'api', 'http', 'errors', 'trace', 'network', 'rest']
       DESC
 
       param :file_path,
-        desc: "Path with .md extension (e.g., 'concept/ruby/classes.md', 'fact/people/paulo.md')",
+        desc: "Path with .md extension (e.g., 'concept/ruby/classes.md', 'fact/people/john.md')",
         required: true
 
       param :content,
@@ -42,13 +67,11 @@ module SwarmMemory
         required: true
 
       param :tags,
-        type: "array",
-        desc: "Tags for searching (e.g., ['ruby', 'oop'])",
+        desc: "JSON array of tags for searching (e.g., ['ruby', 'oop'])",
         required: true
 
       param :related,
-        type: "array",
-        desc: "Related memory paths (e.g., ['memory://concepts/ruby/modules.md'])",
+        desc: "JSON array of related memory paths (e.g., ['memory://concepts/ruby/modules.md'])",
         required: true
 
       param :domain,
@@ -60,13 +83,11 @@ module SwarmMemory
         required: true
 
       param :tools,
-        type: "array",
-        desc: "Tools required for this skill (e.g., ['Read', 'Edit', 'Bash']). Only for type: skill",
+        desc: "JSON array of tool names required for this skill (e.g., ['Read', 'Edit', 'Bash']). Only for type: skill",
         required: false
 
       param :permissions,
-        type: "object",
-        desc: "Tool permission restrictions (same format as swarm config). Only for type: skill",
+        desc: "JSON object of tool permission restrictions (same format as swarm config). Only for type: skill",
         required: false
 
       # Initialize with storage instance
@@ -112,15 +133,16 @@ module SwarmMemory
         permissions: nil
       )
         # Build metadata hash from params
+        # Handle both JSON strings (from LLMs) and Ruby arrays (from tests/code)
         metadata = {}
         metadata["type"] = type if type
         metadata["confidence"] = confidence if confidence
-        metadata["tags"] = tags if tags
-        metadata["related"] = related if related
+        metadata["tags"] = parse_array_param(tags) if tags
+        metadata["related"] = parse_array_param(related) if related
         metadata["domain"] = domain if domain
         metadata["source"] = source if source
-        metadata["tools"] = tools if tools
-        metadata["permissions"] = permissions if permissions
+        metadata["tools"] = parse_array_param(tools) if tools
+        metadata["permissions"] = parse_object_param(permissions) if permissions
 
         # Write to storage (metadata passed separately, not in content)
         entry = @storage.write(
@@ -139,6 +161,28 @@ module SwarmMemory
 
       def validation_error(message)
         "<tool_use_error>InputValidationError: #{message}</tool_use_error>"
+      end
+
+      # Parse array parameter (handles both JSON strings and Ruby arrays)
+      #
+      # @param value [String, Array] JSON string or Ruby array
+      # @return [Array] Parsed array
+      def parse_array_param(value)
+        return value if value.is_a?(Array)
+        return [] if value.nil? || value.to_s.strip.empty?
+
+        JSON.parse(value)
+      end
+
+      # Parse object parameter (handles both JSON strings and Ruby hashes)
+      #
+      # @param value [String, Hash] JSON string or Ruby hash
+      # @return [Hash] Parsed hash
+      def parse_object_param(value)
+        return value if value.is_a?(Hash)
+        return {} if value.nil? || value.to_s.strip.empty?
+
+        JSON.parse(value)
       end
 
       # Format bytes to human-readable size

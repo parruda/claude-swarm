@@ -106,6 +106,7 @@ module SwarmMemory
 end
 
 # Auto-register with SwarmSDK when loaded
+require_relative "swarm_memory/integration/sdk_plugin"
 require_relative "swarm_memory/integration/registration"
 SwarmMemory::Integration::Registration.register!
 

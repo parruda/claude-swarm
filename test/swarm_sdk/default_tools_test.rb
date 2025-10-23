@@ -55,20 +55,8 @@ module SwarmSDK
       assert_equal(expected_tools, Swarm::ToolConfigurator::SCRATCHPAD_TOOLS)
     end
 
-    def test_memory_tools_constant
-      expected_tools = [
-        :MemoryWrite,
-        :MemoryRead,
-        :MemoryEdit,
-        :MemoryMultiEdit,
-        :MemoryGlob,
-        :MemoryGrep,
-        :MemoryDelete,
-        :MemoryDefrag,
-      ]
-
-      assert_equal(expected_tools, Swarm::ToolConfigurator::MEMORY_TOOLS)
-    end
+    # Memory tools are now provided via plugin system (not hardcoded constants)
+    # Test removed - memory tools are in PluginRegistry, not ToolConfigurator
 
     def test_agent_includes_default_tools_by_default
       # Use non-persistent scratchpad for testing
