@@ -173,14 +173,126 @@ module SwarmSDK
         messages
       end
 
-      # Future: Compress verbose tool results for older messages
+      # Compress verbose tool results for older messages
+      #
+      # Uses progressive compression: older messages are compressed more aggressively.
+      # Preserves user/assistant messages at full detail (conversational context).
       #
       # @param messages [Array<RubyLLM::Message>] Messages to compress
-      # @param older_than [Integer] Compress tool results older than N messages
+      # @param keep_recent [Integer] Number of recent messages to keep at full detail
       # @return [Array<RubyLLM::Message>] Compressed messages
-      def compress_tool_results(messages, older_than: 20)
-        # TODO: Implement when needed
-        messages
+      def compress_tool_results(messages, keep_recent: 10)
+        messages.map.with_index do |msg, i|
+          # Keep recent messages at full detail
+          next msg if i >= messages.size - keep_recent
+
+          # Keep user/assistant messages (conversational flow is important)
+          next msg if [:user, :assistant].include?(msg.role)
+
+          # Compress old tool results
+          if msg.role == :tool
+            compress_tool_message(msg, age: messages.size - i)
+          else
+            msg
+          end
+        end
+      end
+
+      # Compress a single tool message based on age
+      #
+      # Progressive compression: older messages get compressed more.
+      # For re-runnable tools (Read, Grep, Glob, etc.), adds instruction to re-run if needed.
+      #
+      # @param msg [RubyLLM::Message] Tool message to compress
+      # @param age [Integer] How many messages ago (higher = older)
+      # @return [RubyLLM::Message] Compressed message
+      def compress_tool_message(msg, age:)
+        content = msg.content.to_s
+
+        # Progressive compression based on age
+        max_length = case age
+        when 0..10   then return msg           # Recent: keep full detail
+        when 11..20  then 1000                 # Medium age: light compression
+        when 21..40  then 500                  # Old: moderate compression
+        when 41..60  then 200                  # Very old: heavy compression
+        else              100                  # Ancient: minimal summary
+        end
+
+        return msg if content.length <= max_length
+
+        # Compress while preserving structure
+        compressed = content.slice(0, max_length)
+        truncated_chars = content.length - max_length
+        compressed += "\n...[#{truncated_chars} chars truncated for context management]"
+
+        # Detect if this is a re-runnable tool and add helpful instruction
+        tool_name = detect_tool_name(content)
+        if rerunnable_tool?(tool_name)
+          compressed += "\n\n💡 If you need the full output, re-run the #{tool_name} tool with the same parameters."
+        end
+
+        RubyLLM::Message.new(
+          role: :tool,
+          content: compressed,
+          tool_call_id: msg.tool_call_id,
+        )
+      end
+
+      # Detect tool name from content
+      #
+      # @param content [String] Tool result content
+      # @return [String, nil] Tool name or nil
+      def detect_tool_name(content)
+        # Many tool results start with patterns we can detect
+        case content
+        when /^\s*\d+→/ # Line numbers (Read, MemoryRead)
+          content.include?("memory://") ? "MemoryRead" : "Read"
+        when /^Memory entries matching/ # MemoryGlob
+          "MemoryGlob"
+        when /^Found \d+ files? matching/ # Glob
+          "Glob"
+        when /matches in \d+ files?|No matches found/ # Grep, MemoryGrep
+          content.include?("memory://") ? "MemoryGrep" : "Grep"
+        when %r{^Stored at memory://} # MemoryWrite (not re-runnable but identifiable)
+          "MemoryWrite"
+        when %r{^Deleted memory://} # MemoryDelete
+          "MemoryDelete"
+        end
+      end
+
+      # Check if a tool is re-runnable (idempotent, can get same data again)
+      #
+      # @param tool_name [String, nil] Tool name
+      # @return [Boolean] True if tool can be re-run safely
+      def rerunnable_tool?(tool_name)
+        return false if tool_name.nil?
+
+        # These tools are idempotent - re-running gives same/current data
+        ["Read", "MemoryRead", "Grep", "MemoryGrep", "Glob", "MemoryGlob"].include?(tool_name)
+      end
+
+      # Automatically compress messages when context threshold is hit
+      #
+      # This is called automatically when context usage crosses 60% threshold.
+      # Returns compressed messages array for immediate use.
+      #
+      # @param messages [Array<RubyLLM::Message>] Current message array
+      # @param keep_recent [Integer] Number of recent messages to keep full
+      # @return [Array<RubyLLM::Message>] Compressed messages
+      def auto_compress_on_threshold(messages, keep_recent: 10)
+        return messages if @compression_applied
+
+        # Mark as applied to avoid compressing multiple times
+        @compression_applied = true
+
+        compress_tool_results(messages, keep_recent: keep_recent)
+      end
+
+      # Reset compression flag (when conversation is reset)
+      #
+      # @return [void]
+      def reset_compression
+        @compression_applied = false
       end
 
       # Future: Detect if context is becoming bloated
