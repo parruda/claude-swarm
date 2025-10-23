@@ -57,6 +57,35 @@ Welcome to the official documentation for SwarmSDK and SwarmCLI - a Ruby framewo
 
 ## 🛠️ Integration Guides
 
+### SwarmMemory
+- **[SwarmMemory Guide](guides/swarm-memory.md)** ⭐ NEW
+  Persistent agent knowledge storage with semantic search:
+  - Installation and setup
+  - 4 memory categories (concept, fact, skill, experience)
+  - 9 memory tools (MemoryWrite, LoadSkill, etc.)
+  - Automatic skill discovery (hybrid semantic + keyword)
+  - Relationship discovery and knowledge graphs
+  - Performance and troubleshooting
+
+### Plugin System
+- **[Plugin System Guide](guides/plugins.md)** ⭐ NEW
+  Build extensions for SwarmSDK:
+  - Plugin architecture and design principles
+  - Writing custom plugins step-by-step
+  - Lifecycle hooks (agent init, user messages, etc.)
+  - Tool providers and storage management
+  - Testing and best practices
+  - Real-world example (SwarmMemory plugin)
+
+### Memory Adapters
+- **[Memory Adapter Development](guides/memory-adapters.md)** ⭐ NEW
+  Build custom storage backends for SwarmMemory:
+  - Adapter interface and requirements
+  - FilesystemAdapter deep dive
+  - Vector database adapters (Qdrant, Milvus)
+  - Relational database adapters (PostgreSQL + pgvector)
+  - Testing and performance optimization
+
 ### Rails Integration
 - **[Rails Integration Guide](guides/rails-integration.md)**
   Comprehensive guide for integrating SwarmSDK into Ruby on Rails applications:
@@ -94,9 +123,11 @@ Welcome to the official documentation for SwarmSDK and SwarmCLI - a Ruby framewo
 - **Permissions**: [Tutorial Part 2](guides/complete-tutorial.md#permissions-system) | [YAML Reference](reference/yaml.md#permissions-configuration)
 
 ### Advanced Features
+- **SwarmMemory**: [SwarmMemory Guide](guides/swarm-memory.md) | [Adapter Guide](guides/memory-adapters.md)
+- **Plugin System**: [Plugin Guide](guides/plugins.md)
+- **Context Management**: [Tutorial Part 6](guides/complete-tutorial.md#context-window-management) | [Ruby DSL Ref](reference/ruby-dsl.md#context-management)
 - **MCP Servers**: [Tutorial Part 6](guides/complete-tutorial.md#mcp-server-integration)
 - **Custom Providers**: [Tutorial Part 6](guides/complete-tutorial.md#custom-providers-and-models)
-- **Context Management**: [Tutorial Part 6](guides/complete-tutorial.md#context-window-management)
 - **Rate Limiting**: [Tutorial Part 6](guides/complete-tutorial.md#rate-limiting)
 
 ### Production
@@ -132,6 +163,15 @@ Welcome to the official documentation for SwarmSDK and SwarmCLI - a Ruby framewo
 **Look up a YAML configuration option**
 → [YAML Reference](reference/yaml.md)
 
+**Add persistent memory to agents**
+→ [SwarmMemory Guide](guides/swarm-memory.md)
+
+**Build a SwarmSDK plugin**
+→ [Plugin System Guide](guides/plugins.md)
+
+**Build a custom storage adapter**
+→ [Memory Adapter Guide](guides/memory-adapters.md)
+
 ---
 
 ## 📊 Documentation Structure
@@ -144,12 +184,20 @@ docs/v2/
 │   ├── getting-started.md             # SDK quick start (YAML + Ruby DSL)
 │   ├── quick-start-cli.md             # CLI quick start
 │   ├── complete-tutorial.md           # 100% feature coverage tutorial
-│   └── rails-integration.md           # Rails integration guide
+│   ├── swarm-memory.md                # SwarmMemory guide ⭐ NEW
+│   ├── plugins.md                     # Plugin system guide ⭐ NEW
+│   ├── memory-adapters.md             # Adapter development ⭐ NEW
+│   ├── rails-integration.md           # Rails integration guide
+│   └── claude-code-agents.md          # Claude Code compatibility
 │
-└── reference/                          # Complete API references
-    ├── cli.md                          # CLI command reference
-    ├── ruby-dsl.md                     # Ruby DSL API reference
-    └── yaml.md                         # YAML configuration reference
+├── reference/                          # Complete API references
+│   ├── cli.md                          # CLI command reference
+│   ├── ruby-dsl.md                     # Ruby DSL API reference
+│   └── yaml.md                         # YAML configuration reference
+│
+└── CHANGELOG.swarm_sdk.md              # SwarmSDK version history
+    CHANGELOG.swarm_cli.md              # SwarmCLI version history
+    CHANGELOG.swarm_memory.md           # SwarmMemory version history ⭐ NEW
 ```
 
 ---
@@ -252,7 +300,7 @@ Found an issue or want to improve the documentation?
 ## 📚 Additional Resources
 
 - **GitHub Repository**: [parruda/claude-swarm](https://github.com/parruda/claude-swarm)
-- **RubyGems**: [swarm_sdk](https://rubygems.org/gems/swarm_sdk) | [swarm_cli](https://rubygems.org/gems/swarm_cli)
+- **RubyGems**: [swarm_sdk](https://rubygems.org/gems/swarm_sdk) | [swarm_cli](https://rubygems.org/gems/swarm_cli) | [swarm_memory](https://rubygems.org/gems/swarm_memory)
 - **Issues & Support**: [GitHub Issues](https://github.com/parruda/claude-swarm/issues)
 
 ---
