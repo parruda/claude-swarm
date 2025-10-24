@@ -189,8 +189,7 @@ module SwarmSDK
         end
 
         # Register plugin tools if plugin storage is enabled for this agent
-        # Plugin tools are NOT affected by disable_default_tools since they're
-        # explicitly configured via plugin config blocks (e.g., memory {} block)
+        # Plugin tools ARE affected by disable_default_tools (allows fine-grained control)
         register_plugin_tools(chat, agent_name, agent_definition, explicit_tool_names)
       end
 
@@ -268,6 +267,9 @@ module SwarmSDK
           plugin.tools.each do |tool_name|
             # Skip if already registered explicitly
             next if explicit_tool_names.include?(tool_name)
+
+            # Skip if tool is disabled via disable_default_tools
+            next if tool_disabled?(tool_name, agent_definition.disable_default_tools)
 
             tool_instance = create_tool_instance(
               tool_name,

@@ -15,9 +15,10 @@ module SwarmMemory
     #   index = SemanticIndex.new(adapter: adapter, embedder: embedder)
     #   results = index.search(query: "how to debug", top_k: 5, threshold: 0.7)
     class SemanticIndex
-      # Default weights for hybrid scoring
-      DEFAULT_SEMANTIC_WEIGHT = 0.5
-      DEFAULT_KEYWORD_WEIGHT = 0.5
+      # Default weights for hybrid scoring (optimal: 50/50 discovered via systematic evaluation)
+      # Configurable via ENV vars: SWARM_MEMORY_SEMANTIC_WEIGHT, SWARM_MEMORY_KEYWORD_WEIGHT
+      DEFAULT_SEMANTIC_WEIGHT = (ENV["SWARM_MEMORY_SEMANTIC_WEIGHT"] || "0.5").to_f
+      DEFAULT_KEYWORD_WEIGHT = (ENV["SWARM_MEMORY_KEYWORD_WEIGHT"] || "0.5").to_f
 
       # @param adapter [Adapters::Base] Storage adapter
       # @param embedder [Embeddings::Embedder] Embedding model
