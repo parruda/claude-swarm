@@ -7,7 +7,9 @@ module SwarmMemory
     # Registers with SwarmCLI to provide:
     #   swarm memory setup      - Download embedding model
     #   swarm memory status     - Check model cache status
-    #   swarm memory cache-dir  - Show cache location
+    #   swarm memory model-path - Show cache location
+    #   swarm memory defrag     - Optimize memory storage
+    #   swarm memory rebuild    - Rebuild all embeddings
     class Commands
       class << self
         # Execute memory command (called by SwarmCLI)
@@ -27,6 +29,8 @@ module SwarmMemory
             show_model_path
           when "defrag"
             defrag_memory(subcommand_args)
+          when "rebuild"
+            rebuild_embeddings(subcommand_args)
           else
             show_help
             exit(1)
@@ -155,6 +159,100 @@ module SwarmMemory
           exit(0)
         end
 
+        def rebuild_embeddings(args)
+          # Expect directory path as argument
+          directory = args&.first
+
+          unless directory && !directory.empty?
+            $stderr.puts "Error: Memory directory path required"
+            $stderr.puts
+            $stderr.puts "Usage: swarm memory rebuild DIRECTORY"
+            $stderr.puts
+            $stderr.puts "Example:"
+            $stderr.puts "  swarm memory rebuild .swarm/assistant-memory"
+            exit(1)
+          end
+
+          unless Dir.exist?(directory)
+            $stderr.puts "Error: Directory not found: #{directory}"
+            exit(1)
+          end
+
+          puts "Rebuilding embeddings for memory at: #{directory}"
+          puts "=" * 70
+          puts
+
+          # Initialize embedder
+          begin
+            embedder = SwarmMemory::Embeddings::InformersEmbedder.new
+          rescue StandardError => e
+            $stderr.puts "Error: #{e.message}"
+            $stderr.puts
+            $stderr.puts "Make sure the 'informers' gem is installed:"
+            $stderr.puts "  gem install informers"
+            exit(1)
+          end
+
+          # Ensure model is cached
+          unless embedder.cached?
+            puts "Model not cached. Downloading..."
+            puts "  Model: sentence-transformers/all-MiniLM-L6-v2"
+            puts "  Size: ~90MB (unquantized ONNX)"
+            puts
+            embedder.preload!
+            puts
+          end
+
+          # Create storage with embedder
+          adapter = SwarmMemory::Adapters::FilesystemAdapter.new(directory: directory)
+          storage = SwarmMemory::Core::Storage.new(adapter: adapter, embedder: embedder)
+
+          # Get all entries
+          all_entries = adapter.all_entries
+          total_count = all_entries.size
+
+          if total_count.zero?
+            puts "No entries found in #{directory}"
+            exit(0)
+          end
+
+          puts "Found #{total_count} entries to rebuild"
+          puts
+
+          # Rebuild each entry
+          processed = 0
+          errors = 0
+
+          all_entries.each do |path, entry|
+            # Re-write the entry to regenerate embedding
+            # The storage.write() method will automatically generate the embedding
+            storage.write(
+              file_path: path,
+              content: entry.content,
+              title: entry.title,
+              metadata: entry.metadata,
+              generate_embedding: true,
+            )
+
+            processed += 1
+            print("\rProcessed: #{processed}/#{total_count} (#{errors} errors)")
+          rescue StandardError => e
+            errors += 1
+            print("\rProcessed: #{processed}/#{total_count} (#{errors} errors)")
+            warn("\nError rebuilding #{path}: #{e.message}")
+          end
+
+          puts
+          puts
+          puts "Rebuild complete!"
+          puts "  Total entries: #{total_count}"
+          puts "  Successfully rebuilt: #{processed}"
+          puts "  Errors: #{errors}" if errors.positive?
+          puts
+
+          exit(0)
+        end
+
         def show_help
           puts
           puts "Usage: swarm memory SUBCOMMAND"
@@ -164,12 +262,14 @@ module SwarmMemory
           puts "  status             Check if embeddings are ready"
           puts "  model-path         Show embedding model cache path"
           puts "  defrag DIRECTORY   Defrag memory at given directory"
+          puts "  rebuild DIRECTORY  Rebuild all embeddings for memory at directory"
           puts
           puts "Examples:"
           puts "  swarm memory setup                            # Download model"
           puts "  swarm memory status                           # Check if ready"
           puts "  swarm memory model-path                       # Show model location"
           puts "  swarm memory defrag .swarm/assistant-memory   # Optimize memory"
+          puts "  swarm memory rebuild .swarm/assistant-memory  # Rebuild embeddings"
           puts
         end
       end
