@@ -226,7 +226,7 @@ module SwarmMemory
 
           # Emit log events
           emit_skill_search_log(agent_name, prompt, skills, all_results, threshold)
-          emit_memory_search_log(agent_name, prompt, memories, threshold)
+          emit_memory_search_log(agent_name, prompt, memories, all_results, threshold)
 
           # Build skill reminder if found
           if skills.any?
@@ -299,10 +299,30 @@ module SwarmMemory
       # @param agent_name [Symbol] Agent identifier
       # @param prompt [String] User's message
       # @param memories [Array<Hash>] Found memories (concepts/facts/experiences)
+      # @param all_results [Array<Hash>] All search results (unfiltered)
       # @param threshold [Float] Similarity threshold used
       # @return [void]
-      def emit_memory_search_log(agent_name, prompt, memories, threshold)
+      def emit_memory_search_log(agent_name, prompt, memories, all_results, threshold)
         return unless SwarmSDK::LogStream.enabled?
+
+        # Filter all_results to only concept/fact/experience types for debug output
+        memory_entries = all_results.select do |r|
+          ["concept", "fact", "experience"].include?(r.dig(:metadata, "type"))
+        end
+
+        # Include top 10 memory entries for debugging (even if below threshold)
+        debug_all_memories = memory_entries.take(10).map do |result|
+          {
+            path: result[:path],
+            title: result[:title],
+            hybrid_score: result[:similarity].round(3),
+            semantic_score: result[:semantic_score]&.round(3),
+            keyword_score: result[:keyword_score]&.round(3),
+            type: result.dig(:metadata, "type"),
+            tags: result.dig(:metadata, "tags"),
+            domain: result.dig(:metadata, "domain"),
+          }
+        end
 
         # Get actual weights being used (from ENV or defaults)
         semantic_weight = (ENV["SWARM_MEMORY_SEMANTIC_WEIGHT"] || "0.5").to_f
@@ -314,6 +334,7 @@ module SwarmMemory
           query: prompt,
           threshold: threshold,
           memories_found: memories.size,
+          total_memory_entries_searched: memory_entries.size,
           search_mode: "hybrid",
           weights: { semantic: semantic_weight, keyword: keyword_weight },
           memories: memories.map do |memory|
@@ -326,6 +347,7 @@ module SwarmMemory
               keyword_score: memory[:keyword_score]&.round(3),
             }
           end,
+          debug: debug_all_memories,
         )
       end
 
