@@ -187,7 +187,9 @@ module SwarmMemory
         storage = @storages[agent_name]
         return [] unless storage&.semantic_index
 
-        threshold = 0.65
+        # Configurable via environment variable for tuning
+        # Optimal: 0.60 (discovered via systematic evaluation)
+        threshold = (ENV["SWARM_MEMORY_DISCOVERY_THRESHOLD"] || "0.60").to_f
         reminders = []
 
         # Run both searches in parallel with Async
@@ -266,6 +268,10 @@ module SwarmMemory
           }
         end
 
+        # Get actual weights being used (from ENV or defaults)
+        semantic_weight = (ENV["SWARM_MEMORY_SEMANTIC_WEIGHT"] || "0.5").to_f
+        keyword_weight = (ENV["SWARM_MEMORY_KEYWORD_WEIGHT"] || "0.5").to_f
+
         SwarmSDK::LogStream.emit(
           type: "semantic_skill_search",
           agent: agent_name,
@@ -274,7 +280,7 @@ module SwarmMemory
           skills_found: skills.size,
           total_entries_searched: all_results.size,
           search_mode: "hybrid",
-          weights: { semantic: 0.5, keyword: 0.5 },
+          weights: { semantic: semantic_weight, keyword: keyword_weight },
           skills: skills.map do |skill|
             {
               path: skill[:path],
@@ -298,6 +304,10 @@ module SwarmMemory
       def emit_memory_search_log(agent_name, prompt, memories, threshold)
         return unless SwarmSDK::LogStream.enabled?
 
+        # Get actual weights being used (from ENV or defaults)
+        semantic_weight = (ENV["SWARM_MEMORY_SEMANTIC_WEIGHT"] || "0.5").to_f
+        keyword_weight = (ENV["SWARM_MEMORY_KEYWORD_WEIGHT"] || "0.5").to_f
+
         SwarmSDK::LogStream.emit(
           type: "semantic_memory_search",
           agent: agent_name,
@@ -305,7 +315,7 @@ module SwarmMemory
           threshold: threshold,
           memories_found: memories.size,
           search_mode: "hybrid",
-          weights: { semantic: 0.5, keyword: 0.5 },
+          weights: { semantic: semantic_weight, keyword: keyword_weight },
           memories: memories.map do |memory|
             {
               path: memory[:path],
