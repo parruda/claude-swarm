@@ -46,15 +46,15 @@ module SwarmSDK
 
       param :type,
         type: "string",
-        desc: "File type to search (rg --type). Common types: js, py, rust, go, java, etc.",
+        desc: "File type to search (rg --type). Common types: c, cpp, cs, csharp, css, dart, docker, dockercompose, elixir, erlang, go, graphql, haskell, html, java, js, json, kotlin, lua, make, markdown, md, php, py, python, ruby, rust, sass, scala, sh, sql, svelte, swift, tf, toml, ts, typescript, vim, vue, xml, yaml, zig",
         required: false
 
       param :output_mode,
         type: "string",
-        desc: "Output mode: \"content\" shows matching lines (supports -A/-B/-C context, -n line numbers, head_limit), \"files_with_matches\" shows file paths (supports head_limit), \"count\" shows match counts (supports head_limit). Defaults to \"files_with_matches\".",
+        desc: "Output mode: \"content\" shows matching lines (supports context/line number options), \"files_with_matches\" shows file paths (default), \"count\" shows match counts. All modes support head_limit.",
         required: false
 
-      param :"-i",
+      param :case_insensitive,
         type: "boolean",
         desc: "Case insensitive search (rg -i)",
         required: false
@@ -64,22 +64,22 @@ module SwarmSDK
         desc: "Enable multiline mode where . matches newlines and patterns can span lines (rg -U --multiline-dotall)",
         required: false
 
-      param :"-B",
+      param :context_before,
         type: "integer",
         desc: "Number of lines to show before each match (rg -B). Requires output_mode: \"content\", ignored otherwise.",
         required: false
 
-      param :"-A",
+      param :context_after,
         type: "integer",
         desc: "Number of lines to show after each match (rg -A). Requires output_mode: \"content\", ignored otherwise.",
         required: false
 
-      param :"-C",
+      param :context,
         type: "integer",
         desc: "Number of lines to show before and after each match (rg -C). Requires output_mode: \"content\", ignored otherwise.",
         required: false
 
-      param :"-n",
+      param :show_line_numbers,
         type: "boolean",
         desc: "Show line numbers in output (rg -n). Requires output_mode: \"content\", ignored otherwise.",
         required: false
@@ -95,7 +95,13 @@ module SwarmSDK
         glob: nil,
         type: nil,
         output_mode: "files_with_matches",
-        **options
+        case_insensitive: false,
+        multiline: false,
+        context_before: nil,
+        context_after: nil,
+        context: nil,
+        show_line_numbers: false,
+        head_limit: nil
       )
         # Validate inputs
         return validation_error("pattern is required") if pattern.nil? || pattern.empty?
@@ -107,15 +113,6 @@ module SwarmSDK
           # Resolve relative paths against agent directory
           resolve_path(path)
         end
-
-        # Extract options with their flag names
-        case_insensitive = options["-i"] || false
-        multiline = options[:multiline] || false
-        context_before = options["-B"]
-        context_after = options["-A"]
-        context = options["-C"]
-        line_numbers = options["-n"] || false
-        head_limit = options[:head_limit]
 
         # Validate output_mode
         valid_modes = ["content", "files_with_matches", "count"]
@@ -135,7 +132,7 @@ module SwarmSDK
         when "content"
           # Default mode, no special flag needed
           # Add line numbers if requested
-          cmd << "-n" if line_numbers
+          cmd << "-n" if show_line_numbers
 
           # Add context flags
           cmd << "-B" << context_before.to_s if context_before
@@ -222,7 +219,7 @@ module SwarmSDK
           <system-reminder>
           You used output_mode: '#{output_mode}' which only shows #{output_mode == "files_with_matches" ? "file paths" : "match counts"}.
           To see the actual matching lines and their content, use output_mode: 'content'.
-          You can also add -n: true and context lines (-B, -A, or -C) for better context.
+          You can also add show_line_numbers: true and context lines (context_before, context_after, or context) for better context.
           </system-reminder>
         REMINDER
       end

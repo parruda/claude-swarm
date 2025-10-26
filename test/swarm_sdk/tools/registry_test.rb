@@ -82,10 +82,12 @@ module SwarmSDK
         assert_includes(names, :ScratchpadWrite)
         assert_includes(names, :ScratchpadRead)
         assert_includes(names, :ScratchpadList)
-        # Memory tools
-        assert_includes(names, :MemoryWrite)
-        assert_includes(names, :MemoryRead)
-        assert_includes(names, :MemoryDelete)
+
+        # Memory tools are provided by swarm_memory gem via plugin system
+        # They are NOT in Tools::Registry - they're in PluginRegistry
+        # So we should NOT expect them in available_names
+        refute_includes(names, :MemoryWrite)
+        refute_includes(names, :MemoryRead)
       end
 
       def test_registry_validate

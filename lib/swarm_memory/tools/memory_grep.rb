@@ -1,0 +1,209 @@
+# frozen_string_literal: true
+
+module SwarmMemory
+  module Tools
+    # Tool for searching memory content by pattern
+    #
+    # Searches content stored in memory entries using regex patterns.
+    # Each agent has its own isolated memory storage.
+    class MemoryGrep < RubyLLM::Tool
+      description <<~DESC
+        Search your memory content using regular expression patterns (like grep).
+
+        REQUIRED: Provide the pattern parameter - the regex pattern to search for in entry content.
+
+        MEMORY STRUCTURE: Searches across all 4 fixed categories (concept/, fact/, skill/, experience/)
+        NO OTHER top-level categories exist.
+
+        **Required Parameters:**
+        - pattern (REQUIRED): Regular expression pattern to search for (e.g., 'status: pending', 'TODO.*urgent', '\\btask_\\d+\\b')
+
+        **Optional Parameters:**
+        - case_insensitive: Set to true for case-insensitive search (default: false)
+        - output_mode: Choose output format - 'files_with_matches' (default), 'content', or 'count'
+
+        **Output Modes Explained:**
+        1. **files_with_matches** (default): Just shows which entries contain matches
+           - Fast and efficient for discovery
+           - Use when you want to know WHERE matches exist
+
+        2. **content**: Shows matching lines with line numbers
+           - See the actual matching content
+           - Use when you need to read the matches in context
+
+        3. **count**: Shows how many matches in each entry
+           - Quantify occurrences
+           - Use for statistics or finding entries with most matches
+
+        **Regular Expression Syntax:**
+        - Literal text: 'status: pending'
+        - Any character: 'task.done'
+        - Character classes: '[0-9]+' (digits), '[a-z]+' (lowercase)
+        - Word boundaries: '\\btodo\\b' (exact word)
+        - Anchors: '^Start' (line start), 'end$' (line end)
+        - Quantifiers: '*' (0+), '+' (1+), '?' (0 or 1), '{3}' (exactly 3)
+        - Alternation: 'pending|in-progress|blocked'
+
+        **Examples:**
+        ```
+        # Find entries containing "TODO" (case-sensitive)
+        MemoryGrep(pattern: "TODO")
+
+        # Find entries with any status (case-insensitive)
+        MemoryGrep(pattern: "status:", case_insensitive: true)
+
+        # Show actual content of matches
+        MemoryGrep(pattern: "error|warning|failed", output_mode: "content")
+
+        # Count how many times "completed" appears in each entry
+        MemoryGrep(pattern: "completed", output_mode: "count")
+
+        # Find task numbers
+        MemoryGrep(pattern: "task_\\d+")
+
+        # Find incomplete tasks
+        MemoryGrep(pattern: "^- \\[ \\]", output_mode: "content")
+
+        # Find entries mentioning specific functions
+        MemoryGrep(pattern: "\\bprocess_data\\(")
+        ```
+
+        **Use Cases:**
+        - Finding entries by keyword or phrase
+        - Locating TODO items or action items
+        - Searching for error messages or debugging info
+        - Finding entries about specific code/functions
+        - Identifying patterns in your memory
+        - Content-based discovery (vs MemoryGlob's path-based discovery)
+
+        **Combining with Other Tools:**
+        1. Use MemoryGrep to find entries containing specific content
+        2. Use MemoryRead to examine full entries
+        3. Use MemoryEdit to update the found content
+
+        **Tips:**
+        - Start with simple literal patterns before using complex regex
+        - Use case_insensitive=true for broader matches
+        - Use output_mode="content" to see context around matches
+        - Escape special regex characters with backslash: \\. \\* \\? \\[ \\]
+        - Test patterns on a small set before broad searches
+        - Use word boundaries (\\b) for exact word matching
+      DESC
+
+      param :pattern,
+        desc: "Regular expression pattern to search for",
+        required: true
+
+      param :case_insensitive,
+        type: "boolean",
+        desc: "Set to true for case-insensitive search (default: false)",
+        required: false
+
+      param :output_mode,
+        desc: "Output mode: 'files_with_matches' (default), 'content', or 'count'",
+        required: false
+
+      # Initialize with storage instance
+      #
+      # @param storage [Core::Storage] Storage instance
+      def initialize(storage:)
+        super()
+        @storage = storage
+      end
+
+      # Override name to return simple "MemoryGrep"
+      def name
+        "MemoryGrep"
+      end
+
+      # Execute the tool
+      #
+      # @param pattern [String] Regex pattern to search for
+      # @param case_insensitive [Boolean] Whether to perform case-insensitive search
+      # @param output_mode [String] Output mode
+      # @return [String] Formatted search results
+      def execute(pattern:, case_insensitive: false, output_mode: "files_with_matches")
+        results = @storage.grep(
+          pattern: pattern,
+          case_insensitive: case_insensitive,
+          output_mode: output_mode,
+        )
+
+        format_results(results, pattern, output_mode)
+      rescue ArgumentError => e
+        validation_error(e.message)
+      rescue RegexpError => e
+        validation_error("Invalid regex pattern: #{e.message}")
+      end
+
+      private
+
+      def validation_error(message)
+        "<tool_use_error>InputValidationError: #{message}</tool_use_error>"
+      end
+
+      def format_results(results, pattern, output_mode)
+        case output_mode
+        when "files_with_matches"
+          format_files_with_matches(results, pattern)
+        when "content"
+          format_content(results, pattern)
+        when "count"
+          format_count(results, pattern)
+        else
+          validation_error("Invalid output_mode: #{output_mode}")
+        end
+      end
+
+      def format_files_with_matches(paths, pattern)
+        if paths.empty?
+          return "No matches found for pattern '#{pattern}'"
+        end
+
+        result = []
+        result << "Memory entries matching '#{pattern}' (#{paths.size} #{paths.size == 1 ? "entry" : "entries"}):"
+        paths.each do |path|
+          result << "  memory://#{path}"
+        end
+        result.join("\n")
+      end
+
+      def format_content(results, pattern)
+        if results.empty?
+          return "No matches found for pattern '#{pattern}'"
+        end
+
+        total_matches = results.sum { |r| r[:matches].size }
+        output = []
+        output << "Memory entries matching '#{pattern}' (#{results.size} #{results.size == 1 ? "entry" : "entries"}, #{total_matches} #{total_matches == 1 ? "match" : "matches"}):"
+        output << ""
+
+        results.each do |result|
+          output << "memory://#{result[:path]}:"
+          result[:matches].each do |match|
+            output << "  #{match[:line_number]}: #{match[:content]}"
+          end
+          output << ""
+        end
+
+        output.join("\n").rstrip
+      end
+
+      def format_count(results, pattern)
+        if results.empty?
+          return "No matches found for pattern '#{pattern}'"
+        end
+
+        total_matches = results.sum { |r| r[:count] }
+        output = []
+        output << "Memory entries matching '#{pattern}' (#{results.size} #{results.size == 1 ? "entry" : "entries"}, #{total_matches} total #{total_matches == 1 ? "match" : "matches"}):"
+
+        results.each do |result|
+          output << "  memory://#{result[:path]}: #{result[:count]} #{result[:count] == 1 ? "match" : "matches"}"
+        end
+
+        output.join("\n")
+      end
+    end
+  end
+end

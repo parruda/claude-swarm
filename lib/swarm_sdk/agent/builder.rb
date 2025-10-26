@@ -2,32 +2,6 @@
 
 module SwarmSDK
   module Agent
-    # Configuration for agent memory
-    class MemoryConfig
-      def initialize
-        @adapter = :filesystem # Default adapter
-        @directory = nil
-      end
-
-      # DSL method to set/get adapter
-      def adapter(value = nil)
-        return @adapter if value.nil?
-
-        @adapter = value.to_sym
-      end
-
-      # DSL method to set/get directory
-      def directory(value = nil)
-        return @directory if value.nil?
-
-        @directory = value
-      end
-
-      def enabled?
-        !@directory.nil?
-      end
-    end
-
     # Builder provides fluent API for configuring agents
     #
     # This class offers a Ruby DSL for defining agents with a clean, readable syntax.
@@ -160,10 +134,23 @@ module SwarmSDK
       # @example Disable all default tools
       #   disable_default_tools true
       #
-      # @example Disable specific tools
+      # @example Disable specific tools (array)
       #   disable_default_tools [:Think, :TodoWrite]
-      def disable_default_tools(value)
-        @disable_default_tools = value
+      #
+      # @example Disable specific tools (separate arguments)
+      #   disable_default_tools :Think, :TodoWrite
+      def disable_default_tools(*tools)
+        # Handle different argument forms
+        @disable_default_tools = case tools.size
+        when 0
+          nil
+        when 1
+          # Single argument: could be true/false/array
+          tools.first
+        else
+          # Multiple arguments: treat as array of tool names
+          tools.map(&:to_sym)
+        end
       end
 
       # Set bypass_permissions flag
@@ -243,19 +230,6 @@ module SwarmSDK
       # Set directory
       def directory(dir)
         @directory = dir
-      end
-
-      # Configure persistent memory for this agent
-      #
-      # @example
-      #   memory do
-      #     adapter :filesystem  # default
-      #     directory ".swarm/agent-memory"
-      #   end
-      def memory(&block)
-        @memory_config = MemoryConfig.new
-        @memory_config.instance_eval(&block) if block_given?
-        @memory_config
       end
 
       # Set delegation targets

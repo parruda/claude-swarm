@@ -74,6 +74,11 @@ module SwarmSDK
             # Mark threshold as hit and emit warning
             @agent_context.hit_warning_threshold?(threshold)
 
+            # Trigger automatic compression at 60% threshold
+            if threshold == Context::COMPRESSION_THRESHOLD
+              trigger_automatic_compression
+            end
+
             LogStream.emit(
               type: "context_limit_warning",
               agent: @agent_context.name,
@@ -84,6 +89,7 @@ module SwarmSDK
               tokens_remaining: @chat.tokens_remaining,
               context_limit: @chat.context_limit,
               metadata: @agent_context.metadata,
+              compression_triggered: threshold == Context::COMPRESSION_THRESHOLD,
             )
           end
         end
@@ -265,6 +271,43 @@ module SwarmSDK
             callbacks: agent_hooks,
           )
         end
+      end
+
+      # Trigger automatic message compression
+      #
+      # Called when context usage crosses 60% threshold. Compresses old tool
+      # results to save context window space while preserving accuracy.
+      #
+      # @return [void]
+      def trigger_automatic_compression
+        return unless @chat.respond_to?(:context_manager)
+
+        # Calculate tokens before compression
+        tokens_before = @chat.cumulative_total_tokens
+
+        # Get compressed messages from ContextManager
+        compressed = @chat.context_manager.auto_compress_on_threshold(@chat.messages, keep_recent: 10)
+
+        # Count how many messages were actually compressed
+        messages_compressed = compressed.count do |msg|
+          msg.content.to_s.include?("[truncated for context management]")
+        end
+
+        # Replace messages array with compressed version
+        @chat.messages.clear
+        compressed.each { |msg| @chat.messages << msg }
+
+        # Log compression event
+        LogStream.emit(
+          type: "context_compression",
+          agent: @agent_context.name,
+          total_messages: @chat.messages.size,
+          messages_compressed: messages_compressed,
+          tokens_before: tokens_before,
+          current_usage: "#{@chat.context_usage_percentage}%",
+          compression_strategy: "progressive_tool_result_compression",
+          keep_recent: 10,
+        ) if LogStream.enabled?
       end
     end
   end

@@ -23,10 +23,22 @@ module SwarmCLI
   class InteractiveREPL
     COMMANDS = {
       "/help" => "Show available commands",
-      "/clear" => "Clear the screen",
+      "/clear" => "Clear the lead agent's conversation context",
+      "/tools" => "List the lead agent's available tools",
       "/history" => "Show conversation history",
+      "/defrag" => "Run memory defragmentation workflow (find and link related entries)",
       "/exit" => "Exit the REPL (or press Ctrl+D)",
     }.freeze
+
+    # History configuration
+    HISTORY_SIZE = 1000
+
+    class << self
+      # Get history file path (can be overridden with SWARM_HISTORY env var)
+      def history_file
+        ENV["SWARM_HISTORY"] || File.expand_path("~/.swarm/history")
+      end
+    end
 
     def initialize(swarm:, options:, initial_message: nil)
       @swarm = swarm
@@ -37,6 +49,7 @@ module SwarmCLI
       @validation_warnings_shown = false
 
       setup_ui_components
+      setup_persistent_history
 
       # Create formatter for swarm execution output (interactive mode)
       @formatter = Formatters::HumanFormatter.new(
@@ -67,6 +80,9 @@ module SwarmCLI
       display_goodbye
       display_session_summary
       exit(130)
+    ensure
+      # Save history on exit
+      save_persistent_history
     end
 
     # Execute a message with Ctrl+C cancellation support
@@ -122,6 +138,61 @@ module SwarmCLI
       cancelled ? nil : result
     end
 
+    # Handle slash commands
+    # Public for testing
+    #
+    # @param input [String] Command input (e.g., "/help", "/clear")
+    def handle_command(input)
+      command = input.split.first.downcase
+
+      case command
+      when "/help"
+        display_help
+      when "/clear"
+        clear_context
+      when "/tools"
+        list_tools
+      when "/history"
+        display_history
+      when "/defrag"
+        defrag_memory
+      when "/exit"
+        # Break from main loop to trigger session summary
+        throw(:exit_repl)
+      else
+        puts render_error("Unknown command: #{command}")
+        puts @colors[:system].call("Type /help for available commands")
+      end
+    end
+
+    # Save persistent history to file
+    # Public for testing
+    #
+    # @return [void]
+    def save_persistent_history
+      history_file = self.class.history_file
+      return unless history_file
+
+      history = Reline::HISTORY.to_a
+
+      # Limit to configured size
+      if HISTORY_SIZE.positive? && history.size > HISTORY_SIZE
+        history = history.last(HISTORY_SIZE)
+      end
+
+      # Write with secure permissions (owner read/write only)
+      File.open(history_file, "w", 0o600, encoding: Encoding::UTF_8) do |f|
+        # Handle multi-line entries by escaping newlines with backslash
+        history.each do |entry|
+          escaped = entry.scrub.split("\n").join("\\\n")
+          f.puts(escaped)
+        end
+      end
+    rescue Errno::EACCES, Errno::ENOENT
+      # Can't write history - continue anyway
+      nil
+    end
+
     private
 
     def setup_ui_components
@@ -151,6 +222,9 @@ module SwarmCLI
       config.add_default_key_binding_by_keymap(:emacs, [9], :fuzzy_complete)
       config.add_default_key_binding_by_keymap(:vi_insert, [9], :fuzzy_complete)
 
+      # Configure history size
+      Reline.core.config.history_size = HISTORY_SIZE
+
       # Setup colors using detached styles for performance
       @colors = {
         prompt: @pastel.bright_cyan.bold.detach,
@@ -168,6 +242,33 @@ module SwarmCLI
         header: @pastel.bright_cyan.bold.detach,
         code: @pastel.bright_magenta.detach,
       }
+    end
+
+    def setup_persistent_history
+      history_file = self.class.history_file
+
+      # Ensure history directory exists
+      FileUtils.mkdir_p(File.dirname(history_file))
+
+      # Load history from file
+      return unless File.exist?(history_file)
+
+      File.open(history_file, "r:UTF-8") do |f|
+        f.each_line do |line|
+          line = line.chomp
+
+          # Handle multi-line entries (backslash continuation)
+          if Reline::HISTORY.last&.end_with?("\\")
+            Reline::HISTORY.last.delete_suffix!("\\")
+            Reline::HISTORY.last << "\n" << line
+          else
+            Reline::HISTORY << line unless line.empty?
+          end
+        end
+      end
+    rescue Errno::ENOENT, Errno::EACCES
+      # History file doesn't exist or can't be read - that's OK
+      nil
     end
 
     def display_welcome
@@ -312,26 +413,6 @@ module SwarmCLI
       end
     end
 
-    def handle_command(input)
-      command = input.split.first.downcase
-
-      case command
-      when "/help"
-        display_help
-      when "/clear"
-        system("clear") || system("cls")
-        display_welcome
-      when "/history"
-        display_history
-      when "/exit"
-        # Break from main loop to trigger session summary
-        throw(:exit_repl)
-      else
-        puts render_error("Unknown command: #{command}")
-        puts @colors[:system].call("Type /help for available commands")
-      end
-    end
-
     def handle_message(input)
       # Add to history
       @conversation_history << { role: "user", content: input }
@@ -442,6 +523,111 @@ module SwarmCLI
       puts help_box
     end
 
+    def clear_context
+      # Get the lead agent
+      lead = @swarm.agent(@swarm.lead_agent)
+
+      # Clear the agent's conversation history
+      lead.reset_messages!
+
+      # Clear REPL conversation history
+      @conversation_history.clear
+
+      # Display confirmation
+      puts ""
+      puts @colors[:success].call("✓ Conversation context cleared for #{@swarm.lead_agent}")
+      puts @colors[:system].call("  Starting fresh - previous messages removed from context")
+      puts ""
+    end
+
+    def list_tools
+      # Get the lead agent
+      lead = @swarm.agent(@swarm.lead_agent)
+
+      # Get tools hash (tool_name => tool_instance)
+      tools_hash = lead.tools
+
+      puts ""
+      puts @colors[:header].call("Available Tools for #{@swarm.lead_agent}:")
+      puts @colors[:divider].call("─" * 60)
+      puts ""
+
+      if tools_hash.empty?
+        puts @colors[:system].call("No tools available")
+        return
+      end
+
+      # Group tools by category
+      memory_tools = []
+      standard_tools = []
+      delegation_tools = []
+      mcp_tools = []
+      other_tools = []
+
+      tools_hash.each_value do |tool|
+        tool_name = tool.name
+        case tool_name
+        when /^Memory/, "LoadSkill"
+          memory_tools << tool_name
+        when /^DelegateTaskTo/
+          delegation_tools << tool_name
+        when /^mcp__/
+          mcp_tools << tool_name
+        when "Read", "Write", "Edit", "MultiEdit", "Bash", "Grep", "Glob",
+             "TodoWrite", "Think", "Clock", "WebFetch",
+             "ScratchpadWrite", "ScratchpadRead", "ScratchpadList"
+          standard_tools << tool_name
+        else
+          other_tools << tool_name
+        end
+      end
+
+      # Display tools by category
+      if standard_tools.any?
+        puts @colors[:agent_label].call("Standard Tools:")
+        standard_tools.sort.each do |name|
+          puts @colors[:system].call("  • #{name}")
+        end
+        puts ""
+      end
+
+      if memory_tools.any?
+        puts @colors[:agent_label].call("Memory Tools:")
+        memory_tools.sort.each do |name|
+          puts @colors[:system].call("  • #{name}")
+        end
+        puts ""
+      end
+
+      if delegation_tools.any?
+        puts @colors[:agent_label].call("Delegation Tools:")
+        delegation_tools.sort.each do |name|
+          puts @colors[:system].call("  • #{name}")
+        end
+        puts ""
+      end
+
+      if mcp_tools.any?
+        puts @colors[:agent_label].call("MCP Tools:")
+        mcp_tools.sort.each do |name|
+          puts @colors[:system].call("  • #{name}")
+        end
+        puts ""
+      end
+
+      if other_tools.any?
+        puts @colors[:agent_label].call("Other Tools:")
+        other_tools.sort.each do |name|
+          puts @colors[:system].call("  • #{name}")
+        end
+        puts ""
+      end
+
+      puts @colors[:divider].call("─" * 60)
+      puts @colors[:system].call("Total: #{tools_hash.size} tools")
+      puts ""
+    end
+
     def display_history
       if @conversation_history.empty?
         puts @colors[:system].call("No conversation history yet")
@@ -472,6 +658,26 @@ module SwarmCLI
       end
 
       puts @colors[:divider].call("─" * 60)
+    end
+
+    def defrag_memory
+      puts ""
+      puts @colors[:header].call("🔧 Memory Defragmentation Workflow")
+      puts @colors[:divider].call("─" * 60)
+      puts ""
+
+      # Inject prompt to run find_related then link_related
+      prompt = <<~PROMPT.strip
+        Run memory defragmentation workflow:
+
+        1. First, run MemoryDefrag(action: "find_related") to discover related entries
+        2. Review the results carefully
+        3. Then run MemoryDefrag(action: "link_related", dry_run: false) to create bidirectional links
+
+        Report what you found and what links were created.
+      PROMPT
+
+      handle_message(prompt)
     end
 
     def display_goodbye

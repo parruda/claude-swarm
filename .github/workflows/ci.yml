@@ -12,6 +12,8 @@ jobs:
     outputs:
       claude_swarm_changed: ${{ steps.filter.outputs.claude_swarm }}
       swarm_sdk_changed: ${{ steps.filter.outputs.swarm_sdk }}
+      swarm_memory_changed: ${{ steps.filter.outputs.swarm_memory }}
+      swarm_cli_changed: ${{ steps.filter.outputs.swarm_cli }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -21,13 +23,26 @@ jobs:
             claude_swarm:
               - 'lib/claude_swarm.rb'
               - 'lib/claude_swarm/**'
+              - 'test/**'
+              - '!test/swarm_sdk/**'
+              - '!test/swarm_memory/**'
+              - '!test/swarm_cli/**'
               - 'claude_swarm.gemspec'
-              - 'test/claude_swarm/**'
             swarm_sdk:
               - 'lib/swarm_sdk.rb'
               - 'lib/swarm_sdk/**'
               - 'swarm_sdk.gemspec'
               - 'test/swarm_sdk/**'
+            swarm_memory:
+              - 'lib/swarm_memory.rb'
+              - 'lib/swarm_memory/**'
+              - 'swarm_memory.gemspec'
+              - 'test/swarm_memory/**'
+            swarm_cli:
+              - 'lib/swarm_cli.rb'
+              - 'lib/swarm_cli/**'
+              - 'swarm_cli.gemspec'
+              - 'test/swarm_cli/**'
 
   test-claude-swarm:
     needs: detect-changes
@@ -84,3 +99,55 @@ jobs:
 
     - name: Run SwarmSDK linter
       run: bundle exec rake swarm_sdk:rubocop
+
+  test-swarm-memory:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.swarm_memory_changed == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ruby-version: ['3.2', '3.3', '3.4']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Ruby ${{ matrix.ruby-version }}
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ matrix.ruby-version }}
+        bundler-cache: true
+
+    - name: Install build dependencies
+      run: sudo apt-get update && sudo apt-get install -y ripgrep build-essential
+
+    - name: Run SwarmMemory tests
+      run: bundle exec rake swarm_memory:test
+
+    - name: Run SwarmMemory linter
+      run: bundle exec rake swarm_memory:rubocop
+
+  test-swarm-cli:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.swarm_cli_changed == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ruby-version: ['3.2', '3.3', '3.4']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Ruby ${{ matrix.ruby-version }}
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ matrix.ruby-version }}
+        bundler-cache: true
+
+    - name: Install ripgrep
+      run: sudo apt-get update && sudo apt-get install -y ripgrep
+
+    - name: Run SwarmCLI tests
+      run: bundle exec rake swarm_cli:test
+
+    - name: Run SwarmCLI linter
+      run: bundle exec rake swarm_cli:rubocop

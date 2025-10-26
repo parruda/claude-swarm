@@ -417,22 +417,16 @@ module SwarmSDK
         Struct.new(:content).new("Response")
       end
 
-      # First ask should inject system reminders
+      # First ask should inject system reminders (as ephemeral messages)
       chat.ask("Hello")
 
-      # Verify 3 messages were added (before reminder, prompt, after reminder)
-      assert_equal(3, added_messages.size)
+      # With ephemeral reminders: only user prompt is persisted
+      # Reminders are sent to LLM but NOT stored in conversation history
+      assert_equal(1, added_messages.size, "Only user prompt should be in persistent messages")
 
-      # Verify order and content
+      # Verify the persisted message is the actual user prompt
       assert_equal(:user, added_messages[0][:role])
-      assert_match(/important-instruction-reminders/, added_messages[0][:content])
-      assert_match(/NEVER create files unless/, added_messages[0][:content])
-
-      assert_equal(:user, added_messages[1][:role])
-      assert_equal("Hello", added_messages[1][:content])
-
-      assert_equal(:user, added_messages[2][:role])
-      assert_match(/todo list is currently empty/, added_messages[2][:content])
+      assert_equal("Hello", added_messages[0][:content])
     end
 
     def test_system_reminders_not_injected_on_subsequent_ask

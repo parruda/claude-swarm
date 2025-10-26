@@ -6,6 +6,9 @@ module SwarmSDK
     #
     # Maps tool names (symbols) to their RubyLLM::Tool classes.
     # Provides validation and lookup functionality for tool registration.
+    #
+    # Note: Plugin-provided tools (e.g., memory tools) are NOT in this registry.
+    # They are registered via SwarmSDK::PluginRegistry instead.
     class Registry
       # All available built-in tools
       BUILTIN_TOOLS = {
@@ -20,24 +23,22 @@ module SwarmSDK
         ScratchpadWrite: :special, # Requires scratchpad storage instance
         ScratchpadRead: :special, # Requires scratchpad storage instance
         ScratchpadList: :special, # Requires scratchpad storage instance
-        MemoryWrite: :special, # Requires memory storage instance
-        MemoryRead: :special, # Requires memory storage instance
-        MemoryEdit: :special, # Requires memory storage instance
-        MemoryMultiEdit: :special, # Requires memory storage instance
-        MemoryDelete: :special, # Requires memory storage instance
-        MemoryGlob: :special, # Requires memory storage instance
-        MemoryGrep: :special, # Requires memory storage instance
         Think: SwarmSDK::Tools::Think,
         WebFetch: SwarmSDK::Tools::WebFetch,
+        Clock: SwarmSDK::Tools::Clock,
       }.freeze
 
       class << self
         # Get tool class by name
         #
+        # Note: Plugin-provided tools are NOT returned by this method.
+        # They are managed by SwarmSDK::PluginRegistry instead.
+        #
         # @param name [Symbol, String] Tool name
-        # @return [Class, nil] Tool class or nil if not found
+        # @return [Class, Symbol, nil] Tool class, :special, or nil if not found
         def get(name)
-          BUILTIN_TOOLS[name.to_sym]
+          name_sym = name.to_sym
+          BUILTIN_TOOLS[name_sym]
         end
 
         # Get multiple tool classes by names
@@ -48,7 +49,10 @@ module SwarmSDK
         def get_many(names)
           names.map do |name|
             tool_class = get(name)
-            raise ConfigurationError, "Unknown tool: #{name}. Available tools: #{available_names.join(", ")}" unless tool_class
+            unless tool_class
+              raise ConfigurationError,
+                "Unknown tool: #{name}. Available tools: #{available_names.join(", ")}"
+            end
 
             tool_class
           end
@@ -56,13 +60,20 @@ module SwarmSDK
 
         # Check if a tool exists
         #
+        # Note: Only checks built-in tools. Plugin-provided tools are checked
+        # via SwarmSDK::PluginRegistry.plugin_tool?() instead.
+        #
         # @param name [Symbol, String] Tool name
         # @return [Boolean]
         def exists?(name)
-          BUILTIN_TOOLS.key?(name.to_sym)
+          name_sym = name.to_sym
+          BUILTIN_TOOLS.key?(name_sym)
         end
 
-        # Get all available tool names
+        # Get all available built-in tool names
+        #
+        # Note: Does NOT include plugin-provided tools. To get all available tools
+        # including plugins, combine with SwarmSDK::PluginRegistry.tools.
         #
         # @return [Array<Symbol>]
         def available_names

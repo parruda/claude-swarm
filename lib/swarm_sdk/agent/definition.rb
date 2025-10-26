@@ -125,24 +125,36 @@ module SwarmSDK
       #
       # @return [Boolean]
       def memory_enabled?
-        @memory&.respond_to?(:enabled?) && @memory.enabled?
+        return false if @memory.nil?
+
+        # MemoryConfig object (from DSL)
+        return @memory.enabled? if @memory.respond_to?(:enabled?)
+
+        # Hash (from YAML) - check for directory key
+        if @memory.is_a?(Hash)
+          directory = @memory[:directory] || @memory["directory"]
+          return !directory.nil? && !directory.to_s.strip.empty?
+        end
+
+        false
       end
 
       # Parse memory configuration from Hash or MemoryConfig object
       #
-      # @param memory_config [Hash, Agent::MemoryConfig, nil] Memory configuration
-      # @return [Agent::MemoryConfig, nil]
+      # @param memory_config [Hash, Object, nil] Memory configuration
+      # @return [Object, Hash, nil] Memory config (could be MemoryConfig from swarm_memory or Hash)
       def parse_memory_config(memory_config)
         return if memory_config.nil?
-        return memory_config if memory_config.is_a?(Agent::MemoryConfig)
 
-        # Convert hash (from YAML) to MemoryConfig object
-        config = Agent::MemoryConfig.new
-        adapter_value = memory_config[:adapter] || memory_config["adapter"] || :filesystem
-        config.adapter(adapter_value.to_sym)
-        directory_value = memory_config[:directory] || memory_config["directory"]
-        config.directory(directory_value) if directory_value
-        config
+        # If it's a MemoryConfig object (duck typing - has directory, adapter, mode methods)
+        # return as-is. This could be SwarmMemory::DSL::MemoryConfig or any compatible object.
+        return memory_config if memory_config.respond_to?(:directory) &&
+          memory_config.respond_to?(:adapter) &&
+          memory_config.respond_to?(:enabled?)
+
+        # If it's a hash (from YAML), keep it as a hash
+        # Plugin will create storage adapter based on the hash values
+        memory_config
       end
 
       def to_h
@@ -271,13 +283,14 @@ module SwarmSDK
           (custom_prompt || "").to_s
         end
 
-        # Append memory instructions if memory is enabled
-        if memory_enabled?
-          memory_prompt = render_memory_prompt
+        # Append plugin contributions to system prompt
+        plugin_contributions = collect_plugin_prompt_contributions
+        if plugin_contributions.any?
+          combined_contributions = plugin_contributions.join("\n\n")
           prompt = if prompt && !prompt.strip.empty?
-            "#{prompt}\n\n#{memory_prompt}"
+            "#{prompt}\n\n#{combined_contributions}"
           else
-            memory_prompt
+            combined_contributions
           end
         end
 
@@ -305,11 +318,26 @@ module SwarmSDK
         ERB.new(template_content).result(binding)
       end
 
-      def render_memory_prompt
-        # Load and render the memory system prompt
-        memory_prompt_path = File.expand_path("../prompts/memory.md.erb", __dir__)
-        template_content = File.read(memory_prompt_path)
-        ERB.new(template_content).result(binding)
+      # Collect system prompt contributions from all plugins
+      #
+      # Asks each registered plugin if it wants to contribute to the system prompt.
+      # Plugins can return custom instructions based on their configuration.
+      #
+      # @return [Array<String>] Array of prompt contributions from plugins
+      def collect_plugin_prompt_contributions
+        contributions = []
+
+        PluginRegistry.all.each do |plugin|
+          # Check if plugin has storage enabled for this agent
+          next unless plugin.storage_enabled?(self)
+
+          # Ask plugin for prompt contribution
+          # Note: storage is not available yet at this point, so we pass nil
+          contribution = plugin.system_prompt_contribution(agent_definition: self, storage: nil)
+          contributions << contribution if contribution && !contribution.strip.empty?
+        end
+
+        contributions
       end
 
       def render_non_coding_base_prompt
@@ -326,13 +354,18 @@ module SwarmSDK
         date = Time.now.strftime("%Y-%m-%d")
 
         <<~PROMPT.strip
-          # Environment
+          # Today's date
+
+          <today-date>
+          #{date}
+          #</today-date>
+
+          # Current Environment
 
           <env>
           Working directory: #{cwd}
           Platform: #{platform}
           OS Version: #{os_version}
-          Today's date: #{date}
           </env>
 
           # Task Management

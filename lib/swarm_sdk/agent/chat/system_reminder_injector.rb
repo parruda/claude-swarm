@@ -56,13 +56,51 @@ module SwarmSDK
           # This manually constructs the first message sequence with system reminders
           # sandwiching the actual user prompt.
           #
+          # Sequence:
+          # 1. BEFORE_FIRST_MESSAGE_REMINDER (general reminders)
+          # 2. Toolset reminder (list of available tools)
+          # 3. User's actual prompt
+          # 4. AFTER_FIRST_MESSAGE_REMINDER (todo list reminder)
+          #
           # @param chat [Agent::Chat] The chat instance
           # @param prompt [String] The user's actual prompt
           # @return [void]
           def inject_first_message_reminders(chat, prompt)
-            chat.add_message(role: :user, content: BEFORE_FIRST_MESSAGE_REMINDER)
-            chat.add_message(role: :user, content: prompt)
-            chat.add_message(role: :user, content: AFTER_FIRST_MESSAGE_REMINDER)
+            # Build user message with embedded reminders
+            # Reminders are embedded in the content, not separate messages
+            full_content = [
+              prompt,
+              BEFORE_FIRST_MESSAGE_REMINDER,
+              build_toolset_reminder(chat),
+              AFTER_FIRST_MESSAGE_REMINDER,
+            ].join("\n\n")
+
+            # Extract reminders and add clean prompt to persistent history
+            reminders = chat.context_manager.extract_system_reminders(full_content)
+            clean_prompt = chat.context_manager.strip_system_reminders(full_content)
+
+            # Store clean prompt (without reminders) in conversation history
+            chat.add_message(role: :user, content: clean_prompt)
+
+            # Track reminders to embed in this message when sending to LLM
+            reminders.each do |reminder|
+              chat.context_manager.add_ephemeral_reminder(reminder, messages_array: chat.messages)
+            end
+          end
+
+          # Build toolset reminder listing all available tools
+          #
+          # @param chat [Agent::Chat] The chat instance
+          # @return [String] System reminder with tool list
+          def build_toolset_reminder(chat)
+            tools_list = chat.tools.values.map(&:name).sort
+
+            reminder = "<system-reminder>\n"
+            reminder += "Tools available: #{tools_list.join(", ")}\n\n"
+            reminder += "Only use tools from this list. Do not attempt to use tools that are not listed here.\n"
+            reminder += "</system-reminder>"
+
+            reminder
           end
 
           # Check if we should inject a periodic TodoWrite reminder

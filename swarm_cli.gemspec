@@ -20,7 +20,7 @@ Gem::Specification.new do |spec|
   spec.required_ruby_version = ">= 3.2.0"
 
   spec.metadata["source_code_uri"] = "https://github.com/parruda/claude-swarm"
-  spec.metadata["changelog_uri"] = "https://github.com/parruda/claude-swarm/blob/main/CHANGELOG.md"
+  spec.metadata["changelog_uri"] = "https://github.com/parruda/claude-swarm/blob/main/docs/v2/CHANGELOG.swarm_cli.md"
 
   File.basename(__FILE__)
   spec.files = IO.popen(["git", "ls-files", "-z"], chdir: __dir__, err: IO::NULL) do |ls|

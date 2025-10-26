@@ -40,10 +40,11 @@ module SwarmSDK
       # Initialize AgentChat with rate limiting
       #
       # @param definition [Hash] Agent definition containing all configuration
+      # @param agent_name [Symbol, nil] Agent identifier (for plugin callbacks)
       # @param global_semaphore [Async::Semaphore, nil] Shared across all agents (not part of definition)
       # @param options [Hash] Additional options to pass to RubyLLM::Chat
       # @raise [ArgumentError] If provider doesn't support custom base_url or provider not specified with base_url
-      def initialize(definition:, global_semaphore: nil, **options)
+      def initialize(definition:, agent_name: nil, global_semaphore: nil, **options)
         # Extract configuration from definition
         model = definition[:model]
         provider = definition[:provider]
@@ -88,6 +89,12 @@ module SwarmSDK
           super(model: model, assume_model_exists: assume_model_exists, **options)
         end
 
+        # Agent identifier (for plugin callbacks)
+        @agent_name = agent_name
+
+        # Context manager for ephemeral messages and future context optimization
+        @context_manager = ContextManager.new
+
         # Rate limiting semaphores
         @global_semaphore = global_semaphore
         @local_semaphore = max_concurrent_tools ? Async::Semaphore.new(max_concurrent_tools) : nil
@@ -101,6 +108,14 @@ module SwarmSDK
 
         # Context tracker (created after agent_context is set)
         @context_tracker = nil
+
+        # Track which tools are immutable (cannot be removed by dynamic tool swapping)
+        # Default: Think, Clock, and TodoWrite are immutable utilities
+        # Plugins can mark additional tools as immutable via on_agent_initialized hook
+        @immutable_tool_names = Set.new(["Think", "Clock", "TodoWrite"])
+
+        # Track active skill (only used if memory enabled)
+        @active_skill_path = nil
 
         # Try to fetch real model info for accurate context tracking
         # This searches across ALL providers, so it works even when using proxies
@@ -155,6 +170,57 @@ module SwarmSDK
         )
       end
 
+      # Mark tools as immutable (cannot be removed by dynamic tool swapping)
+      #
+      # Called by plugins during on_agent_initialized lifecycle hook to mark
+      # their tools as immutable. This allows plugins to protect their core
+      # tools from being removed by dynamic tool swapping operations.
+      #
+      # @param tool_names [Array<String>] Tool names to mark as immutable
+      # @return [void]
+      def mark_tools_immutable(*tool_names)
+        @immutable_tool_names.merge(tool_names.flatten.map(&:to_s))
+      end
+
+      # Remove all mutable tools (keeps immutable tools)
+      #
+      # Used by LoadSkill to swap tools. Only works if called from a tool
+      # that has been given access to the chat instance.
+      #
+      # @return [void]
+      def remove_mutable_tools
+        @tools.select! { |tool| @immutable_tool_names.include?(tool.name) }
+      end
+
+      # Add a tool instance dynamically
+      #
+      # Used by LoadSkill to add skill-required tools after removing mutable tools.
+      # This is just a convenience wrapper around with_tool.
+      #
+      # @param tool_instance [RubyLLM::Tool] Tool to add
+      # @return [void]
+      def add_tool(tool_instance)
+        with_tool(tool_instance)
+      end
+
+      # Mark skill as loaded (tracking for debugging/logging)
+      #
+      # Called by LoadSkill after successfully swapping tools.
+      # This can be used for logging or debugging purposes.
+      #
+      # @param file_path [String] Path to loaded skill
+      # @return [void]
+      def mark_skill_loaded(file_path)
+        @active_skill_path = file_path
+      end
+
+      # Check if a skill is currently loaded
+      #
+      # @return [Boolean] True if a skill has been loaded
+      def skill_loaded?
+        !@active_skill_path.nil?
+      end
+
       # Override ask to inject system reminders and periodic TodoWrite reminders
       #
       # Note: This is called BEFORE HookIntegration#ask (due to module include order),
@@ -165,9 +231,21 @@ module SwarmSDK
       # @return [RubyLLM::Message] LLM response
       def ask(prompt, **options)
         # Check if this is the first user message
-        if SystemReminderInjector.first_message?(self)
-          # Manually construct the first message sequence with system reminders
-          SystemReminderInjector.inject_first_message_reminders(self, prompt)
+        is_first = SystemReminderInjector.first_message?(self)
+
+        if is_first
+          # Collect plugin reminders first
+          plugin_reminders = collect_plugin_reminders(prompt, is_first_message: true)
+
+          # Build full prompt with embedded plugin reminders
+          full_prompt = prompt
+          plugin_reminders.each do |reminder|
+            full_prompt = "#{full_prompt}\n\n#{reminder}"
+          end
+
+          # Inject first message reminders (includes system reminders + toolset + after)
+          # SystemReminderInjector will embed all reminders in the prompt via add_message
+          SystemReminderInjector.inject_first_message_reminders(self, full_prompt)
 
           # Trigger user_prompt hook manually since we're bypassing the normal ask flow
           if @hook_executor
@@ -189,16 +267,175 @@ module SwarmSDK
           # Call complete to get LLM response
           complete(**options)
         else
-          # Inject periodic TodoWrite reminder if needed
+          # Build prompt with embedded reminders (if needed)
+          full_prompt = prompt
+
+          # Add periodic TodoWrite reminder if needed
           if SystemReminderInjector.should_inject_todowrite_reminder?(self, @last_todowrite_message_index)
-            add_message(role: :user, content: SystemReminderInjector::TODOWRITE_PERIODIC_REMINDER)
+            full_prompt = "#{full_prompt}\n\n#{SystemReminderInjector::TODOWRITE_PERIODIC_REMINDER}"
             # Update tracking
             @last_todowrite_message_index = SystemReminderInjector.find_last_todowrite_index(self)
           end
 
+          # Collect plugin reminders and embed them
+          plugin_reminders = collect_plugin_reminders(full_prompt, is_first_message: false)
+          plugin_reminders.each do |reminder|
+            full_prompt = "#{full_prompt}\n\n#{reminder}"
+          end
+
           # Normal ask behavior for subsequent messages
           # This calls super which goes to HookIntegration's ask override
-          super(prompt, **options)
+          # HookIntegration will call add_message, and we'll extract reminders there
+          super(full_prompt, **options)
+        end
+      end
+
+      # Override add_message to automatically extract and strip system reminders
+      #
+      # System reminders are extracted and tracked as ephemeral content (embedded
+      # when sent to LLM but not persisted in conversation history).
+      #
+      # @param message_or_attributes [RubyLLM::Message, Hash] Message object or attributes hash
+      # @return [RubyLLM::Message] The added message (with clean content)
+      def add_message(message_or_attributes)
+        # Handle both forms: add_message(message) and add_message({role: :user, content: "text"})
+        if message_or_attributes.is_a?(RubyLLM::Message)
+          # Message object provided
+          msg = message_or_attributes
+          content_str = msg.content.is_a?(RubyLLM::Content) ? msg.content.text : msg.content.to_s
+
+          # Extract system reminders
+          if @context_manager.has_system_reminders?(content_str)
+            reminders = @context_manager.extract_system_reminders(content_str)
+            clean_content_str = @context_manager.strip_system_reminders(content_str)
+
+            clean_content = if msg.content.is_a?(RubyLLM::Content)
+              RubyLLM::Content.new(clean_content_str, msg.content.attachments)
+            else
+              clean_content_str
+            end
+
+            clean_message = RubyLLM::Message.new(
+              role: msg.role,
+              content: clean_content,
+              tool_call_id: msg.tool_call_id,
+            )
+
+            result = super(clean_message)
+
+            # Track reminders as ephemeral
+            reminders.each do |reminder|
+              @context_manager.add_ephemeral_reminder(reminder, messages_array: @messages)
+            end
+
+            result
+          else
+            # No reminders - call parent normally
+            super(msg)
+          end
+        else
+          # Hash attributes provided
+          attrs = message_or_attributes
+          content_value = attrs[:content] || attrs["content"]
+          content_str = content_value.is_a?(RubyLLM::Content) ? content_value.text : content_value.to_s
+
+          # Extract system reminders
+          if @context_manager.has_system_reminders?(content_str)
+            reminders = @context_manager.extract_system_reminders(content_str)
+            clean_content_str = @context_manager.strip_system_reminders(content_str)
+
+            clean_content = if content_value.is_a?(RubyLLM::Content)
+              RubyLLM::Content.new(clean_content_str, content_value.attachments)
+            else
+              clean_content_str
+            end
+
+            clean_attrs = attrs.merge(content: clean_content)
+            result = super(clean_attrs)
+
+            # Track reminders as ephemeral
+            reminders.each do |reminder|
+              @context_manager.add_ephemeral_reminder(reminder, messages_array: @messages)
+            end
+
+            result
+          else
+            # No reminders - call parent normally
+            super(attrs)
+          end
+        end
+      end
+
+      # Collect reminders from all plugins
+      #
+      # Plugins can contribute system reminders based on the user's message.
+      # Returns array of reminder strings to be embedded in the user prompt.
+      #
+      # @param prompt [String] User's message
+      # @param is_first_message [Boolean] True if first message
+      # @return [Array<String>] Array of reminder strings
+      def collect_plugin_reminders(prompt, is_first_message:)
+        return [] unless @agent_name # Skip if agent_name not set
+
+        # Collect reminders from all plugins
+        PluginRegistry.all.flat_map do |plugin|
+          plugin.on_user_message(
+            agent_name: @agent_name,
+            prompt: prompt,
+            is_first_message: is_first_message,
+          )
+        end.compact
+      end
+
+      # Override complete() to inject ephemeral messages
+      #
+      # Ephemeral messages are sent to the LLM for the current turn only
+      # and are NOT stored in the conversation history. This prevents
+      # system reminders from accumulating and being resent every turn.
+      #
+      # @param options [Hash] Options to pass to provider
+      # @return [RubyLLM::Message] LLM response
+      def complete(**options, &block)
+        # Prepare messages: persistent + ephemeral for this turn
+        messages_for_llm = @context_manager.prepare_for_llm(@messages)
+
+        # Call provider with retry logic for transient failures
+        response = call_llm_with_retry do
+          @provider.complete(
+            messages_for_llm,
+            tools: @tools,
+            temperature: @temperature,
+            model: @model,
+            params: @params,
+            headers: @headers,
+            schema: @schema,
+            &wrap_streaming_block(&block)
+          )
+        end
+
+        @on[:new_message]&.call unless block
+
+        # Handle schema parsing if needed
+        if @schema && response.content.is_a?(String)
+          begin
+            response.content = JSON.parse(response.content)
+          rescue JSON::ParserError
+            # Keep as string if parsing fails
+          end
+        end
+
+        # Add response to persistent history
+        add_message(response)
+        @on[:end_message]&.call(response)
+
+        # Clear ephemeral messages after use
+        @context_manager.clear_ephemeral
+
+        # Handle tool calls if present
+        if response.tool_call?
+          handle_tool_calls(response, &block)
+        else
+          response
         end
       end
 
@@ -289,6 +526,7 @@ module SwarmSDK
           return result if result.is_a?(RubyLLM::Tool::Halt)
 
           # Add tool result to conversation
+          # add_message automatically extracts reminders and stores them as ephemeral
           content = result.is_a?(RubyLLM::Content) ? result : result.to_s
           message = add_message(
             role: :tool,
@@ -332,6 +570,7 @@ module SwarmSDK
                     result = pre_result[:custom_result] || "Tool execution blocked by hook"
                     @on[:tool_result]&.call(result)
 
+                    # add_message automatically extracts reminders
                     content = result.is_a?(RubyLLM::Content) ? result : result.to_s
                     message = add_message(
                       role: :tool,
@@ -360,6 +599,7 @@ module SwarmSDK
                   { tool_call: tool_call, result: result, message: nil }
                 else
                   # Add tool result to conversation
+                  # add_message automatically extracts reminders and stores them as ephemeral
                   content = result.is_a?(RubyLLM::Content) ? result : result.to_s
                   message = add_message(
                     role: :tool,
@@ -422,7 +662,7 @@ module SwarmSDK
       # This is needed for setting agent_name and other provider-specific settings.
       #
       # @return [RubyLLM::Provider::Base] Provider instance
-      attr_reader :provider, :global_semaphore, :local_semaphore, :real_model_info, :context_tracker
+      attr_reader :provider, :global_semaphore, :local_semaphore, :real_model_info, :context_tracker, :context_manager
 
       # Get context window limit for the current model
       #
@@ -524,6 +764,57 @@ module SwarmSDK
       end
 
       private
+
+      # Call LLM with retry logic for transient failures
+      #
+      # Retries up to 10 times with fixed 10-second delays for:
+      # - Network errors
+      # - Proxy failures
+      # - Transient API errors
+      #
+      # @yield Block that makes the LLM call
+      # @return [RubyLLM::Message] LLM response
+      # @raise [StandardError] If all retries exhausted
+      def call_llm_with_retry(max_retries: 10, delay: 10, &block)
+        attempts = 0
+
+        loop do
+          attempts += 1
+
+          begin
+            return yield
+          rescue StandardError => e
+            # Check if we should retry
+            if attempts >= max_retries
+              # Emit final failure log
+              LogStream.emit(
+                type: "llm_retry_exhausted",
+                agent: @agent_name,
+                model: @model&.id,
+                attempts: attempts,
+                error_class: e.class.name,
+                error_message: e.message,
+              )
+              raise
+            end
+
+            # Emit retry attempt log
+            LogStream.emit(
+              type: "llm_retry_attempt",
+              agent: @agent_name,
+              model: @model&.id,
+              attempt: attempts,
+              max_retries: max_retries,
+              error_class: e.class.name,
+              error_message: e.message,
+              retry_delay: delay,
+            )
+
+            # Wait before retry
+            sleep(delay)
+          end
+        end
+      end
 
       # Build custom RubyLLM context for base_url/timeout overrides
       #
@@ -694,83 +985,157 @@ module SwarmSDK
         []
       end
 
-      # Execute a tool with ArgumentError handling for missing parameters
+      # Execute a tool with error handling for common issues
       #
-      # When a tool is called with missing required parameters, this catches the
-      # ArgumentError and returns a helpful message to the LLM with:
-      # - Which parameter is missing
-      # - Instructions to retry with correct parameters
-      # - System reminder showing all required parameters
+      # Handles:
+      # - Missing required parameters (validated before calling)
+      # - Tool doesn't exist (nil.call)
+      # - Other ArgumentErrors (from tool execution)
+      #
+      # Returns helpful messages with system reminders showing available tools
+      # or required parameters.
       #
       # @param tool_call [RubyLLM::ToolCall] Tool call from LLM
       # @return [String, Object] Tool result or error message
       def execute_tool_with_error_handling(tool_call)
-        execute_tool(tool_call)
-      rescue ArgumentError => e
-        # Extract parameter info from the error message
-        # ArgumentError messages typically: "missing keyword: parameter_name" or "missing keywords: param1, param2"
-        build_missing_parameter_error(tool_call, e)
-      end
-
-      # Build a helpful error message for missing tool parameters
-      #
-      # @param tool_call [RubyLLM::ToolCall] Tool call that failed
-      # @param error [ArgumentError] The ArgumentError raised
-      # @return [String] Formatted error message with parameter information
-      def build_missing_parameter_error(tool_call, error)
         tool_name = tool_call.name
         tool_instance = tools[tool_name.to_sym]
 
-        # Extract which parameters are missing from error message
-        missing_params = if error.message.match(/missing keyword(?:s)?: (.+)/)
-          ::Regexp.last_match(1).split(", ").map(&:strip)
-        else
-          ["unknown"]
+        # Check if tool exists
+        unless tool_instance
+          return build_tool_not_found_error(tool_call)
         end
 
-        # Get tool parameter information from RubyLLM::Tool
-        param_info = if tool_instance.respond_to?(:parameters)
-          # RubyLLM tools have a parameters method that returns { name => Parameter }
-          tool_instance.parameters.map do |_param_name, param_obj|
-            {
-              name: param_obj.name.to_s,
-              type: param_obj.type,
-              description: param_obj.description,
-              required: param_obj.required,
-            }
-          end
-        else
-          []
+        # Validate required parameters BEFORE calling the tool
+        validation_error = validate_tool_parameters(tool_call, tool_instance)
+        return validation_error if validation_error
+
+        # Execute the tool
+        execute_tool(tool_call)
+      rescue ArgumentError => e
+        # This is an ArgumentError from INSIDE the tool execution (not missing params)
+        # Still try to provide helpful error message
+        build_argument_error(tool_call, e)
+      end
+
+      # Validate that all required tool parameters are present
+      #
+      # @param tool_call [RubyLLM::ToolCall] Tool call from LLM
+      # @param tool_instance [RubyLLM::Tool] Tool instance
+      # @return [String, nil] Error message if validation fails, nil if valid
+      def validate_tool_parameters(tool_call, tool_instance)
+        return unless tool_instance.respond_to?(:parameters)
+
+        # Get required parameters from tool definition
+        required_params = tool_instance.parameters.select { |_, param| param.required }
+
+        # Check which required parameters are missing from the tool call
+        # ToolCall stores arguments in tool_call.arguments (not .parameters)
+        missing_params = required_params.reject do |param_name, _param|
+          tool_call.arguments.key?(param_name.to_s) || tool_call.arguments.key?(param_name.to_sym)
         end
 
-        # Build error message
-        error_message = "Error calling #{tool_name}: #{error.message}\n\n"
-        error_message += "Please retry the tool call with all required parameters.\n\n"
+        return if missing_params.empty?
 
-        # Add system reminder with parameter information
-        if param_info.any?
-          required_params = param_info.select { |p| p[:required] }
+        # Build missing parameter error
+        build_missing_parameters_error(tool_call, tool_instance, missing_params.keys)
+      end
 
-          error_message += "<system-reminder>\n"
-          error_message += "The #{tool_name} tool requires the following parameters:\n\n"
+      # Build error message for missing required parameters
+      #
+      # @param tool_call [RubyLLM::ToolCall] Tool call that failed
+      # @param tool_instance [RubyLLM::Tool] Tool instance
+      # @param missing_param_names [Array<Symbol>] Names of missing parameters
+      # @return [String] Formatted error message
+      def build_missing_parameters_error(tool_call, tool_instance, missing_param_names)
+        tool_name = tool_call.name
 
-          required_params.each do |param|
-            error_message += "- #{param[:name]} (#{param[:type]}, REQUIRED): #{param[:description]}\n"
-          end
-
-          optional_params = param_info.reject { |p| p[:required] }
-          if optional_params.any?
-            error_message += "\nOptional parameters:\n"
-            optional_params.each do |param|
-              error_message += "- #{param[:name]} (#{param[:type]}): #{param[:description]}\n"
-            end
-          end
-
-          error_message += "\nYou were missing: #{missing_params.join(", ")}\n"
-          error_message += "</system-reminder>"
-        else
-          error_message += "Missing parameters: #{missing_params.join(", ")}"
+        # Get all parameter information
+        param_info = tool_instance.parameters.map do |_param_name, param_obj|
+          {
+            name: param_obj.name.to_s,
+            type: param_obj.type,
+            description: param_obj.description,
+            required: param_obj.required,
+          }
         end
+
+        # Format missing parameter names nicely
+        missing_list = missing_param_names.map(&:to_s).join(", ")
+
+        error_message = "Error calling #{tool_name}: missing parameters: #{missing_list}\n\n"
+        error_message += build_parameter_reminder(tool_name, param_info)
+        error_message
+      end
+
+      # Build a helpful error message for ArgumentErrors from tool execution
+      #
+      # This handles ArgumentErrors that come from INSIDE the tool (not our validation).
+      # We still try to be helpful if it looks like a parameter issue.
+      #
+      # @param tool_call [RubyLLM::ToolCall] Tool call that failed
+      # @param error [ArgumentError] The ArgumentError raised
+      # @return [String] Formatted error message
+      def build_argument_error(tool_call, error)
+        tool_name = tool_call.name
+
+        # Just report the error - we already validated parameters, so this is an internal tool error
+        "Error calling #{tool_name}: #{error.message}"
+      end
+
+      # Build system reminder with parameter information
+      #
+      # @param tool_name [String] Tool name
+      # @param param_info [Array<Hash>] Parameter information
+      # @return [String] Formatted parameter reminder
+      def build_parameter_reminder(tool_name, param_info)
+        return "" if param_info.empty?
+
+        required_params = param_info.select { |p| p[:required] }
+        optional_params = param_info.reject { |p| p[:required] }
+
+        reminder = "<system-reminder>\n"
+        reminder += "CRITICAL: The #{tool_name} tool call failed due to missing parameters.\n\n"
+        reminder += "ALL REQUIRED PARAMETERS for #{tool_name}:\n\n"
+
+        required_params.each do |param|
+          reminder += "- #{param[:name]} (#{param[:type]}): #{param[:description]}\n"
+        end
+
+        if optional_params.any?
+          reminder += "\nOptional parameters:\n"
+          optional_params.each do |param|
+            reminder += "- #{param[:name]} (#{param[:type]}): #{param[:description]}\n"
+          end
+        end
+
+        reminder += "\nINSTRUCTIONS FOR RECOVERY:\n"
+        reminder += "1. Use the Think tool to reason about what value EACH required parameter should have\n"
+        reminder += "2. After thinking, retry the #{tool_name} tool call with ALL required parameters included\n"
+        reminder += "3. Do NOT skip any required parameters - the tool will fail again if you do\n"
+        reminder += "</system-reminder>"
+
+        reminder
+      end
+
+      # Build a helpful error message when a tool doesn't exist
+      #
+      # @param tool_call [RubyLLM::ToolCall] Tool call that failed
+      # @return [String] Formatted error message with available tools list
+      def build_tool_not_found_error(tool_call)
+        tool_name = tool_call.name
+        available_tools = tools.keys.map(&:to_s).sort
+
+        error_message = "Error: Tool '#{tool_name}' is not available.\n\n"
+        error_message += "You attempted to use '#{tool_name}', but this tool is not in your current toolset.\n\n"
+
+        error_message += "<system-reminder>\n"
+        error_message += "Your available tools are:\n"
+        available_tools.each do |name|
+          error_message += "  - #{name}\n"
+        end
+        error_message += "\nDo NOT attempt to use tools that are not in this list.\n"
+        error_message += "</system-reminder>"
 
         error_message
       end

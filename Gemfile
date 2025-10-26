@@ -6,6 +6,7 @@ source "https://rubygems.org"
 gemspec name: "claude_swarm"
 gemspec name: "swarm_sdk"
 gemspec name: "swarm_cli"
+gemspec name: "swarm_memory"
 
 gem "irb", require: false
 gem "rake", "~> 13.0", require: false

@@ -18,4 +18,5 @@ build/
 .react-router/
 .vite/
 .DS_Store
+test/coverage/output.txt
 test/coverage/

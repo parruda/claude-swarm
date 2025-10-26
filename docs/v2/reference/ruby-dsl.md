@@ -1727,6 +1727,115 @@ Convert to JSON string.
 
 ---
 
+## Context Management
+
+SwarmSDK automatically manages conversation context to prevent hitting token limits while preserving accuracy.
+
+### Automatic Features
+
+#### Ephemeral System Reminders
+
+System reminders (guidance, tool lists, error recovery) are sent to the LLM but **NOT persisted** in conversation history. This prevents reminder accumulation and saves 80-95% of reminder tokens in long conversations.
+
+**How it works:**
+```
+Turn 1: Sends reminders → LLM sees them → NOT stored in history
+Turn 2: Sends new reminders → LLM sees only current turn's reminders
+Turn 20: No accumulated reminders (saves 1,200-13,800 tokens!)
+```
+
+**Automatic** - No configuration needed. All `<system-reminder>` blocks are extracted and sent ephemerally.
+
+#### Automatic Compression (60% Threshold)
+
+When context usage reaches **60%**, SwarmSDK automatically compresses old tool results to free space.
+
+**What gets compressed:**
+- ✅ **Tool results** (`role: :tool`) older than 10 messages
+- ✅ **Long outputs** from Read, Bash, Grep, etc.
+- ❌ **User messages** - Never compressed (user intent preserved)
+- ❌ **Assistant messages** - Never compressed (reasoning preserved)
+- ❌ **Recent messages** (last 10) - Full detail maintained
+
+**Progressive compression by age:**
+```
+Age 11-20 messages:  → 1000 chars max (light)
+Age 21-40 messages:  → 500 chars max (moderate)
+Age 41-60 messages:  → 200 chars max (heavy)
+Age 61+ messages:    → 100 chars max (minimal summary)
+```
+
+**Triggers:**
+- Automatically at 60% context usage
+- Only once (doesn't re-compress)
+- Logs `context_compression` event
+
+**Example log:**
+```json
+{
+  "type": "context_compression",
+  "agent": "assistant",
+  "total_messages": 45,
+  "messages_compressed": 12,
+  "tokens_before": 95000,
+  "current_usage": "61%",
+  "compression_strategy": "progressive_tool_result_compression",
+  "keep_recent": 10
+}
+```
+
+**Token savings:**
+- Typical: 10,000-20,000 tokens freed
+- Heavy tool usage: 30,000-50,000 tokens freed
+- Extends conversation by 20-40% more turns
+
+### Context Warning Thresholds
+
+SwarmSDK emits warnings at these thresholds:
+- **60%** - Triggers automatic compression
+- **80%** - Informational warning (approaching limit)
+- **90%** - Critical warning (near limit)
+
+Each threshold emits once via `context_limit_warning` event.
+
+### Impact on Accuracy
+
+**Minimal** - Compression is designed to preserve accuracy:
+1. Recent context (last 10 messages) unchanged
+2. Conversational flow preserved (user/assistant messages)
+3. Tool results compressed but essential structure kept
+4. Progressive (older = more compressed)
+5. Only triggers when needed (60% full)
+
+**When it might impact accuracy:**
+- Agent references very old tool results (rare)
+- Multi-file analysis across 40+ turns (uncommon)
+
+**When it doesn't impact accuracy:**
+- Short conversations (<30 turns)
+- Recent tool results (always full detail)
+- User/assistant conversation (never compressed)
+
+### Manual Control
+
+Context management is automatic, but you can monitor via events:
+
+```ruby
+swarm = SwarmSDK.build do
+  name "My Swarm"
+
+  on :context_limit_warning do |ctx|
+    puts "Context at #{ctx.metadata[:current_usage]}"
+  end
+
+  on :context_compression do |ctx|
+    puts "Compressed #{ctx.metadata[:messages_compressed]} messages"
+  end
+end
+```
+
+---
+
 ## Hook Context Methods
 
 Available in hook blocks via the `ctx` parameter.

@@ -36,10 +36,15 @@ module SwarmCLI
       when "migrate"
         migrate_command(@args[1..])
       else
-        $stderr.puts "Unknown command: #{command}"
-        $stderr.puts
-        print_help
-        exit(1)
+        # Check if it's an extension command
+        if CommandRegistry.registered?(command)
+          extension_command(command, @args[1..])
+        else
+          $stderr.puts "Unknown command: #{command}"
+          $stderr.puts
+          print_help
+          exit(1)
+        end
       end
     rescue StandardError => e
       $stderr.puts "Fatal error: #{e.message}"
@@ -123,6 +128,14 @@ module SwarmCLI
       exit(1)
     end
 
+    def extension_command(command_name, args)
+      # Get extension command class from registry
+      command_class = CommandRegistry.get(command_name)
+
+      # Execute extension command
+      command_class.execute(args)
+    end
+
     def print_help
       puts
       puts "SwarmCLI v#{VERSION} - AI Agent Orchestration"
@@ -132,12 +145,24 @@ module SwarmCLI
       puts "  swarm migrate INPUT_FILE [--output OUTPUT_FILE]"
       puts "  swarm mcp serve CONFIG_FILE"
       puts "  swarm mcp tools [TOOL_NAMES...]"
+
+      # Show extension commands dynamically
+      CommandRegistry.commands.each do |cmd|
+        puts "  swarm #{cmd} ..."
+      end
+
       puts
       puts "Commands:"
       puts "  run           Execute a swarm with AI agents"
       puts "  migrate       Migrate Claude Swarm v1 config to SwarmSDK v2 format"
       puts "  mcp serve     Start an MCP server exposing swarm lead agent"
       puts "  mcp tools     Start an MCP server exposing SwarmSDK tools"
+
+      # Show extension command descriptions (if registered)
+      if CommandRegistry.registered?("memory")
+        puts "  memory        Manage SwarmMemory embeddings"
+      end
+
       puts
       puts "Options:"
       puts "  -p, --prompt PROMPT          Task prompt for the swarm"
@@ -159,6 +184,13 @@ module SwarmCLI
       puts "  swarm mcp tools                              # Expose all SwarmSDK tools"
       puts "  swarm mcp tools Bash Grep Read               # Space-separated tools"
       puts "  swarm mcp tools ScratchpadWrite,ScratchpadRead  # Comma-separated tools"
+
+      # Show extension command examples dynamically
+      if CommandRegistry.registered?("memory")
+        puts "  swarm memory setup                           # Setup embeddings (download model)"
+        puts "  swarm memory status                          # Check embedding status"
+      end
+
       puts
     end
 

@@ -5,6 +5,86 @@ All notable changes to SwarmSDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Plugin System** - Extensible architecture for decoupling core SDK from extensions
+  - `SwarmSDK::Plugin` base class with lifecycle hooks
+  - `SwarmSDK::PluginRegistry` for plugin management
+  - Plugins provide tools, storage, configuration, and system prompt contributions
+  - Lifecycle hooks: `on_agent_initialized`, `on_swarm_started`, `on_swarm_stopped`, `on_user_message`
+  - Zero coupling: SwarmSDK has no knowledge of SwarmMemory classes
+  - Auto-registration: Plugins register themselves when loaded
+  - See new guide: `docs/v2/guides/plugins.md`
+
+- **ContextManager** - Intelligent conversation context optimization
+  - **Ephemeral System Reminders**: Sent to LLM but not persisted (90% token savings)
+  - **Automatic Compression**: Triggers at 60% context usage
+  - **Progressive Compression**: Older tool results compressed more aggressively
+  - **Smart Re-run Instructions**: Idempotent tools (Read, Grep, Glob) get re-run hints
+  - Token savings: 13,800-63,800 tokens per long conversation
+  - See documentation: `docs/v2/reference/ruby-dsl.md#context-management`
+
+- **Agent Name Tracking** - `Agent::Chat` now tracks `@agent_name`
+  - Enables plugin callbacks per agent
+  - Used for semantic skill discovery
+  - Passed to lifecycle hooks
+
+- **Parameter Validation** - Validates required parameters before tool execution
+  - Checks all required parameters are present
+  - Provides detailed error messages with parameter descriptions
+  - Prevents "missing keyword" errors from reaching tools
+  - Replaces Ruby's "keyword" terminology with user-friendly "parameter"
+
+### Changed
+
+- **Tool Registration** - Moved from hardcoded to plugin-based
+  - Memory tools no longer hardcoded in ToolConfigurator
+  - Plugins provide their own tools via `plugin.tools` and `plugin.create_tool()`
+  - `MEMORY_TOOLS` constant removed (now in plugin)
+  - ToolConfigurator uses `PluginRegistry.plugin_tool?()` for lookups
+
+- **Storage Management** - Generalized for plugins
+  - `@memory_storages` → `@plugin_storages` (supports any plugin)
+  - Format: `{ plugin_name => { agent_name => storage } }`
+  - Plugins create their own storage via `plugin.create_storage()`
+
+- **System Prompt Contributions** - Plugin-based
+  - `Agent::Definition` collects contributions from all plugins
+  - Plugins contribute via `plugin.system_prompt_contribution()`
+  - No hardcoded memory prompt rendering in SDK
+
+- **Context Warning Thresholds** - Expanded
+  - **Was**: [80, 90]
+  - **Now**: [60, 80, 90]
+  - 60% triggers automatic compression
+  - 80%/90% remain as informational warnings
+
+### Removed
+
+- **Tools::Registry Extension System** - Replaced by plugin system
+  - `register_extension()` method removed
+  - Extensions no longer checked in `get()`, `exists()`, `available_names()`
+  - Use `PluginRegistry` instead for extension tools
+
+### Breaking Changes
+
+⚠️ **Major breaking changes:**
+
+1. **No backward compatibility with old memory integration**
+   - Old `Tools::Registry.register_extension()` removed
+   - Memory tools MUST use plugin system
+   - SwarmMemory updated to use plugin (no migration needed if using latest)
+
+2. **Tool creation signature changed**
+   - `create_tool_instance()` now accepts `chat:` and `agent_definition:` parameters
+   - Needed for plugin tools that require full context
+
+3. **AgentInitializer signature changed**
+   - Constructor now takes `plugin_storages` instead of `memory_storages`
+   - Internal change - doesn't affect public API
+
 ## [2.0.6]
 
 ### Fixed
