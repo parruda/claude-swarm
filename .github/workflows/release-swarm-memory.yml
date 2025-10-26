@@ -1,0 +1,70 @@
+name: Release SwarmMemory Gem
+
+on:
+  push:
+    tags:
+      - 'swarm_memory-v*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.4'
+        bundler-cache: true
+
+    - name: Install build dependencies
+      run: sudo apt-get update && sudo apt-get install -y ripgrep build-essential
+
+    - name: Run SwarmMemory tests
+      run: bundle exec rake swarm_memory:test
+
+    - name: Run SwarmMemory linter
+      run: bundle exec rake swarm_memory:rubocop
+
+    - name: Build swarm_memory gem
+      run: gem build swarm_memory.gemspec
+
+    - name: Verify gem contents
+      run: |
+        echo "Gem contents:"
+        tar -tzf swarm_memory-*.gem | grep -E "\.(rb|md|yml|erb)$" | head -30
+        echo ""
+        echo "Verifying no claude_swarm code included:"
+        if tar -tzf swarm_memory-*.gem | grep -q "lib/claude_swarm"; then
+          echo "ERROR: swarm_memory gem contains claude_swarm code!"
+          exit 1
+        fi
+        echo "✓ No claude_swarm code found"
+        echo ""
+        echo "Verifying swarm_sdk is not bundled:"
+        if tar -tzf swarm_memory-*.gem | grep -q "lib/swarm_sdk"; then
+          echo "ERROR: swarm_memory gem contains swarm_sdk code!"
+          exit 1
+        fi
+        echo "✓ No swarm_sdk code found (dependency only)"
+        echo ""
+        echo "Verifying swarm_cli is not bundled:"
+        if tar -tzf swarm_memory-*.gem | grep -q "lib/swarm_cli"; then
+          echo "ERROR: swarm_memory gem contains swarm_cli code!"
+          exit 1
+        fi
+        echo "✓ No swarm_cli code found"
+
+    - name: Push to RubyGems
+      run: |
+        mkdir -p $HOME/.gem
+        touch $HOME/.gem/credentials
+        chmod 0600 $HOME/.gem/credentials
+        printf -- "---\n:rubygems_api_key: ${GEM_HOST_API_KEY}\n" > $HOME/.gem/credentials
+        gem push swarm_memory-*.gem
+      env:
+        GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_AUTH_TOKEN_SWARM_MEMORY }}

@@ -11,8 +11,10 @@ Gem::Specification.new do |spec|
   spec.description   = "Hierarchical persistent memory with semantic search for SwarmSDK AI agents"
   spec.homepage      = "https://github.com/parruda/claude-swarm"
   spec.license       = "MIT"
+  spec.metadata["source_code_uri"] = "https://github.com/parruda/claude-swarm"
+  spec.metadata["changelog_uri"] = "https://github.com/parruda/claude-swarm/blob/main/docs/v2/CHANGELOG.swarm_memory.md"
 
-  spec.files         = Dir["lib/**/*", "LICENSE", "README.md"]
+  spec.files         = Dir["lib/**/*", "LICENSE"]
   spec.require_paths = ["lib"]
   spec.required_ruby_version = ">= 3.2.0"
 
