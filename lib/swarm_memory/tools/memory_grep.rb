@@ -95,7 +95,8 @@ module SwarmMemory
         required: true
 
       param :case_insensitive,
-        desc: "Perform case-insensitive search (default: false)",
+        type: "boolean",
+        desc: "Set to true for case-insensitive search (default: false)",
         required: false
 
       param :output_mode,

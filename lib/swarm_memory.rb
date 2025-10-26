@@ -31,6 +31,12 @@ loader = Zeitwerk::Loader.new
 loader.push_dir("#{__dir__}/swarm_memory", namespace: SwarmMemory)
 loader.setup
 
+# Explicitly load DSL components and extensions to inject into SwarmSDK
+# These must be loaded after Zeitwerk but before anything uses them
+require_relative "swarm_memory/dsl/memory_config"
+require_relative "swarm_memory/dsl/builder_extension"
+require_relative "swarm_memory/chat_extension"
+
 module SwarmMemory
   class << self
     # Create individual tool instance

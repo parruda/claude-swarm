@@ -18,13 +18,13 @@ module SwarmMemory
         3. title - Brief descriptive title
         4. type - Entry category: "concept", "fact", "skill", or "experience"
         5. confidence - How sure you are: "high", "medium", or "low"
-        6. tags - Array of search keywords (e.g., ['ruby', 'classes', 'oop']) - be comprehensive!
-        7. related - Array of related memory paths (e.g., ['memory://concept/ruby/modules.md']) or [] if none
+        6. tags - JSON string of array of search keywords (e.g., '["ruby", "classes", "oop"]') - be comprehensive!
+        7. related - JSON string of array of related memory paths (e.g., '["memory://concept/ruby/modules.md", "memory://concept/ruby/classes.md"]') or '[]' if none
         8. domain - Category like 'programming/ruby', 'people', 'debugging'
         9. source - Where this came from: "user", "documentation", "experimentation", or "inference"
 
         OPTIONAL (for skills only):
-        - tools - Array of tool names needed (e.g., ['Read', 'Edit', 'Bash']) or []
+        - tools - JSON string of array of tool names needed (e.g., '["Read", "Edit", "Bash"]') or '[]' if none
         - permissions - Tool restrictions hash or {}
 
         PATH STRUCTURE (EXACTLY 4 TOP-LEVEL CATEGORIES - NEVER CREATE OTHERS):
@@ -63,15 +63,17 @@ module SwarmMemory
         required: true
 
       param :confidence,
-        desc: "Confidence level: high, medium, or low",
-        required: true
+        desc: "Confidence level: high, medium, or low (defaults to 'medium' if not specified)",
+        required: false
 
       param :tags,
-        desc: "JSON array of tags for searching (e.g., ['ruby', 'oop'])",
+        type: "string",
+        desc: "JSON string of array of tag strings for searching (e.g., '[\"ruby\", \"oop\"]')",
         required: true
 
       param :related,
-        desc: "JSON array of related memory paths (e.g., ['memory://concepts/ruby/modules.md'])",
+        type: "string",
+        desc: "JSON string of array of related memory path strings (e.g., '[\"memory://concept/ruby/modules.md\", \"memory://concept/ruby/classes.md\"]')",
         required: true
 
       param :domain,
@@ -79,15 +81,17 @@ module SwarmMemory
         required: true
 
       param :source,
-        desc: "Source of information: user, documentation, experimentation, or inference",
-        required: true
+        desc: "Source of information: user, documentation, experimentation, or inference (defaults to 'user' if not specified)",
+        required: false
 
       param :tools,
-        desc: "JSON array of tool names required for this skill (e.g., ['Read', 'Edit', 'Bash']). Only for type: skill",
+        type: "string",
+        desc: "JSON string of array of tool name strings required for this skill (e.g., '[\"Read\", \"Edit\", \"Bash\"]'). Only for type: skill",
         required: false
 
       param :permissions,
-        desc: "JSON object of tool permission restrictions (same format as swarm config). Only for type: skill",
+        type: "object",
+        desc: "Tool permission restrictions (same format as swarm config). Only for type: skill",
         required: false
 
       # Initialize with storage instance
@@ -124,11 +128,11 @@ module SwarmMemory
         content:,
         title:,
         type:,
-        confidence:,
+        confidence: nil,
         tags:,
         related:,
         domain:,
-        source:,
+        source: nil,
         tools: nil,
         permissions: nil
       )
@@ -136,11 +140,11 @@ module SwarmMemory
         # Handle both JSON strings (from LLMs) and Ruby arrays (from tests/code)
         metadata = {}
         metadata["type"] = type if type
-        metadata["confidence"] = confidence if confidence
+        metadata["confidence"] = confidence || "medium" # Default to medium
         metadata["tags"] = parse_array_param(tags) if tags
         metadata["related"] = parse_array_param(related) if related
         metadata["domain"] = domain if domain
-        metadata["source"] = source if source
+        metadata["source"] = source || "user" # Default to user
         metadata["tools"] = parse_array_param(tools) if tools
         metadata["permissions"] = parse_object_param(permissions) if permissions
 
@@ -155,6 +159,8 @@ module SwarmMemory
         "Stored at memory://#{file_path} (#{format_bytes(entry.size)})"
       rescue ArgumentError => e
         validation_error(e.message)
+      rescue JSON::ParserError => e
+        validation_error("Invalid tool parameter JSON format: #{e.message}")
       end
 
       private
@@ -182,7 +188,13 @@ module SwarmMemory
         return value if value.is_a?(Hash)
         return {} if value.nil? || value.to_s.strip.empty?
 
-        JSON.parse(value)
+        begin
+          JSON.parse(value)
+        rescue JSON::ParserError => e
+          # Handle common JSON errors gracefully
+          warn("Warning: Failed to parse object parameter: #{e.message}. Returning empty object.")
+          {}
+        end
       end
 
       # Format bytes to human-readable size

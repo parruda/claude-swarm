@@ -56,14 +56,17 @@ module SwarmMemory
             exit(1)
           end
 
+          model_name = ENV["SWARM_MEMORY_EMBEDDING_MODEL"] || "sentence-transformers/multi-qa-MiniLM-L6-cos-v1"
+
           if embedder.cached?
             puts "✓ Model already cached!"
-            puts "  Location: #{Informers.cache_dir}/sentence-transformers/all-MiniLM-L6-v2/"
+            puts "  Model: #{model_name}"
+            puts "  Location: #{Informers.cache_dir}/#{model_name}/"
             puts
             puts "No download needed. Embeddings ready to use."
           else
             puts "Model not cached. Downloading..."
-            puts "  Model: sentence-transformers/all-MiniLM-L6-v2"
+            puts "  Model: #{model_name}"
             puts "  Size: ~90MB (unquantized ONNX)"
             puts "  Location: #{Informers.cache_dir}"
             puts
@@ -74,6 +77,7 @@ module SwarmMemory
 
             puts
             puts "✓ Setup complete!"
+            puts "  Model: #{model_name}"
             puts "  Model cached and ready to use."
             puts "  Semantic search is now available."
           end
@@ -92,20 +96,22 @@ module SwarmMemory
             exit(1)
           end
 
+          model_name = ENV["SWARM_MEMORY_EMBEDDING_MODEL"] || "sentence-transformers/multi-qa-MiniLM-L6-cos-v1"
+
           puts "SwarmMemory Embedding Status"
           puts "=" * 50
           puts
 
           if embedder.cached?
             puts "Status: ✓ Model cached"
-            puts "Model: sentence-transformers/all-MiniLM-L6-v2"
+            puts "Model: #{model_name}"
             puts "Dimensions: #{embedder.dimensions}"
             puts "Cache: #{Informers.cache_dir}"
             puts
             puts "Semantic search is available for memory defragmentation."
           else
             puts "Status: ✗ Model not cached"
-            puts "Model: sentence-transformers/all-MiniLM-L6-v2"
+            puts "Model: #{model_name}"
             puts "Dimensions: #{embedder.dimensions}"
             puts
             puts "Run 'swarm memory setup' to download the model."
@@ -264,12 +270,34 @@ module SwarmMemory
           puts "  defrag DIRECTORY   Defrag memory at given directory"
           puts "  rebuild DIRECTORY  Rebuild all embeddings for memory at directory"
           puts
+          puts "Environment Variables:"
+          puts "  SWARM_MEMORY_EMBEDDING_MODEL              Model to use (default: all-MiniLM-L6-v2)"
+          puts "                                            Options: all-MiniLM-L6-v2, multi-qa-MiniLM-L6-cos-v1"
+          puts "  SWARM_MEMORY_EMBEDDING_MAX_CHARS          Max chars to embed (default: 300, -1: unlimited)"
+          puts
+          puts "  Adaptive Thresholds (short queries use lower threshold):"
+          puts "  SWARM_MEMORY_DISCOVERY_THRESHOLD          Normal query threshold (default: 0.35)"
+          puts "  SWARM_MEMORY_DISCOVERY_THRESHOLD_SHORT    Short query threshold (default: 0.25)"
+          puts "  SWARM_MEMORY_ADAPTIVE_WORD_CUTOFF         Word count cutoff (default: 10)"
+          puts "                                            Queries < 10 words use short threshold"
+          puts
+          puts "  SWARM_MEMORY_SEMANTIC_WEIGHT              Semantic weight (default: 0.5)"
+          puts "  SWARM_MEMORY_KEYWORD_WEIGHT               Keyword weight (default: 0.5)"
+          puts
           puts "Examples:"
           puts "  swarm memory setup                            # Download model"
           puts "  swarm memory status                           # Check if ready"
           puts "  swarm memory model-path                       # Show model location"
           puts "  swarm memory defrag .swarm/assistant-memory   # Optimize memory"
           puts "  swarm memory rebuild .swarm/assistant-memory  # Rebuild embeddings"
+          puts
+          puts "  # Use Q&A-optimized model"
+          puts "  SWARM_MEMORY_EMBEDDING_MODEL=sentence-transformers/multi-qa-MiniLM-L6-cos-v1 \\"
+          puts "    swarm memory setup"
+          puts
+          puts "  # Rebuild with more content (850 chars)"
+          puts "  SWARM_MEMORY_EMBEDDING_MAX_CHARS=850 \\"
+          puts "    swarm memory rebuild .swarm/assistant-memory"
           puts
         end
       end

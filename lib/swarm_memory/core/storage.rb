@@ -219,10 +219,20 @@ module SwarmMemory
       # Skips YAML frontmatter, headings, and empty lines to find
       # the first substantive paragraph.
       #
+      # Character limit can be controlled via SWARM_MEMORY_EMBEDDING_MAX_CHARS:
+      # - Default: 300
+      # - -1: Unlimited (use full content)
+      # - Any positive number: Custom limit
+      #
       # @param content [String] Full content
-      # @return [String, nil] First paragraph (max 300 chars) or nil
+      # @return [String, nil] First paragraph (max chars based on env var) or nil
       def extract_first_paragraph(content)
         return if content.nil? || content.strip.empty?
+
+        # Get character limit from environment variable
+        # Default: 300, -1 = unlimited
+        max_chars = (ENV["SWARM_MEMORY_EMBEDDING_MAX_CHARS"] || "1200").to_i
+        unlimited = max_chars == -1
 
         lines = content.lines
 
@@ -237,7 +247,7 @@ module SwarmMemory
           end
         end
 
-        # Find first non-heading, non-empty paragraph
+        # Find first non-heading, non-empty paragraph(s)
         paragraph = []
         lines.each do |line|
           stripped = line.strip
@@ -245,8 +255,8 @@ module SwarmMemory
           # Skip empty lines
           next if stripped.empty?
 
-          # Stop if we hit a heading after collecting some text
-          if stripped.start_with?("#") && paragraph.any?
+          # Stop if we hit a heading after collecting some text (unless unlimited)
+          if stripped.start_with?("#") && paragraph.any? && !unlimited
             break
           end
 
@@ -259,14 +269,17 @@ module SwarmMemory
           # Add line to paragraph
           paragraph << stripped
 
-          # Stop if we have enough text
-          break if paragraph.join(" ").length > 200
+          # Stop if we have enough text (unless unlimited)
+          unless unlimited
+            break if paragraph.join(" ").length > (max_chars - 100)
+          end
         end
 
         return if paragraph.empty?
 
-        # Join and cap at 300 characters
-        paragraph.join(" ").slice(0, 300)
+        # Join and cap at max_chars (or don't cap if unlimited)
+        text = paragraph.join(" ")
+        unlimited ? text : text.slice(0, max_chars)
       end
     end
   end

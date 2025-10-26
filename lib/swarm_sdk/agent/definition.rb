@@ -141,16 +141,19 @@ module SwarmSDK
 
       # Parse memory configuration from Hash or MemoryConfig object
       #
-      # @param memory_config [Hash, Agent::MemoryConfig, nil] Memory configuration
-      # @return [Agent::MemoryConfig, Hash, nil]
+      # @param memory_config [Hash, Object, nil] Memory configuration
+      # @return [Object, Hash, nil] Memory config (could be MemoryConfig from swarm_memory or Hash)
       def parse_memory_config(memory_config)
         return if memory_config.nil?
 
-        # If it's already a MemoryConfig (from DSL), return as-is
-        return memory_config if defined?(Agent::MemoryConfig) && memory_config.is_a?(Agent::MemoryConfig)
+        # If it's a MemoryConfig object (duck typing - has directory, adapter, mode methods)
+        # return as-is. This could be SwarmMemory::DSL::MemoryConfig or any compatible object.
+        return memory_config if memory_config.respond_to?(:directory) &&
+          memory_config.respond_to?(:adapter) &&
+          memory_config.respond_to?(:enabled?)
 
         # If it's a hash (from YAML), keep it as a hash
-        # We'll create storage adapter based on the hash values
+        # Plugin will create storage adapter based on the hash values
         memory_config
       end
 
