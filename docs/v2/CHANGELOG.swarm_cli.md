@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.3] - 2025-10-26
+
 ### Added
 - **`/defrag` Slash Command** - Automated memory defragmentation workflow
   - Discovers semantically related memory entries (60-85% similarity)
