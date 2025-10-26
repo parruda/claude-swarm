@@ -23,8 +23,11 @@ jobs:
             claude_swarm:
               - 'lib/claude_swarm.rb'
               - 'lib/claude_swarm/**'
+              - 'test/**'
+              - '!test/swarm_sdk/**'
+              - '!test/swarm_memory/**'
+              - '!test/swarm_cli/**'
               - 'claude_swarm.gemspec'
-              - 'test/claude_swarm/**'
             swarm_sdk:
               - 'lib/swarm_sdk.rb'
               - 'lib/swarm_sdk/**'
