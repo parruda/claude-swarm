@@ -6,6 +6,10 @@ class PsErrorHandlingTest < Minitest::Test
   def setup
     # Create the run directory in the test home directory (already set by test_helper)
     @run_dir = ClaudeSwarm.joined_run_dir
+
+    # Safety check: ensure we're operating in a test directory
+    validate_test_directory!(@run_dir)
+
     FileUtils.mkdir_p(@run_dir)
     @ps = ClaudeSwarm::Commands::Ps.new
   end
@@ -136,6 +140,12 @@ class PsErrorHandlingTest < Minitest::Test
   end
 
   def test_shows_no_active_sessions_when_all_fail
+    # Clean only the specific entries we're about to create (not the whole directory!)
+    ["bad_yaml", "regular_file", "stale"].each do |entry|
+      path = File.join(@run_dir, entry)
+      FileUtils.rm_f(path) if File.exist?(path)
+    end
+
     # Create only problematic sessions
     bad_yaml_session = create_session("bad_yaml", valid_config: false, yaml_error: true)
     File.symlink(bad_yaml_session, File.join(@run_dir, "bad_yaml"))
@@ -178,6 +188,19 @@ class PsErrorHandlingTest < Minitest::Test
   end
 
   private
+
+  def validate_test_directory!(dir)
+    # Ensure the path contains expected test markers
+    unless dir.include?("tmp") || dir.include?("test") || dir.include?("spec")
+      raise "Unsafe directory for test cleanup: #{dir}"
+    end
+
+    # Ensure it's not a system directory
+    dangerous_paths = ["/", "/home", "/Users", "/usr", "/var", "/etc", "/opt"]
+    if dangerous_paths.any? { |p| File.expand_path(dir) == p }
+      raise "Refusing to operate on system directory: #{dir}"
+    end
+  end
 
   def create_session(session_id, valid_config: true, yaml_error: false, bad_alias: false)
     # Create session in the sessions directory
