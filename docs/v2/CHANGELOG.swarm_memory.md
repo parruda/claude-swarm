@@ -306,7 +306,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    - Tracked globally via StorageReadTracker
    - Error if attempting to edit unread file
 
-## [0.1.0] - 2025-10-26
+## [2.0.0] - 2025-10-26
 
 Initial release of SwarmMemory as separate gem.
 
