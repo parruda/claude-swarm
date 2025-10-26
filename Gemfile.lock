@@ -29,7 +29,6 @@ PATH
       zeitwerk
     swarm_memory (2.0.0)
       async (~> 2.0)
-      faiss (~> 0.4.2)
       informers (~> 1.2.1)
       rice (~> 4.6.0)
       ruby_llm (~> 1.8)
@@ -115,9 +114,6 @@ GEM
       zeitwerk (~> 2.6)
     erb (5.0.2)
     event_stream_parser (1.0.0)
-    faiss (0.4.2)
-      numo-narray
-      rice (>= 4.5)
     faraday (2.14.0)
       faraday-net_http (>= 2.0, < 3.5)
       json
@@ -209,7 +205,6 @@ GEM
       racc (~> 1.4)
     nokogiri (1.18.10-x86_64-linux-gnu)
       racc (~> 1.4)
-    numo-narray (0.9.2.1)
     onnxruntime (0.10.1-arm64-darwin)
       ffi
     onnxruntime (0.10.1-x86_64-linux)
