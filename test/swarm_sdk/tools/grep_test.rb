@@ -64,7 +64,7 @@ module SwarmSDK
           pattern: "hello",
           path: @test_file,
           output_mode: "content",
-          "-i" => true,
+          case_insensitive: true,
         )
 
         assert_includes(result, "HELLO")
@@ -78,7 +78,7 @@ module SwarmSDK
           pattern: "match",
           path: @test_file,
           output_mode: "content",
-          "-C" => 1,
+          context: 1,
         )
 
         assert_includes(result, "line 1")
@@ -201,7 +201,7 @@ module SwarmSDK
           pattern: "match",
           path: @test_file,
           output_mode: "content",
-          "-n" => true,
+          show_line_numbers: true,
         )
 
         # Should include line numbers
@@ -216,7 +216,7 @@ module SwarmSDK
           pattern: "match",
           path: @test_file,
           output_mode: "content",
-          "-B" => 1,
+          context_before: 1,
         )
 
         assert_includes(result, "line 2")
@@ -231,7 +231,7 @@ module SwarmSDK
           pattern: "match",
           path: @test_file,
           output_mode: "content",
-          "-A" => 1,
+          context_after: 1,
         )
 
         assert_includes(result, "line 2 match")
@@ -246,7 +246,7 @@ module SwarmSDK
           pattern: "match",
           path: @test_file,
           output_mode: "content",
-          "-C" => 1,
+          context: 1,
         )
 
         assert_includes(result, "line 2")

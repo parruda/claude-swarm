@@ -104,20 +104,37 @@ module SwarmMemory
       # @param config [Object] Memory configuration (MemoryConfig or Hash)
       # @return [Core::Storage] Storage instance with embeddings enabled
       def create_storage(agent_name:, config:)
-        # Extract directory from config
-        memory_dir = if config.respond_to?(:directory)
-          config.directory # MemoryConfig object (from DSL)
+        # Extract adapter type and options from config
+        adapter_type, adapter_options = if config.respond_to?(:adapter_type)
+          # MemoryConfig object (from DSL)
+          [config.adapter_type, config.adapter_options]
+        elsif config.is_a?(Hash)
+          # Hash (from YAML)
+          adapter = (config[:adapter] || config["adapter"] || :filesystem).to_sym
+          options = config.reject { |k, _v| k == :adapter || k == "adapter" || k == :mode || k == "mode" }
+          [adapter, options]
         else
-          config[:directory] || config["directory"] # Hash (from YAML)
+          raise SwarmSDK::ConfigurationError, "Invalid memory configuration for #{agent_name}"
         end
 
-        raise SwarmSDK::ConfigurationError, "Memory directory not configured for #{agent_name}" unless memory_dir
+        # Get adapter class from registry
+        begin
+          adapter_class = SwarmMemory.adapter_for(adapter_type)
+        rescue ArgumentError => e
+          raise SwarmSDK::ConfigurationError, "#{e.message} for agent #{agent_name}"
+        end
+
+        # Instantiate adapter with options
+        # Note: Adapter is responsible for validating its own requirements
+        begin
+          adapter = adapter_class.new(**adapter_options)
+        rescue ArgumentError => e
+          raise SwarmSDK::ConfigurationError,
+            "Failed to initialize #{adapter_type} adapter for #{agent_name}: #{e.message}"
+        end
 
         # Create embedder for semantic search
         embedder = Embeddings::InformersEmbedder.new
-
-        # Create filesystem adapter
-        adapter = Adapters::FilesystemAdapter.new(directory: memory_dir)
 
         # Create storage with embedder (enables semantic features)
         Core::Storage.new(adapter: adapter, embedder: embedder)

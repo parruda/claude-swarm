@@ -39,6 +39,51 @@ require_relative "swarm_memory/chat_extension"
 
 module SwarmMemory
   class << self
+    # Registry for custom adapters
+    def adapter_registry
+      @adapter_registry ||= {}
+    end
+
+    # Register a custom adapter
+    #
+    # @param name [Symbol] Adapter name
+    # @param klass [Class] Adapter class (must inherit from Adapters::Base)
+    #
+    # @example
+    #   SwarmMemory.register_adapter(:activerecord, ActiveRecordMemoryAdapter)
+    def register_adapter(name, klass)
+      unless klass < Adapters::Base
+        raise ArgumentError, "Adapter must inherit from SwarmMemory::Adapters::Base"
+      end
+
+      adapter_registry[name.to_sym] = klass
+    end
+
+    # Get adapter class by name
+    #
+    # @param name [Symbol] Adapter name
+    # @return [Class] Adapter class
+    # @raise [ArgumentError] If adapter is not found
+    def adapter_for(name)
+      name = name.to_sym
+
+      # Check built-in adapters first
+      case name
+      when :filesystem
+        Adapters::FilesystemAdapter
+      else
+        # Check registry
+        adapter_registry[name] || raise(ArgumentError, "Unknown adapter: #{name}. Available: #{available_adapters.join(", ")}")
+      end
+    end
+
+    # Get list of available adapters
+    #
+    # @return [Array<Symbol>] List of registered adapter names
+    def available_adapters
+      [:filesystem] + adapter_registry.keys
+    end
+
     # Create individual tool instance
     # Called by SwarmSDK's ToolConfigurator
     #

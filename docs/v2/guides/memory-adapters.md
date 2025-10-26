@@ -1,21 +1,50 @@
 # Memory Adapter Development Guide
 
-Learn how to build custom storage adapters for SwarmMemory - from filesystems to vector databases.
+Learn how to build custom storage adapters for SwarmMemory using the plugin architecture.
 
 ---
 
 ## Overview
 
-SwarmMemory uses an **adapter pattern** for storage, making it easy to swap backends:
+SwarmMemory uses a **plugin adapter pattern** for storage, allowing you to implement custom backends that fit your infrastructure:
 
-- **FilesystemAdapter** (default) - Stores in `.md/.yml/.emb` files
-- **Future:** QdrantAdapter, MilvusAdapter, PostgreSQLAdapter, etc.
+- **FilesystemAdapter** (built-in) - Stores in `.md/.yml/.emb` files, Git-friendly
+- **Custom Adapters** (via registry) - PostgreSQL, MySQL, MongoDB, Qdrant, or any storage you need
+
+**Plugin Architecture Benefits:**
+- ✅ SwarmMemory stays lightweight (no forced dependencies)
+- ✅ Use your existing ORM (ActiveRecord, Sequel, etc.)
+- ✅ Optimize for your infrastructure
+- ✅ Community can publish adapters as gems
 
 **Any adapter** that implements the `Adapters::Base` interface will work seamlessly with:
 - All memory tools (MemoryWrite, MemoryRead, etc.)
 - Semantic search
 - Defrag operations
 - CLI commands
+
+---
+
+## Adapter Registry
+
+SwarmMemory provides a registry system for custom adapters:
+
+```ruby
+# Register your adapter when your app boots
+SwarmMemory.register_adapter(:my_adapter, MyCustomAdapter)
+
+# Now use it in configuration
+agent :researcher do
+  memory do
+    adapter :my_adapter
+    option :custom_option, "value"
+  end
+end
+
+# Check available adapters
+SwarmMemory.available_adapters
+# => [:filesystem, :my_adapter]
+```
 
 ---
 
@@ -138,16 +167,148 @@ end
 
 ---
 
-## Example: QdrantAdapter
+## Configuration DSL
 
-Complete example using Qdrant vector database:
+The memory configuration DSL supports passing options to custom adapters:
 
 ```ruby
-require 'qdrant'
+# Filesystem adapter (built-in)
+agent :researcher do
+  memory do
+    adapter :filesystem
+    directory ".swarm/memory/researcher"
+  end
+end
 
-module SwarmMemory
-  module Adapters
-    class QdrantAdapter < Base
+# Custom adapter with options
+agent :researcher do
+  memory do
+    adapter :activerecord
+    option :namespace, "researcher"
+    option :table_name, "memory_entries"
+  end
+end
+
+# Options are passed to adapter's initialize method
+# MyAdapter.new(namespace: "researcher", table_name: "memory_entries")
+```
+
+---
+
+## Example: ActiveRecord Adapter (PostgreSQL/Rails)
+
+Complete example using Rails with ActiveRecord and PostgreSQL:
+
+### Step 1: Migration
+
+```ruby
+# db/migrate/20250126_create_memory_entries.rb
+class CreateMemoryEntries < ActiveRecord::Migration[7.1]
+  def change
+    # Enable pgvector extension for embeddings
+    enable_extension 'vector'
+
+    create_table :memory_entries, id: false do |t|
+      t.string :namespace, null: false
+      t.string :path, null: false
+      t.text :content, null: false
+      t.string :title, null: false
+      t.column :embedding, :vector, limit: 384
+      t.jsonb :metadata, default: {}
+      t.integer :size, null: false
+      t.integer :hits, default: 0
+      t.timestamps
+    end
+
+    # Primary key on namespace + path
+    add_index :memory_entries, [:namespace, :path], unique: true
+
+    # Indexes for performance
+    add_index :memory_entries, :namespace
+    add_index :memory_entries, :metadata, using: :gin
+    add_index :memory_entries, :embedding, using: :hnsw, opclass: :vector_cosine_ops
+
+    # Full-text search index
+    execute <<-SQL
+      CREATE INDEX index_memory_entries_content_tsvector
+      ON memory_entries
+      USING GIN(to_tsvector('english', content))
+    SQL
+  end
+end
+```
+
+### Step 2: Model
+
+```ruby
+# app/models/memory_entry.rb
+class MemoryEntry < ApplicationRecord
+  validates :path, :namespace, :content, :title, presence: true
+  validates :path, uniqueness: { scope: :namespace }
+
+  scope :in_namespace, ->(ns) { where(namespace: ns) }
+
+  scope :matching_content, ->(pattern, case_insensitive) {
+    operator = case_insensitive ? "~*" : "~"
+    where("content #{operator} ?", pattern)
+  }
+
+  def self.similar_to(embedding, threshold: 0.0, limit: 10)
+    where("embedding IS NOT NULL")
+      .where("1 - (embedding <=> ?) >= ?", embedding.to_s, threshold)
+      .order(Arel.sql("embedding <=> '#{embedding}'"))
+      .limit(limit)
+  end
+
+  def increment_hits!
+    increment!(:hits)
+  end
+end
+```
+
+### Step 3: Adapter Implementation
+
+See the complete ActiveRecord adapter implementation in the separate documentation file:
+**[docs/v2/swarm_memory_adapters.md](../swarm_memory_adapters.md)**
+
+The adapter includes:
+- Full CRUD operations using ActiveRecord
+- PostgreSQL full-text search for fast grep
+- pgvector integration for semantic search
+- Proper error handling and validation
+- ~300 lines of production-ready code
+
+###Step 4: Register the Adapter
+
+```ruby
+# config/initializers/swarm_memory.rb
+require_relative '../../lib/activerecord_memory_adapter'
+
+SwarmMemory.register_adapter(:activerecord, ActiveRecordMemoryAdapter)
+```
+
+### Step 5: Configure Your Agent
+
+```ruby
+# swarm.rb
+agent :researcher do
+  memory do
+    adapter :activerecord
+    option :namespace, "researcher"
+  end
+end
+```
+
+---
+
+## Legacy Example: Qdrant Adapter
+
+> **Note**: This is a conceptual example. For production use with vector databases,
+> implement and register your own adapter using the pattern above.
+
+```ruby
+# Conceptual example - not maintained
+class QdrantAdapter < SwarmMemory::Adapters::Base
       def initialize(url:, collection:, api_key: nil)
         super()
         @client = Qdrant::Client.new(url: url, api_key: api_key)
@@ -383,15 +544,18 @@ end
 
 ## Adapter Comparison
 
-| Feature | FilesystemAdapter | QdrantAdapter | PostgreSQLAdapter |
-|---------|------------------|---------------|-------------------|
-| **Storage** | Local files | Vector DB | Relational DB |
-| **Semantic Search** | In-memory cosine | Native vector search | pgvector extension |
-| **Scalability** | ~5K entries | Millions of entries | Hundreds of thousands |
-| **Setup** | Zero config | Requires Qdrant server | Requires PostgreSQL |
-| **Dependencies** | None | qdrant-ruby gem | pg gem, pgvector |
-| **Performance** | Good (<5K entries) | Excellent (any size) | Good (with indexes) |
-| **Cost** | Free | Self-hosted or cloud | Self-hosted or cloud |
+| Feature | FilesystemAdapter (built-in) | ActiveRecord (example) | Vector DB (custom) |
+|---------|------------------------------|------------------------|-------------------|
+| **Storage** | Local files | PostgreSQL/MySQL | Qdrant/Milvus/Weaviate |
+| **Semantic Search** | In-memory cosine | pgvector extension | Native vector search |
+| **Scalability** | ~5K entries | Hundreds of thousands | Millions of entries |
+| **Setup** | Zero config | Rails + migration | External service |
+| **Dependencies** | None | activerecord, pg/mysql2 | qdrant-ruby, etc. |
+| **Performance** | Good (<5K entries) | Good (with indexes) | Excellent (any size) |
+| **Cost** | Free | Managed DB (~$10/mo) | Self-hosted or cloud |
+| **Availability** | Built-in | You implement | You implement |
+
+> **Note**: Only FilesystemAdapter is built-in. All other adapters are examples you implement and register using `SwarmMemory.register_adapter`.
 
 ---
 
@@ -738,42 +902,97 @@ When building an adapter, ensure:
 
 ## Using Custom Adapters
 
-### With Storage Directly
+### Step 1: Implement Your Adapter
+
+```ruby
+# lib/my_custom_adapter.rb
+class MyCustomAdapter < SwarmMemory::Adapters::Base
+  def initialize(url:, api_key: nil, **options)
+    super()
+    # Your initialization code
+  end
+
+  # Implement all required methods...
+  # See Adapters::Base for full interface
+end
+```
+
+### Step 2: Register Your Adapter
+
+```ruby
+# config/initializers/swarm_memory.rb (Rails)
+# or at the top of your swarm.rb file
+
+require_relative 'lib/my_custom_adapter'
+
+SwarmMemory.register_adapter(:my_adapter, MyCustomAdapter)
+```
+
+### Step 3: Configure Agent to Use It
+
+```ruby
+# swarm.rb
+agent :assistant do
+  memory do
+    adapter :my_adapter  # Uses registered adapter
+    option :url, "http://localhost:8080"
+    option :api_key, ENV["API_KEY"]
+  end
+end
+```
+
+### With Storage Directly (Without SwarmSDK)
 
 ```ruby
 require 'swarm_memory'
 
 # Create your adapter
-adapter = MyAdapter.new(url: "http://localhost:6333")
+adapter = MyCustomAdapter.new(url: "http://localhost:6333")
 
 # Create storage with embedder
 embedder = SwarmMemory::Embeddings::InformersEmbedder.new
 storage = SwarmMemory::Core::Storage.new(adapter: adapter, embedder: embedder)
 
-# Use memory tools
+# Use memory tools directly
 tools = SwarmMemory.tools_for(storage: storage, agent_name: :test)
 ```
 
-### With SwarmSDK (Future)
+---
+
+## Publishing Your Adapter
+
+Consider publishing your adapter as a gem for community use:
 
 ```ruby
-# Future API - not yet implemented
-agent :assistant do
-  memory do
-    adapter :qdrant
-    url "http://localhost:6333"
-    collection "agent_memory"
-  end
+# my_adapter_gem.gemspec
+Gem::Specification.new do |spec|
+  spec.name = "swarm_memory_my_adapter"
+  spec.version = "1.0.0"
+  spec.summary = "MyAdapter for SwarmMemory"
+
+  spec.add_dependency "swarm_memory", "~> 1.0"
+  spec.add_dependency "my_database_client", "~> 2.0"
 end
 ```
 
-**Current workaround:** Create storage manually and pass to plugin.
+Users can then:
+```bash
+gem install swarm_memory_my_adapter
+```
+
+```ruby
+# In their app
+require 'swarm_memory_my_adapter'
+SwarmMemory.register_adapter(:my_adapter, MyCustomAdapter)
+```
 
 ---
 
 ## See Also
 
+- **Complete ActiveRecord Example:** [docs/v2/swarm_memory_adapters.md](../swarm_memory_adapters.md)
 - **Base Class:** `lib/swarm_memory/adapters/base.rb` - Interface definition
 - **Reference Implementation:** `lib/swarm_memory/adapters/filesystem_adapter.rb`
 - **Entry Class:** `lib/swarm_memory/core/entry.rb` - Entry object spec
 - **Storage Class:** `lib/swarm_memory/core/storage.rb` - Storage orchestration
+- **Registry API:** `lib/swarm_memory.rb` - register_adapter, adapter_for, available_adapters
