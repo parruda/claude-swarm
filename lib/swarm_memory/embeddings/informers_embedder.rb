@@ -12,19 +12,25 @@ module SwarmMemory
     #   vector = embedder.embed("This is a test sentence")
     #   vector.size # => 384
     class InformersEmbedder < Embedder
-      DEFAULT_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+      DEFAULT_MODEL = "sentence-transformers/multi-qa-MiniLM-L6-cos-v1"
       EMBEDDING_DIMENSIONS = 384
 
       # Initialize embedder with model configuration
       #
-      # @param model [String] HuggingFace model identifier
+      # Model can be configured via SWARM_MEMORY_EMBEDDING_MODEL environment variable.
+      #
+      # Available models:
+      # - sentence-transformers/all-MiniLM-L6-v2 (default, general purpose, 256 tokens)
+      # - sentence-transformers/multi-qa-MiniLM-L6-cos-v1 (Q&A optimized, 512 tokens)
+      #
+      # @param model [String, nil] HuggingFace model identifier (defaults to env var or DEFAULT_MODEL)
       # @param quantized [Boolean] Use quantized variant (default: false for original model)
       # @param cache_dir [String, nil] Optional custom cache directory
       # @raise [EmbeddingError] If Informers gem is not available
       #
       # Note: The original sentence-transformers model uses unquantized ONNX (90MB).
       # For a smaller quantized version (22MB), use model: "Xenova/all-MiniLM-L6-v2", quantized: true
-      def initialize(model: DEFAULT_MODEL, quantized: false, cache_dir: nil)
+      def initialize(model: nil, quantized: false, cache_dir: nil)
         super()
 
         unless defined?(Informers)
@@ -32,7 +38,8 @@ module SwarmMemory
             "Informers gem is not available. Install with: gem install informers"
         end
 
-        @model_name = model
+        # Use env var if available, otherwise use provided model or default
+        @model_name = model || ENV["SWARM_MEMORY_EMBEDDING_MODEL"] || DEFAULT_MODEL
         @quantized = quantized
         @model = nil # Lazy load
 

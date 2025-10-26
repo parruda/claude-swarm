@@ -399,17 +399,19 @@ module SwarmSDK
         # Prepare messages: persistent + ephemeral for this turn
         messages_for_llm = @context_manager.prepare_for_llm(@messages)
 
-        # Call provider with combined messages
-        response = @provider.complete(
-          messages_for_llm,
-          tools: @tools,
-          temperature: @temperature,
-          model: @model,
-          params: @params,
-          headers: @headers,
-          schema: @schema,
-          &wrap_streaming_block(&block)
-        )
+        # Call provider with retry logic for transient failures
+        response = call_llm_with_retry do
+          @provider.complete(
+            messages_for_llm,
+            tools: @tools,
+            temperature: @temperature,
+            model: @model,
+            params: @params,
+            headers: @headers,
+            schema: @schema,
+            &wrap_streaming_block(&block)
+          )
+        end
 
         @on[:new_message]&.call unless block
 
@@ -762,6 +764,57 @@ module SwarmSDK
       end
 
       private
+
+      # Call LLM with retry logic for transient failures
+      #
+      # Retries up to 10 times with fixed 10-second delays for:
+      # - Network errors
+      # - Proxy failures
+      # - Transient API errors
+      #
+      # @yield Block that makes the LLM call
+      # @return [RubyLLM::Message] LLM response
+      # @raise [StandardError] If all retries exhausted
+      def call_llm_with_retry(max_retries: 10, delay: 10, &block)
+        attempts = 0
+
+        loop do
+          attempts += 1
+
+          begin
+            return yield
+          rescue StandardError => e
+            # Check if we should retry
+            if attempts >= max_retries
+              # Emit final failure log
+              LogStream.emit(
+                type: "llm_retry_exhausted",
+                agent: @agent_name,
+                model: @model&.id,
+                attempts: attempts,
+                error_class: e.class.name,
+                error_message: e.message,
+              )
+              raise
+            end
+
+            # Emit retry attempt log
+            LogStream.emit(
+              type: "llm_retry_attempt",
+              agent: @agent_name,
+              model: @model&.id,
+              attempt: attempts,
+              max_retries: max_retries,
+              error_class: e.class.name,
+              error_message: e.message,
+              retry_delay: delay,
+            )
+
+            # Wait before retry
+            sleep(delay)
+          end
+        end
+      end
 
       # Build custom RubyLLM context for base_url/timeout overrides
       #

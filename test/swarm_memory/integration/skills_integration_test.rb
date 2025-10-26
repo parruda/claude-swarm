@@ -33,13 +33,14 @@ class SkillsIntegrationTest < Minitest::Test
       agent(:test_agent) do
         description("Test agent with memory")
         coding_agent(false)
-        disable_default_tools(true)
+        # Remove disable_default_tools - let memory plugin tools be registered
         tools(:Read, :Write)
         directory(temp_dir)
 
         memory do
           adapter(:filesystem)
           directory(memory_dir)
+          mode(:researcher) # All tools available
         end
       end
     end
@@ -107,12 +108,13 @@ class SkillsIntegrationTest < Minitest::Test
       agent(:test_agent) do
         description("Test agent")
         coding_agent(false)
-        disable_default_tools(true)
+        # Remove disable_default_tools - let memory plugin tools be registered
         tools(:Read)
         directory(temp_dir)
 
         memory do
           directory(memory_dir)
+          mode(:researcher) # All tools available
         end
       end
     end

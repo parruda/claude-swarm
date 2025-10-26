@@ -2,32 +2,6 @@
 
 module SwarmSDK
   module Agent
-    # Configuration for agent memory
-    class MemoryConfig
-      def initialize
-        @adapter = :filesystem # Default adapter
-        @directory = nil
-      end
-
-      # DSL method to set/get adapter
-      def adapter(value = nil)
-        return @adapter if value.nil?
-
-        @adapter = value.to_sym
-      end
-
-      # DSL method to set/get directory
-      def directory(value = nil)
-        return @directory if value.nil?
-
-        @directory = value
-      end
-
-      def enabled?
-        !@directory.nil?
-      end
-    end
-
     # Builder provides fluent API for configuring agents
     #
     # This class offers a Ruby DSL for defining agents with a clean, readable syntax.
@@ -256,19 +230,6 @@ module SwarmSDK
       # Set directory
       def directory(dir)
         @directory = dir
-      end
-
-      # Configure persistent memory for this agent
-      #
-      # @example
-      #   memory do
-      #     adapter :filesystem  # default
-      #     directory ".swarm/agent-memory"
-      #   end
-      def memory(&block)
-        @memory_config = MemoryConfig.new
-        @memory_config.instance_eval(&block) if block_given?
-        @memory_config
       end
 
       # Set delegation targets

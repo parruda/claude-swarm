@@ -19,6 +19,9 @@ module SwarmMemory
         # Track storages for each agent: { agent_name => storage }
         # Needed for semantic skill discovery in on_user_message
         @storages = {}
+        # Track memory mode for each agent: { agent_name => mode }
+        # Modes: :assistant (default), :retrieval, :researcher
+        @modes = {}
       end
 
       # Plugin identifier
@@ -30,22 +33,56 @@ module SwarmMemory
 
       # Tools provided by this plugin
       #
+      # Returns all memory tools for PluginRegistry mapping.
+      # Tools are auto-registered by ToolConfigurator, then filtered
+      # by mode in on_agent_initialized using remove_tool.
+      #
       # Note: LoadSkill is NOT included here because it requires special handling.
       # It's registered separately in on_agent_initialized lifecycle hook because
       # it needs chat, tool_configurator, and agent_definition parameters.
       #
-      # @return [Array<Symbol>] Memory tool names
+      # @return [Array<Symbol>] All memory tool names
       def tools
         [
-          :MemoryWrite,
           :MemoryRead,
-          :MemoryEdit,
-          :MemoryMultiEdit,
           :MemoryGlob,
           :MemoryGrep,
+          :MemoryWrite,
+          :MemoryEdit,
+          :MemoryMultiEdit,
           :MemoryDelete,
           :MemoryDefrag,
         ]
+      end
+
+      # Get tools for a specific mode
+      #
+      # @param mode [Symbol] Memory mode
+      # @return [Array<Symbol>] Tool names for this mode
+      def tools_for_mode(mode)
+        case mode
+        when :retrieval
+          # Read-only tools for Q&A agents
+          [:MemoryRead, :MemoryGlob, :MemoryGrep]
+        when :assistant
+          # Read + Write + Edit for learning assistants (need edit for corrections)
+          [:MemoryRead, :MemoryGlob, :MemoryGrep, :MemoryWrite, :MemoryEdit]
+        when :researcher
+          # All tools for knowledge extraction
+          [
+            :MemoryRead,
+            :MemoryGlob,
+            :MemoryGrep,
+            :MemoryWrite,
+            :MemoryEdit,
+            :MemoryMultiEdit,
+            :MemoryDelete,
+            :MemoryDefrag,
+          ]
+        else
+          # Default to assistant
+          [:MemoryRead, :MemoryGlob, :MemoryGrep, :MemoryWrite, :MemoryEdit]
+        end
       end
 
       # Create a tool instance
@@ -101,31 +138,48 @@ module SwarmMemory
       # @param storage [Core::Storage, nil] Storage instance (may be nil during prompt building)
       # @return [String] Memory prompt contribution
       def system_prompt_contribution(agent_definition:, storage:)
-        # Load memory prompt template
-        memory_prompt_path = File.expand_path("../prompts/memory.md.erb", __dir__)
+        # Extract mode from memory config
+        memory_config = agent_definition.memory
+        mode = if memory_config.is_a?(SwarmMemory::DSL::MemoryConfig)
+          memory_config.mode # MemoryConfig object from DSL
+        elsif memory_config.respond_to?(:mode)
+          memory_config.mode # Other object with mode method
+        elsif memory_config.is_a?(Hash)
+          (memory_config[:mode] || memory_config["mode"] || :assistant).to_sym
+        else
+          :assistant # Default mode
+        end
+
+        # Select prompt template based on mode
+        prompt_filename = case mode
+        when :retrieval then "memory_retrieval.md.erb"
+        when :researcher then "memory_researcher.md.erb"
+        else "memory_assistant.md.erb" # Default
+        end
+
+        memory_prompt_path = File.expand_path("../prompts/#{prompt_filename}", __dir__)
         template_content = File.read(memory_prompt_path)
 
         # Render with agent_definition binding
         ERB.new(template_content).result(agent_definition.instance_eval { binding })
       end
 
-      # Tools that should be marked immutable
+      # Tools that should be marked immutable (mode-aware)
       #
-      # All memory tools plus LoadSkill are immutable to prevent accidental removal.
+      # Memory tools for the current mode plus LoadSkill (if applicable) are immutable.
+      # This prevents LoadSkill from accidentally removing memory tools.
       #
-      # @return [Array<Symbol>] Immutable tool names
-      def immutable_tools
-        [
-          :MemoryWrite,
-          :MemoryRead,
-          :MemoryEdit,
-          :MemoryMultiEdit,
-          :MemoryGlob,
-          :MemoryGrep,
-          :MemoryDelete,
-          :MemoryDefrag,
-          :LoadSkill,
-        ]
+      # @param mode [Symbol] Memory mode
+      # @return [Array<Symbol>] Immutable tool names for this mode
+      def immutable_tools_for_mode(mode)
+        base_tools = tools_for_mode(mode)
+
+        # LoadSkill only for assistant and researcher modes (not retrieval)
+        if mode == :retrieval
+          base_tools
+        else
+          base_tools + [:LoadSkill]
+        end
       end
 
       # Check if storage should be created for this agent
@@ -138,7 +192,9 @@ module SwarmMemory
 
       # Lifecycle: Agent initialized
       #
-      # Register LoadSkill tool and mark all memory tools as immutable.
+      # Filters tools by mode (removing non-mode tools), registers LoadSkill,
+      # and marks memory tools as immutable.
+      #
       # LoadSkill needs special handling because it requires chat, tool_configurator,
       # and agent_definition to perform dynamic tool swapping.
       #
@@ -152,23 +208,51 @@ module SwarmMemory
 
         return unless storage # Only proceed if memory is enabled for this agent
 
-        # Store storage for this agent (needed for on_user_message)
+        # Extract mode from memory config
+        memory_config = agent_definition.memory
+        mode = if memory_config.is_a?(SwarmMemory::DSL::MemoryConfig)
+          memory_config.mode # MemoryConfig object from DSL
+        elsif memory_config.respond_to?(:mode)
+          memory_config.mode # Other object with mode method
+        elsif memory_config.is_a?(Hash)
+          (memory_config[:mode] || memory_config["mode"] || :interactive).to_sym
+        else
+          :interactive # Default
+        end
+
+        # Store storage and mode for this agent
         @storages[agent_name] = storage
+        @modes[agent_name] = mode
 
-        # Create and register LoadSkill tool
-        load_skill_tool = SwarmMemory.create_tool(
-          :LoadSkill,
-          storage: storage,
-          agent_name: agent_name,
-          chat: agent,
-          tool_configurator: tool_configurator,
-          agent_definition: agent_definition,
-        )
+        # Get mode-specific tools
+        allowed_tools = tools_for_mode(mode)
 
-        agent.with_tool(load_skill_tool)
+        # Get all registered memory tool names
+        all_memory_tools = tools # Returns all possible memory tools
 
-        # Mark all memory tools as immutable
-        agent.mark_tools_immutable(immutable_tools.map(&:to_s))
+        # Remove tools not allowed in this mode
+        tools_to_remove = all_memory_tools - allowed_tools
+
+        tools_to_remove.each do |tool_name|
+          agent.remove_tool(tool_name)
+        end
+
+        # Create and register LoadSkill tool (NOT for retrieval mode - read-only)
+        unless mode == :retrieval
+          load_skill_tool = SwarmMemory.create_tool(
+            :LoadSkill,
+            storage: storage,
+            agent_name: agent_name,
+            chat: agent,
+            tool_configurator: tool_configurator,
+            agent_definition: agent_definition,
+          )
+
+          agent.with_tool(load_skill_tool)
+        end
+
+        # Mark mode-specific memory tools + LoadSkill as immutable
+        agent.mark_tools_immutable(immutable_tools_for_mode(mode).map(&:to_s))
       end
 
       # Lifecycle: User message
@@ -187,9 +271,17 @@ module SwarmMemory
         storage = @storages[agent_name]
         return [] unless storage&.semantic_index
 
-        # Configurable via environment variable for tuning
-        # Optimal: 0.60 (discovered via systematic evaluation)
-        threshold = (ENV["SWARM_MEMORY_DISCOVERY_THRESHOLD"] || "0.60").to_f
+        # Adaptive threshold based on query length
+        # Short queries use lower threshold as they have less semantic richness
+        # Optimal: cutoff=10 words, short=0.25, normal=0.35 (discovered via systematic evaluation)
+        word_count = prompt.split.size
+        word_cutoff = (ENV["SWARM_MEMORY_ADAPTIVE_WORD_CUTOFF"] || "10").to_i
+
+        threshold = if word_count < word_cutoff
+          (ENV["SWARM_MEMORY_DISCOVERY_THRESHOLD_SHORT"] || "0.25").to_f
+        else
+          (ENV["SWARM_MEMORY_DISCOVERY_THRESHOLD"] || "0.35").to_f
+        end
         reminders = []
 
         # Run both searches in parallel with Async
@@ -224,9 +316,10 @@ module SwarmMemory
             .select { |r| r[:similarity] >= threshold }
             .take(3)
 
-          # Emit log events
-          emit_skill_search_log(agent_name, prompt, skills, all_results, threshold)
-          emit_memory_search_log(agent_name, prompt, memories, all_results, threshold)
+          # Emit log events (include word count for adaptive threshold analysis)
+          search_context = { threshold: threshold, word_count: word_count, word_cutoff: word_cutoff }
+          emit_skill_search_log(agent_name, prompt, skills, all_results, search_context)
+          emit_memory_search_log(agent_name, prompt, memories, all_results, search_context)
 
           # Build skill reminder if found
           if skills.any?
@@ -250,10 +343,14 @@ module SwarmMemory
       # @param prompt [String] User's message
       # @param skills [Array<Hash>] Found skills (filtered)
       # @param all_results [Array<Hash>] All search results (unfiltered)
-      # @param threshold [Float] Similarity threshold used
+      # @param search_context [Hash] Search context with :threshold and :word_count
       # @return [void]
-      def emit_skill_search_log(agent_name, prompt, skills, all_results, threshold)
+      def emit_skill_search_log(agent_name, prompt, skills, all_results, search_context)
         return unless SwarmSDK::LogStream.enabled?
+
+        threshold = search_context[:threshold]
+        word_count = search_context[:word_count]
+        word_cutoff = search_context[:word_cutoff]
 
         # Include top 5 results for debugging (even if below threshold or wrong type)
         all_entries_debug = all_results.take(5).map do |result|
@@ -276,7 +373,10 @@ module SwarmMemory
           type: "semantic_skill_search",
           agent: agent_name,
           query: prompt,
+          query_word_count: word_count,
           threshold: threshold,
+          threshold_type: word_count < word_cutoff ? "short_query" : "normal_query",
+          adaptive_cutoff: word_cutoff,
           skills_found: skills.size,
           total_entries_searched: all_results.size,
           search_mode: "hybrid",
@@ -300,10 +400,14 @@ module SwarmMemory
       # @param prompt [String] User's message
       # @param memories [Array<Hash>] Found memories (concepts/facts/experiences)
       # @param all_results [Array<Hash>] All search results (unfiltered)
-      # @param threshold [Float] Similarity threshold used
+      # @param search_context [Hash] Search context with :threshold and :word_count
       # @return [void]
-      def emit_memory_search_log(agent_name, prompt, memories, all_results, threshold)
+      def emit_memory_search_log(agent_name, prompt, memories, all_results, search_context)
         return unless SwarmSDK::LogStream.enabled?
+
+        threshold = search_context[:threshold]
+        word_count = search_context[:word_count]
+        word_cutoff = search_context[:word_cutoff]
 
         # Filter all_results to only concept/fact/experience types for debug output
         memory_entries = all_results.select do |r|
@@ -332,7 +436,10 @@ module SwarmMemory
           type: "semantic_memory_search",
           agent: agent_name,
           query: prompt,
+          query_word_count: word_count,
           threshold: threshold,
+          threshold_type: word_count < word_cutoff ? "short_query" : "normal_query",
+          adaptive_cutoff: word_cutoff,
           memories_found: memories.size,
           total_memory_entries_searched: memory_entries.size,
           search_mode: "hybrid",
@@ -347,7 +454,7 @@ module SwarmMemory
               keyword_score: memory[:keyword_score]&.round(3),
             }
           end,
-          debug: debug_all_memories,
+          debug_top_results: debug_all_memories,
         )
       end
 
