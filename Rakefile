@@ -11,14 +11,22 @@ end
 
 namespace :claude_swarm do
   Minitest::TestTask.create(:test) do |t|
-    t.test_globs = ["test/**/*_test.rb"]
-    t.test_globs -= ["test/swarm_sdk/**/*_test.rb"]
+    # Expand globs and subtract to get only claude_swarm tests
+    all_tests = Dir.glob("test/**/*_test.rb")
+    exclude_tests = Dir.glob("test/swarm_sdk/**/*_test.rb") +
+                    Dir.glob("test/swarm_memory/**/*_test.rb") +
+                    Dir.glob("test/swarm_cli/**/*_test.rb")
+    t.test_globs = all_tests - exclude_tests
     t.warning = false
   end
 
   RuboCop::RakeTask.new(:rubocop) do |t|
-    t.patterns = ["lib/claude_swarm.rb", "lib/claude_swarm/**/*.rb", "test/**/*_test.rb"]
-    t.patterns -= ["test/swarm_sdk/**/*.rb"]
+    # Expand patterns and subtract
+    all_patterns = Dir.glob("lib/claude_swarm.rb") + Dir.glob("lib/claude_swarm/**/*.rb") + Dir.glob("test/**/*_test.rb")
+    exclude_patterns = Dir.glob("test/swarm_sdk/**/*.rb") +
+                       Dir.glob("test/swarm_memory/**/*.rb") +
+                       Dir.glob("test/swarm_cli/**/*.rb")
+    t.patterns = all_patterns - exclude_patterns
   end
 
   desc "Run ClaudeSwarm tests and linting"
