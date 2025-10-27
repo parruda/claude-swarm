@@ -1,13 +1,6 @@
-# Claude Swarm
+# 🚀 SwarmSDK v2 - The New Way
 
-[![Gem Version](https://badge.fury.io/rb/claude_swarm.svg?cache_bust1=0.3.2)](https://badge.fury.io/rb/claude_swarm)
-[![CI](https://github.com/parruda/claude-swarm/actions/workflows/ci.yml/badge.svg)](https://github.com/parruda/claude-swarm/actions/workflows/ci.yml)
-
-Claude Swarm orchestrates multiple Claude Code instances as a collaborative AI development team. It enables running AI agents with specialized roles, tools, and directory contexts, communicating via MCP (Model Context Protocol) in a tree-like hierarchy. Define your swarm topology in simple YAML and let Claude instances delegate tasks through connected instances. Perfect for complex projects requiring specialized AI agents for frontend, backend, testing, DevOps, or research tasks.
-
-## 🚀 SwarmSDK v2 - The New Way
-
-**We recommend using SwarmSDK v2 for new projects!** SwarmSDK is a complete reimagining that provides a better developer experience:
+**We recommend using SwarmSDK v2 for new projects!** SwarmSDK is a complete redesign of Claude Swarm that provides a better developer experience:
 
 - **Single Process Architecture**: All agents run in one Ruby process using [RubyLLM](https://github.com/parruda/ruby_llm) - no more managing multiple Claude Code instances
 - **More Efficient**: Direct method calls instead of MCP inter-process communication
@@ -16,7 +9,7 @@ Claude Swarm orchestrates multiple Claude Code instances as a collaborative AI d
 - **REPL**: Built with TTY toolkit for a nice command-line experience
 - **Multiple LLM Providers**: Supports all LLM providers supported by RubyLLM
 
-### Getting Started with v2
+## Getting Started with v2
 
 ```bash
 gem install swarm_cli     # Includes swarm_sdk
@@ -26,6 +19,13 @@ swarm --help              # Explore the modern CLI
 **📚 Complete Documentation**: Check out the [SwarmSDK guides](docs/v2/README.md) including the comprehensive [complete tutorial](docs/v2/guides/complete-tutorial.md) covering all features.
 
 **Note**: Claude Swarm (v1, documented below) will continue to be maintained and is still a great choice if you prefer the multi-process architecture with Claude Code instances.
+
+# Claude Swarm
+
+[![Gem Version](https://badge.fury.io/rb/claude_swarm.svg?cache_bust1=0.3.2)](https://badge.fury.io/rb/claude_swarm)
+[![CI](https://github.com/parruda/claude-swarm/actions/workflows/ci.yml/badge.svg)](https://github.com/parruda/claude-swarm/actions/workflows/ci.yml)
+
+Claude Swarm orchestrates multiple Claude Code instances as a collaborative AI development team. It enables running AI agents with specialized roles, tools, and directory contexts, communicating via MCP (Model Context Protocol) in a tree-like hierarchy. Define your swarm topology in simple YAML and let Claude instances delegate tasks through connected instances. Perfect for complex projects requiring specialized AI agents for frontend, backend, testing, DevOps, or research tasks.
 
 ---
 
