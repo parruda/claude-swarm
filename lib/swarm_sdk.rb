@@ -147,15 +147,6 @@ require "ruby_llm/mcp/parameter"
 
 module RubyLLM
   module MCP
-    class Parameter < RubyLLM::Parameter
-      def initialize(name, type: "string", desc: nil, required: true, default: nil, union_type: nil)
-        super(name, type: type, desc: desc, required: required)
-        @properties = {}
-        @union_type = union_type
-        @default = default
-      end
-    end
-
     module Notifications
       class Initialize
         def call
