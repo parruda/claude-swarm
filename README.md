@@ -1,7 +1,8 @@
-# 🚀 SwarmSDK v2 - The New Way
+# 🚀 SwarmSDK - The New Way
 
 **We recommend using SwarmSDK v2 for new projects!** SwarmSDK is a complete redesign of Claude Swarm that provides a better developer experience:
 
+- **Decoupled from Claude Code**: No more dependency on Claude Code
 - **Single Process Architecture**: All agents run in one Ruby process using [RubyLLM](https://github.com/parruda/ruby_llm) - no more managing multiple Claude Code instances
 - **More Efficient**: Direct method calls instead of MCP inter-process communication
 - **Richer Features**: Node workflows, hooks system, scratchpad/memory tools, and more
