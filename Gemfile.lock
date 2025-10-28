@@ -10,7 +10,7 @@ PATH
       ruby-openai (>= 7.0, < 9.0)
       thor (~> 1.3)
       zeitwerk (~> 2.6)
-    swarm_cli (2.0.3)
+    swarm_cli (2.1.0)
       csv
       docx (~> 0.10)
       fast-mcp (~> 1.6)
@@ -18,7 +18,7 @@ PATH
       pdf-reader (~> 2.15)
       reverse_markdown (~> 3.0.0)
       roo (~> 3.0.0)
-      swarm_sdk (~> 2.0)
+      swarm_sdk (~> 2.1)
       tty-box
       tty-cursor
       tty-link
@@ -27,14 +27,14 @@ PATH
       tty-spinner
       tty-tree
       zeitwerk
-    swarm_memory (2.1.0)
+    swarm_memory (2.1.1)
       async (~> 2.0)
       informers (~> 1.2.1)
       rice (~> 4.6.0)
       ruby_llm (~> 1.8)
-      swarm_sdk (~> 2.0)
+      swarm_sdk (~> 2.1)
       zeitwerk (~> 2.6)
-    swarm_sdk (2.1.0)
+    swarm_sdk (2.1.1)
       async (~> 2.0)
       ruby_llm (~> 1.8)
       ruby_llm-mcp (~> 0.6.2)

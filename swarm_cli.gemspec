@@ -36,7 +36,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency("fast-mcp", "~> 1.6")
   spec.add_dependency("pastel")
-  spec.add_dependency("swarm_sdk", "~> 2.0")
+  spec.add_dependency("swarm_sdk", "~> 2.1")
   spec.add_dependency("tty-box")
   spec.add_dependency("tty-cursor")
   spec.add_dependency("tty-link")
