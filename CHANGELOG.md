@@ -1,4 +1,4 @@
-## [Unreleased]
+## [1.0.2]
 
 ### Changed
 - **Improved signal handling and graceful shutdown**: Enhanced signal handling for more reliable cleanup on interruption
