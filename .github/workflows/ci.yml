@@ -74,6 +74,24 @@ jobs:
     - name: Run ClaudeSwarm linter
       run: bundle exec rake claude_swarm:rubocop
 
+    - name: Test ClaudeSwarm loads without bundler
+      run: |
+        gem build claude_swarm.gemspec
+        gem install ./claude_swarm-*.gem
+        ruby -e "require 'claude_swarm'"
+
+    - name: Test in isolated environment with fresh bundle
+      run: |
+        mkdir -p tmp/gem_test
+        cd tmp/gem_test
+        cat > Gemfile <<EOF
+        source 'https://rubygems.org'
+        gem 'claude_swarm', path: '../..'
+        EOF
+        bundle install
+        bundle exec ruby -e "require 'claude_swarm'; puts 'Gem loaded successfully'"
+        bundle exec claude-swarm version
+
   test-swarm-sdk:
     needs: detect-changes
     if: needs.detect-changes.outputs.swarm_sdk_changed == 'true'
@@ -99,6 +117,23 @@ jobs:
 
     - name: Run SwarmSDK linter
       run: bundle exec rake swarm_sdk:rubocop
+    
+    - name: Test SwarmSDK gem loads without bundler
+      run: |
+        gem build swarm_sdk.gemspec
+        gem install ./swarm_sdk-*.gem
+        ruby -e "require 'swarm_sdk'"
+
+    - name: Test in isolated environment with fresh bundle
+      run: |
+        mkdir -p tmp/gem_test
+        cd tmp/gem_test
+        cat > Gemfile <<EOF
+        source 'https://rubygems.org'
+        gem 'swarm_sdk', path: '../..'
+        EOF
+        bundle install
+        bundle exec ruby -e "require 'swarm_sdk'; puts 'Gem loaded successfully'"
 
   test-swarm-memory:
     needs: detect-changes
@@ -125,6 +160,23 @@ jobs:
 
     - name: Run SwarmMemory linter
       run: bundle exec rake swarm_memory:rubocop
+    
+    - name: Test SwarmMemory gem loads without bundler
+      run: |
+        gem build swarm_memory.gemspec
+        gem install ./swarm_memory-*.gem
+        ruby -e "require 'swarm_memory'"
+
+    - name: Test in isolated environment with fresh bundle
+      run: |
+        mkdir -p tmp/gem_test
+        cd tmp/gem_test
+        cat > Gemfile <<EOF
+        source 'https://rubygems.org'
+        gem 'swarm_memory', path: '../..'
+        EOF
+        bundle install
+        bundle exec ruby -e "require 'swarm_memory'; puts 'Gem loaded successfully'"
 
   test-swarm-cli:
     needs: detect-changes
@@ -151,3 +203,21 @@ jobs:
 
     - name: Run SwarmCLI linter
       run: bundle exec rake swarm_cli:rubocop
+    
+    - name: Test SwarmCLI gem loads without bundler
+      run: |
+        gem build swarm_cli.gemspec
+        gem install ./swarm_cli-*.gem
+        ruby -e "require 'swarm_cli'"
+
+    - name: Test in isolated environment with fresh bundle
+      run: |
+        mkdir -p tmp/gem_test
+        cd tmp/gem_test
+        cat > Gemfile <<EOF
+        source 'https://rubygems.org'
+        gem 'swarm_cli', path: '../..'
+        EOF
+        bundle install
+        bundle exec ruby -e "require 'swarm_cli'; puts 'Gem loaded successfully'"
+        bundle exec swarm --version
