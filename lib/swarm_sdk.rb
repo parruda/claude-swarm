@@ -17,8 +17,7 @@ require "async/semaphore"
 require "ruby_llm"
 require "ruby_llm/mcp"
 
-module SwarmSDK
-end
+require_relative "swarm_sdk/version"
 
 require "zeitwerk"
 loader = Zeitwerk::Loader.new

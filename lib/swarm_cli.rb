@@ -18,8 +18,7 @@ require "tty/tree"
 
 require "swarm_sdk"
 
-module SwarmCLI
-end
+require_relative "swarm_cli/version"
 
 require "zeitwerk"
 loader = Zeitwerk::Loader.new
