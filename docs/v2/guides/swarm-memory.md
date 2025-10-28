@@ -219,6 +219,8 @@ MemoryGlob(pattern: "fact/people/*.md")   # All people facts
 ```ruby
 MemoryGrep(pattern: "authentication")
 MemoryGrep(pattern: "api.*error", output_mode: "content")
+MemoryGrep(pattern: "TODO", path: "concept/")              # Search only concepts
+MemoryGrep(pattern: "endpoint", path: "fact/api-design")   # Search specific subdirectory
 ```
 
 ### Optimization Tools
@@ -315,19 +317,27 @@ SwarmMemory uses a **filesystem-based storage adapter** by default:
 
 ```
 .swarm/assistant-memory/
-├── concept--ruby--classes.md        # Content
-├── concept--ruby--classes.yml       # Metadata
-├── concept--ruby--classes.emb       # Embedding (binary)
-├── skill--debugging--api.md
-├── skill--debugging--api.yml
-├── skill--debugging--api.emb
+├── concept/
+│   └── ruby/
+│       ├── classes.md               # Content
+│       ├── classes.yml              # Metadata
+│       └── classes.emb              # Embedding (binary)
+├── skill/
+│   └── debugging/
+│       ├── api.md
+│       ├── api.yml
+│       └── api.emb
+├── fact/
+├── experience/
 └── .lock                            # Cross-process lock file
 ```
 
-**Path Flattening:**
+**Hierarchical Storage:**
 - Logical: `concept/ruby/classes.md`
-- On Disk: `concept--ruby--classes.md`
-- Why: Git-friendly, no nested directories
+- On Disk: `concept/ruby/classes.md`
+- Storage matches logical paths exactly - no flattening
+- Native directory structure for intuitive browsing
+- Efficient glob operations with Dir.glob
 
 **Three Files Per Entry:**
 - `.md` - Markdown content

@@ -154,5 +154,132 @@ module SwarmSDK
       # Should have NO tools
       assert_empty(agent.tools, "Should have no tools")
     end
+
+    def test_disable_specific_default_tools
+      swarm = Swarm.new(name: "Test Swarm", scratchpad: Tools::Stores::ScratchpadStorage.new)
+
+      swarm.add_agent(create_agent(
+        name: :developer,
+        description: "Developer agent",
+        model: "gpt-5",
+        system_prompt: "You are a developer.",
+        tools: [:Write],
+        disable_default_tools: [:Think, :TodoWrite], # Disable only these
+      ))
+
+      agent = swarm.agent(:developer)
+
+      # Should NOT have disabled tools
+      refute(agent.tools.key?(:Think), "Should NOT have Think")
+      refute(agent.tools.key?(:TodoWrite), "Should NOT have TodoWrite")
+
+      # Should have other default tools
+      assert(agent.tools.key?(:Read), "Should have Read")
+      assert(agent.tools.key?(:Grep), "Should have Grep")
+      assert(agent.tools.key?(:Glob), "Should have Glob")
+      assert(agent.tools.key?(:ScratchpadWrite), "Should have ScratchpadWrite")
+
+      # Should have explicit tool
+      assert(agent.tools.key?(:Write), "Should have Write")
+    end
+
+    def test_disable_default_tools_via_dsl_true
+      swarm = SwarmSDK.build do
+        name("Test Swarm")
+        lead(:agent1)
+
+        agent(:agent1) do
+          description("Test agent")
+          model("gpt-5")
+          system_prompt("Test")
+          tools(:Write)
+          disable_default_tools(true) # Disable all
+        end
+      end
+
+      agent_chat = swarm.agent(:agent1)
+
+      # Should NOT have any default tools
+      refute(agent_chat.tools.key?(:Think), "Should NOT have Think")
+      refute(agent_chat.tools.key?(:Read), "Should NOT have Read")
+
+      # Should have explicit tool
+      assert(agent_chat.tools.key?(:Write), "Should have Write")
+    end
+
+    def test_disable_default_tools_via_dsl_array
+      swarm = SwarmSDK.build do
+        name("Test Swarm")
+        lead(:agent1)
+
+        agent(:agent1) do
+          description("Test agent")
+          model("gpt-5")
+          system_prompt("Test")
+          disable_default_tools([:Think, :Grep]) # Disable specific tools
+        end
+      end
+
+      agent_chat = swarm.agent(:agent1)
+
+      # Should NOT have disabled tools
+      refute(agent_chat.tools.key?(:Think), "Should NOT have Think")
+      refute(agent_chat.tools.key?(:Grep), "Should NOT have Grep")
+
+      # Should have other default tools
+      assert(agent_chat.tools.key?(:Read), "Should have Read")
+      assert(agent_chat.tools.key?(:Glob), "Should have Glob")
+    end
+
+    def test_disable_default_tools_via_dsl_single_symbol
+      swarm = SwarmSDK.build do
+        name("Test Swarm")
+        lead(:agent1)
+
+        agent(:agent1) do
+          description("Test agent")
+          model("gpt-5")
+          system_prompt("Test")
+          disable_default_tools(:WebFetch) # Disable single tool via symbol
+        end
+      end
+
+      agent_chat = swarm.agent(:agent1)
+
+      # Should NOT have disabled tool
+      refute(agent_chat.tools.key?(:WebFetch), "Should NOT have WebFetch")
+
+      # Should have other default tools
+      assert(agent_chat.tools.key?(:Think), "Should have Think")
+      assert(agent_chat.tools.key?(:Read), "Should have Read")
+      assert(agent_chat.tools.key?(:Grep), "Should have Grep")
+      assert(agent_chat.tools.key?(:Glob), "Should have Glob")
+    end
+
+    def test_disable_default_tools_via_dsl_varargs
+      swarm = SwarmSDK.build do
+        name("Test Swarm")
+        lead(:agent1)
+
+        agent(:agent1) do
+          description("Test agent")
+          model("gpt-5")
+          system_prompt("Test")
+          disable_default_tools(:Think, :WebFetch, :TodoWrite) # Multiple args
+        end
+      end
+
+      agent_chat = swarm.agent(:agent1)
+
+      # Should NOT have disabled tools
+      refute(agent_chat.tools.key?(:Think), "Should NOT have Think")
+      refute(agent_chat.tools.key?(:WebFetch), "Should NOT have WebFetch")
+      refute(agent_chat.tools.key?(:TodoWrite), "Should NOT have TodoWrite")
+
+      # Should have other default tools
+      assert(agent_chat.tools.key?(:Read), "Should have Read")
+      assert(agent_chat.tools.key?(:Grep), "Should have Grep")
+      assert(agent_chat.tools.key?(:Glob), "Should have Glob")
+    end
   end
 end

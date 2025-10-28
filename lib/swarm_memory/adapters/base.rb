@@ -74,8 +74,9 @@ module SwarmMemory
       # @param pattern [String] Regular expression pattern to search for
       # @param case_insensitive [Boolean] Whether to perform case-insensitive search
       # @param output_mode [String] Output mode: "files_with_matches" (default), "content", or "count"
+      # @param path [String, nil] Optional path prefix filter (e.g., "concept/", "fact/api-design")
       # @return [Array<Hash>, String] Results based on output_mode
-      def grep(pattern:, case_insensitive: false, output_mode: "files_with_matches")
+      def grep(pattern:, case_insensitive: false, output_mode: "files_with_matches", path: nil)
         raise NotImplementedError, "Subclass must implement #grep"
       end
 

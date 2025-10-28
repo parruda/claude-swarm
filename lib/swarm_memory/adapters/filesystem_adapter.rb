@@ -276,9 +276,9 @@ module SwarmMemory
           .reject { |f| stub_file?(f) }
 
         entries = md_files.map do |md_file|
-          disk_path = File.basename(md_file, ".md")
-          base_logical_path = unflatten_path(disk_path)
-          logical_path = "#{base_logical_path}.md" # Add .md extension
+          # Calculate logical path relative to @directory
+          logical_path = md_file.sub("#{@directory}/", "")
+          base_logical_path = logical_path.sub(/\.md\z/, "")
 
           # Filter by prefix if provided (strip .md for comparison)
           next if prefix && !base_logical_path.start_with?(prefix.sub(/\.md\z/, ""))
@@ -287,7 +287,7 @@ module SwarmMemory
           yaml_data = File.exist?(yaml_file) ? YAML.load_file(yaml_file, permitted_classes: [Time, Date, Symbol]) : {}
 
           {
-            path: logical_path, # With .md extension
+            path: logical_path,
             title: yaml_data["title"] || "Untitled",
             size: yaml_data["size"] || File.size(md_file),
             updated_at: parse_time(yaml_data["updated_at"]) || File.mtime(md_file),
@@ -304,24 +304,35 @@ module SwarmMemory
       def glob(pattern:)
         raise ArgumentError, "pattern is required" if pattern.nil? || pattern.to_s.strip.empty?
 
-        # Strip .md from pattern and flatten for disk matching
-        base_pattern = pattern.sub(/\.md\z/, "")
-        disk_pattern = flatten_path(base_pattern)
+        # Normalize pattern to ensure we only match .md files
+        # Standard glob behavior - just add .md extension intelligently
+        normalized_pattern = if pattern.end_with?("**")
+          # fact/** → fact/**/*.md (recursive match of all .md files)
+          "#{pattern}/*.md"
+        elsif pattern.end_with?("*")
+          # fact/* → fact/*.md (direct children .md files only)
+          "#{pattern}.md"
+        elsif pattern.end_with?(".md")
+          # Already has .md, use as-is
+          pattern
+        else
+          # No wildcard or extension, add .md
+          "#{pattern}.md"
+        end
 
-        # Glob for .md files
-        md_files = Dir.glob(File.join(@directory, "#{disk_pattern}.md"))
-          .reject { |f| stub_file?(f) }
+        # Use native Dir.glob with hierarchical paths - efficient!
+        glob_pattern = File.join(@directory, normalized_pattern)
+        md_files = Dir.glob(glob_pattern).reject { |f| stub_file?(f) }
 
         results = md_files.map do |md_file|
-          disk_path = File.basename(md_file, ".md")
-          base_logical_path = unflatten_path(disk_path)
-          logical_path = "#{base_logical_path}.md" # Add .md extension
+          # Calculate logical path relative to @directory
+          relative_path = md_file.sub("#{@directory}/", "")
 
           yaml_file = md_file.sub(".md", ".yml")
           yaml_data = File.exist?(yaml_file) ? YAML.load_file(yaml_file, permitted_classes: [Time, Date, Symbol]) : {}
 
           {
-            path: logical_path, # With .md extension
+            path: relative_path,
             title: yaml_data["title"] || "Untitled",
             size: File.size(md_file),
             updated_at: parse_time(yaml_data["updated_at"]) || File.mtime(md_file),
@@ -340,7 +351,7 @@ module SwarmMemory
       # @param case_insensitive [Boolean] Case-insensitive search
       # @param output_mode [String] Output mode
       # @return [Array<Hash>] Results
-      def grep(pattern:, case_insensitive: false, output_mode: "files_with_matches")
+      def grep(pattern:, case_insensitive: false, output_mode: "files_with_matches", path: nil)
         raise ArgumentError, "pattern is required" if pattern.nil? || pattern.to_s.strip.empty?
 
         flags = case_insensitive ? Regexp::IGNORECASE : 0
@@ -348,11 +359,11 @@ module SwarmMemory
 
         case output_mode
         when "files_with_matches"
-          grep_files_with_matches(regex)
+          grep_files_with_matches(regex, path)
         when "content"
-          grep_with_content(regex)
+          grep_with_content(regex, path)
         when "count"
-          grep_with_count(regex)
+          grep_with_count(regex, path)
         else
           raise ArgumentError, "Invalid output_mode: #{output_mode}"
         end
@@ -506,17 +517,22 @@ module SwarmMemory
       #
       # @param logical_path [String] Logical path with slashes
       # @return [String] Flattened path with --
+      # Identity function - paths are now stored hierarchically
+      # Kept for backward compatibility during transition
+      #
+      # @param logical_path [String] Logical path
+      # @return [String] Same path (no flattening)
       def flatten_path(logical_path)
-        logical_path.gsub("/", "--")
+        logical_path
       end
 
-      # Unflatten path from disk storage
-      # "concepts--ruby--classes" → "concepts/ruby/classes"
+      # Identity function - paths are now stored hierarchically
+      # Kept for backward compatibility during transition
       #
-      # @param disk_path [String] Flattened path
-      # @return [String] Logical path with slashes
+      # @param disk_path [String] Disk path
+      # @return [String] Same path (no unflattening)
       def unflatten_path(disk_path)
-        disk_path.gsub("--", "/")
+        disk_path
       end
 
       # Check if content is a stub (redirect)
@@ -622,9 +638,12 @@ module SwarmMemory
         Dir.glob(File.join(@directory, "**/*.md")).each do |md_file|
           next if stub_file?(md_file)
 
-          disk_path = File.basename(md_file, ".md")
-          base_logical_path = unflatten_path(disk_path)
-          logical_path = "#{base_logical_path}.md" # Add .md extension
+          # Calculate logical path relative to @directory
+          logical_path = md_file.sub("#{@directory}/", "")
+          base_logical_path = logical_path.sub(/\.md\z/, "")
+
+          # disk_path is now the same as base_logical_path (no flattening)
+          disk_path = base_logical_path
 
           yaml_file = md_file.sub(".md", ".yml")
           yaml_data = File.exist?(yaml_file) ? YAML.load_file(yaml_file, permitted_classes: [Time, Date, Symbol]) : {}
@@ -648,19 +667,21 @@ module SwarmMemory
       #
       # @param regex [Regexp] Pattern to match
       # @return [Array<String>] Matching logical paths with .md extension
-      def grep_files_with_matches(regex)
+      def grep_files_with_matches(regex, path_filter = nil)
         results = []
 
         # Fast path: Search .yml files (metadata)
         Dir.glob(File.join(@directory, "**/*.yml")).each do |yaml_file|
           next if yaml_file.include?("_stubs/")
 
+          # Calculate logical path relative to @directory
+          logical_path = yaml_file.sub("#{@directory}/", "").sub(".yml", ".md")
+          next unless matches_path_filter?(logical_path, path_filter)
+
           content = File.read(yaml_file)
           next unless regex.match?(content)
 
-          disk_path = File.basename(yaml_file, ".yml")
-          base_path = unflatten_path(disk_path)
-          results << "#{base_path}.md" # Add .md extension
+          results << logical_path
         end
 
         # If found in metadata, return quickly
@@ -670,12 +691,14 @@ module SwarmMemory
         Dir.glob(File.join(@directory, "**/*.md")).each do |md_file|
           next if stub_file?(md_file)
 
+          # Calculate logical path relative to @directory
+          logical_path = md_file.sub("#{@directory}/", "")
+          next unless matches_path_filter?(logical_path, path_filter)
+
           content = File.read(md_file)
           next unless regex.match?(content)
 
-          disk_path = File.basename(md_file, ".md")
-          base_path = unflatten_path(disk_path)
-          results << "#{base_path}.md" # Add .md extension
+          results << logical_path
         end
 
         results.uniq.sort
@@ -684,12 +707,17 @@ module SwarmMemory
       # Grep with content and line numbers
       #
       # @param regex [Regexp] Pattern to match
+      # @param path_filter [String, nil] Optional path prefix filter
       # @return [Array<Hash>] Results with matches
-      def grep_with_content(regex)
+      def grep_with_content(regex, path_filter = nil)
         results = []
 
         Dir.glob(File.join(@directory, "**/*.md")).each do |md_file|
           next if stub_file?(md_file)
+
+          # Calculate logical path relative to @directory
+          logical_path = md_file.sub("#{@directory}/", "")
+          next unless matches_path_filter?(logical_path, path_filter)
 
           content = File.read(md_file)
           matching_lines = []
@@ -700,12 +728,8 @@ module SwarmMemory
 
           next if matching_lines.empty?
 
-          disk_path = File.basename(md_file, ".md")
-          base_path = unflatten_path(disk_path)
-          logical_path = "#{base_path}.md" # Add .md extension
-
           results << {
-            path: logical_path, # With .md extension
+            path: logical_path,
             matches: matching_lines,
           }
         end
@@ -716,29 +740,61 @@ module SwarmMemory
       # Grep with match counts
       #
       # @param regex [Regexp] Pattern to match
+      # @param path_filter [String, nil] Optional path prefix filter
       # @return [Array<Hash>] Results with counts
-      def grep_with_count(regex)
+      def grep_with_count(regex, path_filter = nil)
         results = []
 
         Dir.glob(File.join(@directory, "**/*.md")).each do |md_file|
           next if stub_file?(md_file)
+
+          # Calculate logical path relative to @directory
+          logical_path = md_file.sub("#{@directory}/", "")
+          next unless matches_path_filter?(logical_path, path_filter)
 
           content = File.read(md_file)
           count = content.scan(regex).size
 
           next if count <= 0
 
-          disk_path = File.basename(md_file, ".md")
-          base_path = unflatten_path(disk_path)
-          logical_path = "#{base_path}.md" # Add .md extension
-
           results << {
-            path: logical_path, # With .md extension
+            path: logical_path,
             count: count,
           }
         end
 
         results
+      end
+
+      # Check if a logical path matches the filter
+      #
+      # Behaves like directory/file filtering even though paths are logical.
+      #
+      # @param logical_path [String] The logical path to check (e.g., "concept/ruby/blocks.md")
+      # @param path_filter [String, nil] Optional path prefix filter (e.g., "concept/", "fact/api-design", "skill/ruby/lambdas.md")
+      # @return [Boolean] True if path matches or no filter specified
+      #
+      # @example Directory-style filtering
+      #   matches_path_filter?("concept/ruby/blocks.md", "concept/") #=> true
+      #   matches_path_filter?("concept/ruby/blocks.md", "concept") #=> true
+      #   matches_path_filter?("fact/api-design/rest.md", "fact/api") #=> false (requires "fact/api/")
+      #   matches_path_filter?("fact/api/rest-basics.md", "fact/api") #=> true
+      #
+      # @example File-specific filtering
+      #   matches_path_filter?("concept/ruby/blocks.md", "concept/ruby/blocks.md") #=> true (exact match)
+      #   matches_path_filter?("concept/ruby/lambdas.md", "concept/ruby/blocks.md") #=> false
+      def matches_path_filter?(logical_path, path_filter)
+        return true if path_filter.nil? || path_filter.empty?
+
+        # If filter specifies a file (ends with .md), do exact match
+        return logical_path == path_filter if path_filter.end_with?(".md")
+
+        # Otherwise, treat as directory path
+        # Normalize: ensure filter ends with "/" for proper directory matching
+        # This prevents "fact/api" from matching "fact/api-design/"
+        dir_filter = path_filter.end_with?("/") ? path_filter : "#{path_filter}/"
+
+        logical_path.start_with?(dir_filter)
       end
 
       # Calculate checksum for embedding

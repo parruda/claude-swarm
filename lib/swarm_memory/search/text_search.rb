@@ -27,12 +27,14 @@ module SwarmMemory
       # @param pattern [String] Regex pattern
       # @param case_insensitive [Boolean] Case-insensitive search
       # @param output_mode [String] Output mode
+      # @param path [String, nil] Optional path prefix filter
       # @return [Array<Hash>] Search results
-      def grep(pattern:, case_insensitive: false, output_mode: "files_with_matches")
+      def grep(pattern:, case_insensitive: false, output_mode: "files_with_matches", path: nil)
         @adapter.grep(
           pattern: pattern,
           case_insensitive: case_insensitive,
           output_mode: output_mode,
+          path: path,
         )
       end
     end

@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2025-10-27
+
+### Changed
+- **BREAKING CHANGE: Hierarchical directory storage**
+  - Memory entries are now stored in actual directories instead of flattened paths with `--` separators
+  - **Before**: `concept--ruby--classes.md` (flattened with `--` separators)
+  - **After**: `concept/ruby/classes.md` (hierarchical directories)
+  - **Impact**: Existing memory storage will NOT be automatically migrated
+  - **Migration**: Clear existing memory or manually reorganize files into directory structure
+  - **Benefits**:
+    - Native Dir.glob works efficiently (no need to simulate directory semantics)
+    - Glob patterns like `fact/*` now correctly match only direct children, not nested paths
+    - Better filesystem semantics - paths behave like real directories
+    - Improved performance for glob operations
+    - More intuitive file browsing in file managers
+
+### Added
+- **Path parameter for MemoryGrep**: Limit grep searches to specific paths
+  - Example: `MemoryGrep(pattern: "TODO", path: "concept/")` searches only concepts
+  - Supports directory paths (`fact/api/`), subdirectories, and specific files
+  - Works with all output modes (files_with_matches, content, count)
+  - Directory-style filtering: `fact/api` matches `fact/api/...` but not `fact/api-design/...`
+
+### Fixed
+- **MemoryGlob path matching**: Fixed bug where single-level wildcards matched nested paths
+  - `fact/*` now correctly matches only `fact/api.md`, not `fact/people/john.md`
+  - `fact/**` correctly matches all nested entries recursively
+  - Glob semantics now match standard filesystem glob behavior
+
 ### Added
 
 #### Core Architecture

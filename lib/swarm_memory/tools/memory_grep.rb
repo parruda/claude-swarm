@@ -19,6 +19,7 @@ module SwarmMemory
         - pattern (REQUIRED): Regular expression pattern to search for (e.g., 'status: pending', 'TODO.*urgent', '\\btask_\\d+\\b')
 
         **Optional Parameters:**
+        - path: Limit search to specific path (e.g., 'concept/', 'fact/api-design/', 'skill/ruby')
         - case_insensitive: Set to true for case-insensitive search (default: false)
         - output_mode: Choose output format - 'files_with_matches' (default), 'content', or 'count'
 
@@ -44,22 +45,38 @@ module SwarmMemory
         - Quantifiers: '*' (0+), '+' (1+), '?' (0 or 1), '{3}' (exactly 3)
         - Alternation: 'pending|in-progress|blocked'
 
+        **Path Parameter - Directory-Style Filtering:**
+        The path parameter works just like searching in directories:
+        - 'concept/' - Search only concept entries
+        - 'fact/api-design' - Search only in fact/api-design (treats as directory)
+        - 'fact/api-design/' - Same as above
+        - 'skill/ruby/blocks.md' - Search only that specific file
+
         **Examples:**
         ```
         # Find entries containing "TODO" (case-sensitive)
         MemoryGrep(pattern: "TODO")
 
+        # Search only in concepts
+        MemoryGrep(pattern: "TODO", path: "concept/")
+
+        # Search in a specific subdirectory
+        MemoryGrep(pattern: "endpoint", path: "fact/api-design")
+
+        # Search a specific file
+        MemoryGrep(pattern: "lambda", path: "skill/ruby/blocks.md")
+
         # Find entries with any status (case-insensitive)
         MemoryGrep(pattern: "status:", case_insensitive: true)
 
-        # Show actual content of matches
-        MemoryGrep(pattern: "error|warning|failed", output_mode: "content")
+        # Show actual content of matches in skills only
+        MemoryGrep(pattern: "error|warning|failed", path: "skill/", output_mode: "content")
 
-        # Count how many times "completed" appears in each entry
-        MemoryGrep(pattern: "completed", output_mode: "count")
+        # Count how many times "completed" appears in experiences
+        MemoryGrep(pattern: "completed", path: "experience/", output_mode: "count")
 
-        # Find task numbers
-        MemoryGrep(pattern: "task_\\d+")
+        # Find task numbers in facts
+        MemoryGrep(pattern: "task_\\d+", path: "fact/")
 
         # Find incomplete tasks
         MemoryGrep(pattern: "^- \\[ \\]", output_mode: "content")
@@ -84,6 +101,7 @@ module SwarmMemory
         **Tips:**
         - Start with simple literal patterns before using complex regex
         - Use case_insensitive=true for broader matches
+        - Use path parameter to limit search scope (faster and more precise)
         - Use output_mode="content" to see context around matches
         - Escape special regex characters with backslash: \\. \\* \\? \\[ \\]
         - Test patterns on a small set before broad searches
@@ -93,6 +111,10 @@ module SwarmMemory
       param :pattern,
         desc: "Regular expression pattern to search for",
         required: true
+
+      param :path,
+        desc: "Limit search to specific path (e.g., 'concept/', 'fact/api-design/', 'skill/ruby/blocks.md')",
+        required: false
 
       param :case_insensitive,
         type: "boolean",
@@ -119,17 +141,19 @@ module SwarmMemory
       # Execute the tool
       #
       # @param pattern [String] Regex pattern to search for
+      # @param path [String, nil] Optional path filter
       # @param case_insensitive [Boolean] Whether to perform case-insensitive search
       # @param output_mode [String] Output mode
       # @return [String] Formatted search results
-      def execute(pattern:, case_insensitive: false, output_mode: "files_with_matches")
+      def execute(pattern:, path: nil, case_insensitive: false, output_mode: "files_with_matches")
         results = @storage.grep(
           pattern: pattern,
+          path: path,
           case_insensitive: case_insensitive,
           output_mode: output_mode,
         )
 
-        format_results(results, pattern, output_mode)
+        format_results(results, pattern, output_mode, path)
       rescue ArgumentError => e
         validation_error(e.message)
       rescue RegexpError => e
@@ -142,40 +166,52 @@ module SwarmMemory
         "<tool_use_error>InputValidationError: #{message}</tool_use_error>"
       end
 
-      def format_results(results, pattern, output_mode)
+      def format_results(results, pattern, output_mode, path_filter)
         case output_mode
         when "files_with_matches"
-          format_files_with_matches(results, pattern)
+          format_files_with_matches(results, pattern, path_filter)
         when "content"
-          format_content(results, pattern)
+          format_content(results, pattern, path_filter)
         when "count"
-          format_count(results, pattern)
+          format_count(results, pattern, path_filter)
         else
           validation_error("Invalid output_mode: #{output_mode}")
         end
       end
 
-      def format_files_with_matches(paths, pattern)
+      def format_search_header(pattern, path_filter)
+        if path_filter && !path_filter.empty?
+          "'#{pattern}' in #{path_filter}"
+        else
+          "'#{pattern}'"
+        end
+      end
+
+      def format_files_with_matches(paths, pattern, path_filter)
+        search_desc = format_search_header(pattern, path_filter)
+
         if paths.empty?
-          return "No matches found for pattern '#{pattern}'"
+          return "No matches found for pattern #{search_desc}"
         end
 
         result = []
-        result << "Memory entries matching '#{pattern}' (#{paths.size} #{paths.size == 1 ? "entry" : "entries"}):"
+        result << "Memory entries matching #{search_desc} (#{paths.size} #{paths.size == 1 ? "entry" : "entries"}):"
         paths.each do |path|
           result << "  memory://#{path}"
         end
         result.join("\n")
       end
 
-      def format_content(results, pattern)
+      def format_content(results, pattern, path_filter)
+        search_desc = format_search_header(pattern, path_filter)
+
         if results.empty?
-          return "No matches found for pattern '#{pattern}'"
+          return "No matches found for pattern #{search_desc}"
         end
 
         total_matches = results.sum { |r| r[:matches].size }
         output = []
-        output << "Memory entries matching '#{pattern}' (#{results.size} #{results.size == 1 ? "entry" : "entries"}, #{total_matches} #{total_matches == 1 ? "match" : "matches"}):"
+        output << "Memory entries matching #{search_desc} (#{results.size} #{results.size == 1 ? "entry" : "entries"}, #{total_matches} #{total_matches == 1 ? "match" : "matches"}):"
         output << ""
 
         results.each do |result|
@@ -189,14 +225,16 @@ module SwarmMemory
         output.join("\n").rstrip
       end
 
-      def format_count(results, pattern)
+      def format_count(results, pattern, path_filter)
+        search_desc = format_search_header(pattern, path_filter)
+
         if results.empty?
-          return "No matches found for pattern '#{pattern}'"
+          return "No matches found for pattern #{search_desc}"
         end
 
         total_matches = results.sum { |r| r[:count] }
         output = []
-        output << "Memory entries matching '#{pattern}' (#{results.size} #{results.size == 1 ? "entry" : "entries"}, #{total_matches} total #{total_matches == 1 ? "match" : "matches"}):"
+        output << "Memory entries matching #{search_desc} (#{results.size} #{results.size == 1 ? "entry" : "entries"}, #{total_matches} total #{total_matches == 1 ? "match" : "matches"}):"
 
         results.each do |result|
           output << "  memory://#{result[:path]}: #{result[:count]} #{result[:count] == 1 ? "match" : "matches"}"

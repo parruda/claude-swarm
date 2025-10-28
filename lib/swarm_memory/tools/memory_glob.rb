@@ -15,17 +15,19 @@ module SwarmMemory
         **Parameters:**
         - pattern (REQUIRED): Glob pattern with wildcards (e.g., '**/*.txt', 'parallel/*/task_*', 'skill/**')
 
-        **Glob Pattern Syntax:**
-        - `*` - matches any characters within a single directory level (e.g., 'analysis/*')
-        - `**` - matches any characters across multiple directory levels recursively (e.g., 'parallel/**')
+        **Glob Pattern Syntax (Standard Ruby Glob):**
+        - `*` - matches .md files at a single directory level (e.g., 'fact/*' → fact/*.md)
+        - `**` - matches .md files recursively at any depth (e.g., 'fact/**' → fact/**/*.md)
         - `?` - matches any single character (e.g., 'task_?')
         - `[abc]` - matches any character in the set (e.g., 'task_[0-9]')
 
         **Returns:**
-        List of matching entries with:
+        List of matching .md memory entries with:
         - Full memory:// path
         - Entry title
         - Size in bytes/KB/MB
+
+        **Note**: Only returns .md files (actual memory entries), not directory entries.
 
         **MEMORY STRUCTURE (4 Fixed Categories Only):**
         ALL patterns MUST target one of these 4 categories:
@@ -37,7 +39,15 @@ module SwarmMemory
 
         **Common Use Cases:**
         ```
-        # Find all skills
+        # Find direct .md files in fact/
+        MemoryGlob(pattern: "fact/*")
+        Result: fact/api.md (only direct children, not nested)
+
+        # Find ALL facts recursively
+        MemoryGlob(pattern: "fact/**")
+        Result: fact/api.md, fact/people/john.md, fact/people/jane.md, ...
+
+        # Find all skills recursively
         MemoryGlob(pattern: "skill/**")
         Result: skill/debugging/api-errors.md, skill/meta/deep-learning.md, ...
 
@@ -45,22 +55,27 @@ module SwarmMemory
         MemoryGlob(pattern: "concept/ruby/**")
         Result: concept/ruby/classes.md, concept/ruby/modules.md, ...
 
-        # Find all facts about people
+        # Find direct files in fact/people/
         MemoryGlob(pattern: "fact/people/*")
-        Result: fact/people/john.md, fact/people/jane.md, ...
+        Result: fact/people/john.md, fact/people/jane.md (not fact/people/teams/x.md)
 
         # Find all experiences
         MemoryGlob(pattern: "experience/**")
         Result: experience/fixed-cors-bug.md, experience/optimization.md, ...
 
-        # Find debugging skills
-        MemoryGlob(pattern: "skill/debugging/*")
+        # Find debugging skills recursively
+        MemoryGlob(pattern: "skill/debugging/**")
         Result: skill/debugging/api-errors.md, skill/debugging/performance.md, ...
 
         # Find all entries (all categories)
         MemoryGlob(pattern: "**/*")
-        Result: All entries across all 4 categories
+        Result: All .md entries across all 4 categories
         ```
+
+        **Understanding * vs **:**
+        - `fact/*` matches only direct .md files: fact/api.md
+        - `fact/**` matches ALL .md files recursively: fact/api.md, fact/people/john.md, ...
+        - To explore subdirectories, use recursive pattern and examine returned paths
 
         **When to Use MemoryGlob:**
         - Discovering what's in a memory hierarchy

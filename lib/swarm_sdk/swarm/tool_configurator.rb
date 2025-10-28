@@ -298,7 +298,7 @@ module SwarmSDK
       # Check if a tool should be disabled based on disable_default_tools config
       #
       # @param tool_name [Symbol] Tool name to check
-      # @param disable_config [nil, Boolean, Array<Symbol>] Disable configuration
+      # @param disable_config [nil, Boolean, Symbol, Array<Symbol>] Disable configuration
       # @return [Boolean] True if tool should be disabled
       def tool_disabled?(tool_name, disable_config)
         return false if disable_config.nil?
@@ -306,6 +306,9 @@ module SwarmSDK
         if disable_config == true
           # Disable all default tools
           true
+        elsif disable_config.is_a?(Symbol)
+          # Single tool name
+          disable_config == tool_name
         elsif disable_config.is_a?(Array)
           # Disable only tools in the array
           disable_config.include?(tool_name)

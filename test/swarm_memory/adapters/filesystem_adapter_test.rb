@@ -55,9 +55,9 @@ class FilesystemAdapterTest < Minitest::Test
       title: "Test",
     )
 
-    # Check that .md and .yml files were created
-    assert_path_exists(File.join(@temp_dir, "test--persist.md"))
-    assert_path_exists(File.join(@temp_dir, "test--persist.yml"))
+    # Check that .md and .yml files were created in hierarchical structure
+    assert_path_exists(File.join(@temp_dir, "test/persist.md"))
+    assert_path_exists(File.join(@temp_dir, "test/persist.yml"))
 
     # Load a new adapter from the same directory
     new_adapter = SwarmMemory::Adapters::FilesystemAdapter.new(directory: @temp_dir)
@@ -111,6 +111,70 @@ class FilesystemAdapterTest < Minitest::Test
     assert_includes(results.map { |r| r[:path] }, "concepts/ruby/modules.md")
   end
 
+  def test_glob_single_level_wildcard
+    # Test that fact/* only returns direct .md files (standard glob behavior)
+    @adapter.write(file_path: "fact/api.md", content: "API", title: "API")
+    @adapter.write(file_path: "fact/people/john.md", content: "John", title: "John")
+    @adapter.write(file_path: "fact/people/jane.md", content: "Jane", title: "Jane")
+
+    results = @adapter.glob(pattern: "fact/*")
+
+    # Should only return direct .md file at this level
+    assert_equal(1, results.size)
+    assert_equal("fact/api.md", results.first[:path])
+  end
+
+  def test_glob_recursive_wildcard
+    # Test that fact/** matches all nested paths
+    @adapter.write(file_path: "fact/api.md", content: "API", title: "API")
+    @adapter.write(file_path: "fact/people/john.md", content: "John", title: "John")
+    @adapter.write(file_path: "fact/people/jane.md", content: "Jane", title: "Jane")
+
+    results = @adapter.glob(pattern: "fact/**")
+
+    # Should match all files under fact/, including nested
+    assert_equal(3, results.size)
+    paths = results.map { |r| r[:path] }
+
+    assert_includes(paths, "fact/api.md")
+    assert_includes(paths, "fact/people/john.md")
+    assert_includes(paths, "fact/people/jane.md")
+  end
+
+  def test_glob_nested_single_level
+    # Test that fact/people/* only returns direct .md files (standard glob)
+    @adapter.write(file_path: "fact/people/john.md", content: "John", title: "John")
+    @adapter.write(file_path: "fact/people/jane.md", content: "Jane", title: "Jane")
+    @adapter.write(file_path: "fact/people/teams/engineering.md", content: "Eng", title: "Engineering")
+
+    results = @adapter.glob(pattern: "fact/people/*")
+
+    # Should only return direct .md files, not nested files
+    assert_equal(2, results.size)
+    paths = results.map { |r| r[:path] }
+
+    assert_includes(paths, "fact/people/john.md")
+    assert_includes(paths, "fact/people/jane.md")
+    refute_includes(paths, "fact/people/teams/engineering.md")
+  end
+
+  def test_glob_recursive_wildcard_with_star
+    # Test that fact/**/* also matches all nested paths (alternative syntax)
+    @adapter.write(file_path: "fact/api.md", content: "API", title: "API")
+    @adapter.write(file_path: "fact/people/john.md", content: "John", title: "John")
+    @adapter.write(file_path: "fact/people/jane.md", content: "Jane", title: "Jane")
+
+    results = @adapter.glob(pattern: "fact/**/*")
+
+    # Should match all files under fact/, including nested
+    assert_equal(3, results.size)
+    paths = results.map { |r| r[:path] }
+
+    assert_includes(paths, "fact/api.md")
+    assert_includes(paths, "fact/people/john.md")
+    assert_includes(paths, "fact/people/jane.md")
+  end
+
   def test_grep_files_with_matches
     @adapter.write(file_path: "entry1.md", content: "contains ruby code", title: "Entry 1")
     @adapter.write(file_path: "entry2.md", content: "contains python code", title: "Entry 2")
@@ -131,6 +195,68 @@ class FilesystemAdapterTest < Minitest::Test
     assert_equal("test.md", results.first[:path])
     assert_equal(2, results.first[:matches].size)
     assert_equal(1, results.first[:matches].first[:line_number])
+  end
+
+  def test_grep_with_path_filter_directory
+    @adapter.write(file_path: "concept/ruby/blocks.md", content: "ruby blocks info", title: "Ruby Blocks")
+    @adapter.write(file_path: "concept/python/lambdas.md", content: "python lambdas", title: "Python Lambdas")
+    @adapter.write(file_path: "fact/api-design/rest.md", content: "REST API design", title: "REST API")
+
+    # Filter by concept/ directory
+    results = @adapter.grep(pattern: "\\w+", path: "concept/", output_mode: "files_with_matches")
+
+    assert_equal(2, results.size)
+    assert_includes(results, "concept/ruby/blocks.md")
+    assert_includes(results, "concept/python/lambdas.md")
+    refute_includes(results, "fact/api-design/rest.md")
+  end
+
+  def test_grep_with_path_filter_subdirectory
+    @adapter.write(file_path: "fact/api/rest-basics.md", content: "REST basics", title: "REST Basics")
+    @adapter.write(file_path: "fact/api-design/principles.md", content: "design principles", title: "Principles")
+    @adapter.write(file_path: "concept/ruby/blocks.md", content: "ruby blocks", title: "Ruby Blocks")
+
+    # Filter by fact/api subdirectory (should NOT match fact/api-design)
+    results = @adapter.grep(pattern: "\\w+", path: "fact/api", output_mode: "files_with_matches")
+
+    assert_equal(1, results.size)
+    assert_includes(results, "fact/api/rest-basics.md")
+    refute_includes(results, "fact/api-design/principles.md")
+  end
+
+  def test_grep_with_path_filter_specific_file
+    @adapter.write(file_path: "skill/ruby/blocks.md", content: "ruby blocks code", title: "Ruby Blocks")
+    @adapter.write(file_path: "skill/ruby/lambdas.md", content: "ruby lambdas code", title: "Ruby Lambdas")
+
+    # Filter by specific file
+    results = @adapter.grep(pattern: "ruby", path: "skill/ruby/blocks.md", output_mode: "files_with_matches")
+
+    assert_equal(1, results.size)
+    assert_equal("skill/ruby/blocks.md", results.first)
+  end
+
+  def test_grep_with_path_filter_content_mode
+    @adapter.write(file_path: "concept/ruby/blocks.md", content: "line1 ruby\nline2 blocks", title: "Ruby Blocks")
+    @adapter.write(file_path: "concept/python/lambdas.md", content: "line1 python\nline2 lambdas", title: "Python Lambdas")
+
+    # Filter by concept/ with content output
+    results = @adapter.grep(pattern: "line", path: "concept/ruby", output_mode: "content")
+
+    assert_equal(1, results.size)
+    assert_equal("concept/ruby/blocks.md", results.first[:path])
+    assert_equal(2, results.first[:matches].size)
+  end
+
+  def test_grep_with_path_filter_count_mode
+    @adapter.write(file_path: "concept/ruby/blocks.md", content: "ruby ruby ruby", title: "Ruby Blocks")
+    @adapter.write(file_path: "concept/python/lambdas.md", content: "python python", title: "Python Lambdas")
+
+    # Filter by concept/ruby with count output
+    results = @adapter.grep(pattern: "ruby", path: "concept/ruby/", output_mode: "count")
+
+    assert_equal(1, results.size)
+    assert_equal("concept/ruby/blocks.md", results.first[:path])
+    assert_equal(3, results.first[:count])
   end
 
   def test_clear

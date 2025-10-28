@@ -1,36 +1,5 @@
 ## [Unreleased]
 
-## [2.0.3] - SwarmSDK
-
-### Added
-- **Think tool for explicit reasoning**: New built-in tool that enables agents to "think out loud"
-  - Parameter: `thoughts` - records agent's thinking process as function calls
-  - Creates "attention sinks" in conversation history for better reasoning
-  - Based on chain-of-thought prompting research
-  - Included as a default tool for all agents
-  - Usage: `Think(thoughts: "Let me break this down: 1) Read file, 2) Analyze, 3) Implement")`
-
-- **disable_default_tools configuration**: Flexible control over which default tools are included
-  - Accepts `true` to disable ALL default tools
-  - Accepts array to disable specific tools: `[:Think, :TodoWrite]`
-  - Works in both Ruby DSL and YAML configurations
-  - Example: `disable_default_tools [:Think, :Grep]` keeps other defaults
-
-### Fixed
-- **Model alias resolution**: Fixed bug where model aliases weren't resolved before being passed to RubyLLM
-  - Aliases like `sonnet`, `opus`, `haiku` now properly resolve to full model IDs
-  - `sonnet` → `claude-sonnet-4-5-20250929`
-  - Works with both Ruby DSL and markdown agent files
-  - Prevents "model does not exist" API errors when using aliases
-
-### Changed
-- **BREAKING CHANGE: Removed include_default_tools**: Replaced with `disable_default_tools`
-  - Migration: `include_default_tools: false` → `disable_default_tools: true`
-  - More intuitive API (disable what you don't want vs enable what you do)
-  - Updated all documentation and examples
-
-## [Unreleased - Claude Swarm v1]
-
 ### Changed
 - **Improved signal handling and graceful shutdown**: Enhanced signal handling for more reliable cleanup on interruption
   - Added comprehensive signal handlers for `INT`, `TERM`, `QUIT`, and `HUP` signals
