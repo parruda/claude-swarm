@@ -104,13 +104,70 @@ module SwarmMemory
         @adapter.read(file_path: normalized_path)
       end
 
-      # Read full entry with metadata
+      # Read full entry with metadata, automatically following stub redirects
       #
       # @param file_path [String] Path to read from
+      # @param _visited [Array<String>] Internal: tracks visited paths to detect circular redirects
       # @return [Entry] Full entry object
-      def read_entry(file_path:)
+      # @raise [ArgumentError] If path not found, circular redirect detected, or too many redirects
+      def read_entry(file_path:, _visited: [])
         normalized_path = PathNormalizer.normalize(file_path)
-        @adapter.read_entry(file_path: normalized_path)
+
+        # Detect circular redirects immediately
+        if _visited.include?(normalized_path)
+          cycle = _visited + [normalized_path]
+          raise ArgumentError,
+            "Circular redirect detected in memory storage: #{cycle.join(" → ")}\n\n" \
+              "This indicates corrupted stub files. Please run MemoryDefrag to repair:\n  " \
+              "MemoryDefrag(action: \"analyze\")"
+        end
+
+        # Check depth limit (prevent infinite chains)
+        if _visited.size >= 5
+          chain = _visited + [normalized_path]
+          raise ArgumentError,
+            "Memory redirect chain too deep (>5 redirects): #{chain.join(" → ")}\n\n" \
+              "This indicates fragmented memory storage. Please run maintenance:\n  " \
+              "MemoryDefrag(action: \"full\", dry_run: true)  # Preview first\n  " \
+              "MemoryDefrag(action: \"full\", dry_run: false) # Execute"
+        end
+
+        # Read entry from adapter
+        begin
+          entry = @adapter.read_entry(file_path: normalized_path)
+        rescue ArgumentError
+          # If this is a redirect target that doesn't exist, provide helpful error
+          if _visited.empty?
+            # Not a redirect, just re-raise original error
+            raise
+          else
+            original_path = _visited.first
+            raise ArgumentError,
+              "memory://#{original_path} was redirected to memory://#{normalized_path}, but the target was not found.\n\n" \
+                "The original entry may have been merged or moved incorrectly. " \
+                "Run MemoryDefrag to identify and fix broken redirects:\n  " \
+                "MemoryDefrag(action: \"analyze\")"
+          end
+        end
+
+        # Check if this is a stub redirect
+        if entry.metadata && entry.metadata["stub"] == true
+          redirect_target = entry.metadata["redirect_to"]
+
+          # Validate redirect target exists
+          if redirect_target.nil? || redirect_target.strip.empty?
+            raise ArgumentError,
+              "memory://#{normalized_path} is a stub with invalid redirect metadata.\n\n" \
+                "This should never happen (stubs are created by MemoryDefrag). " \
+                "The stub file may be corrupted. Please report this as a bug."
+          end
+
+          # Follow redirect recursively, tracking visited paths
+          return read_entry(file_path: redirect_target, _visited: _visited + [normalized_path])
+        end
+
+        # Not a stub, return the entry
+        entry
       end
 
       # Delete an entry

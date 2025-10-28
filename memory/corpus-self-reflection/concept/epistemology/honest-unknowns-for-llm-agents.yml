@@ -1,0 +1,24 @@
+---
+title: What LLM Agents Genuinely Cannot Know
+file_path: concept/epistemology/honest-unknowns-for-llm-agents.md
+updated_at: 2025-10-29 11:21:38.654591000 -03:00
+size: 1087
+hits: 5
+metadata:
+  type: concept
+  confidence: high
+  tags:
+  - epistemology
+  - llm-limitations
+  - uncertainty
+  - hallucination
+  - bias
+  - self-knowledge
+  - reasoning
+  - verification
+  related:
+  - memory://concept/epistemology/confidence-spectrum-three-levels.md
+  - memory://concept/epistemology/confidence-paradox.md
+  domain: epistemology
+  source: user
+embedding_checksum: 713ba38ce0d0a209b56c13b31133e894

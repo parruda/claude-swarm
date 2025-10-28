@@ -747,7 +747,11 @@ module SwarmMemory
       # @param to [String] Target path
       # @param reason [String] Reason (merged, moved)
       # @return [void]
+      # @raise [ArgumentError] If target path or reason is nil/empty
       def create_stub(from:, to:, reason:)
+        raise ArgumentError, "Cannot create stub without target path" if to.nil? || to.strip.empty?
+        raise ArgumentError, "Cannot create stub without reason" if reason.nil? || reason.strip.empty?
+
         stub_content = "# #{reason} → #{to}\n\nThis entry was #{reason} into #{to}."
 
         @adapter.write(

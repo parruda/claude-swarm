@@ -1,0 +1,23 @@
+---
+title: 'When to Provide Specialized Tools: Decision Framework'
+file_path: concept/llm-agents/specialized-tool-decision-framework.md
+updated_at: 2025-10-29 10:45:33.142577000 -03:00
+size: 1610
+hits: 1
+metadata:
+  type: concept
+  confidence: high
+  tags:
+  - llm-agents
+  - tool-design
+  - decision-boundary
+  - specialized-tools
+  - abstraction
+  - impedance-mismatch
+  - frequency
+  related:
+  - memory://concept/llm-agents/learning-cost-hierarchy.md
+  - memory://concept/llm-agents/hybrid-tool-architecture.md
+  domain: llm-agents/architecture
+  source: user
+embedding_checksum: eccd6d1ac454b7dc62f43adfed17a064

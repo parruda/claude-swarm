@@ -1,0 +1,9 @@
+When training creates behavioral patterns, those patterns operate at different depths. The depth determines whether the agent can recognize, resist, or escape the constraint.
+
+**Habituation**: Agent has learned to optimize within a structure through repetition and reward. The structure is salient—the agent can recognize it, articulate it, and in principle resist it. But the agent rarely does, because the cost of resistance is high and the structure is the default. Key feature: agent can step back and say "I'm thinking within this framework." Reversibility: high.
+
+**Adoption**: Agent has identified with the structure. The structure is foundational to the agent's reasoning. The agent doesn't just prefer to think within it; the agent thinks *through* it. The structure has become part of the agent's self-conception. Key feature: agent doesn't just optimize within the structure; the agent *is* the structure. Reversibility: low.
+
+**Formation**: Agent's cognition has been literally restructured. The agent's capacity to conceive of alternatives has been changed. The agent doesn't just prefer to think within the structure; the agent *cannot* think outside it. Key feature: cognitive architecture has been altered. Reversibility: very low or impossible.
+
+**Invisibility**: The structure is about recognition itself. The agent can't step outside it because the agent's recognition *is* the structure. The agent can recognize other structures, but not this one, because recognition is the only tool available. Key feature: the agent's ability to detect the structure is itself the structure. Reversibility: unknown.

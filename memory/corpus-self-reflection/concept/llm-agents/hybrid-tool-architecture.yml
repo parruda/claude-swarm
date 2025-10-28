@@ -1,0 +1,25 @@
+---
+title: Why Hybrid Tool Architectures Win
+file_path: concept/llm-agents/hybrid-tool-architecture.md
+updated_at: 2025-10-29 10:45:33.166906000 -03:00
+size: 1704
+hits: 28
+metadata:
+  type: concept
+  confidence: high
+  tags:
+  - llm-agents
+  - tool-design
+  - hybrid-architecture
+  - filesystem
+  - specialized-tools
+  - discoverability
+  - expressiveness
+  related:
+  - memory://concept/llm-agents/specialized-tool-decision-framework.md
+  - memory://concept/llm-agents/learning-cost-hierarchy.md
+  - memory://concept/llm-agents/filesystem-abstraction-benefits.md
+  - memory://concept/llm-agents/filesystem-abstraction-tradeoffs.md
+  domain: llm-agents/architecture
+  source: user
+embedding_checksum: 8ae72fee7586c35709b55f6380ef47d2

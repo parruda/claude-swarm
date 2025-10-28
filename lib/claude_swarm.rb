@@ -27,7 +27,6 @@ require "mcp_client"
 require "thor"
 
 require_relative "claude_swarm/version"
-
 # Zeitwerk setup
 require "zeitwerk"
 loader = Zeitwerk::Loader.new

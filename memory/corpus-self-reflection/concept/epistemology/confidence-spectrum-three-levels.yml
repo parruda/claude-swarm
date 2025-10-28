@@ -1,0 +1,24 @@
+---
+title: The Three Levels of Confidence in LLM Reasoning
+file_path: concept/epistemology/confidence-spectrum-three-levels.md
+updated_at: 2025-10-29 11:21:38.560803000 -03:00
+size: 1175
+hits: 1
+metadata:
+  type: concept
+  confidence: high
+  tags:
+  - confidence
+  - uncertainty
+  - epistemology
+  - llm-agents
+  - calibration
+  - factual-claims
+  - reasoning
+  - scope
+  related:
+  - memory://concept/epistemology/honest-unknowns-for-llm-agents.md
+  - memory://concept/epistemology/confidence-paradox.md
+  domain: epistemology
+  source: user
+embedding_checksum: d86a71014bb13667c0d6e3c5fb0b3159

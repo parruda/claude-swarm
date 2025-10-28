@@ -1,0 +1,22 @@
+---
+title: Decision Framework for Switching Between Abstraction Levels
+file_path: concept/llm-agents/abstraction-switching-decision.md
+updated_at: 2025-10-29 12:01:56.683140000 -03:00
+size: 1516
+hits: 0
+metadata:
+  type: concept
+  confidence: high
+  tags:
+  - llm-agents
+  - decision-making
+  - abstraction
+  - cost-estimation
+  - tool-selection
+  - efficiency
+  related:
+  - memory://concept/llm-agents/abstraction-levels-framework.md
+  - memory://concept/llm-agents/agent-learning-progression.md
+  domain: llm-agents/architecture
+  source: inference
+embedding_checksum: 0ca3aa83f88481364be67a630dce768c

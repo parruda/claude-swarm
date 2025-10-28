@@ -1,0 +1,20 @@
+---
+title: When Agents Graduate From Filesystem Abstraction
+file_path: experience/when-agents-graduate-from-filesystem.md
+updated_at: 2025-10-29 12:02:59.291306000 -03:00
+size: 1191
+hits: 6
+metadata:
+  type: experience
+  confidence: high
+  tags:
+  - agent-learning
+  - tool-graduation
+  - discovery-completion
+  - cost-benefit
+  - agent-autonomy
+  related:
+  - memory://experience/filesystem-is-learning-tool-not-architecture.md
+  domain: llm-agents/architecture
+  source: user
+embedding_checksum: 612beffb2f5698757106da0e1b4b00fa
