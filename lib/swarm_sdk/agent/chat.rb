@@ -413,6 +413,18 @@ module SwarmSDK
           )
         end
 
+        # Handle nil response from provider (malformed API response)
+        if response.nil?
+          raise RubyLLM::Error, "Provider returned nil response. This usually indicates a malformed API response " \
+            "that couldn't be parsed.\n\n" \
+            "Provider: #{@provider.class.name}\n" \
+            "API Base: #{@provider.api_base}\n" \
+            "Model: #{@model.id}\n" \
+            "Response: #{response.inspect}\n\n" \
+            "The API endpoint returned a response that couldn't be parsed into a valid Message object. " \
+            "Enable RubyLLM debug logging (RubyLLM.logger.level = Logger::DEBUG) to see the raw API response."
+        end
+
         @on[:new_message]&.call unless block
 
         # Handle schema parsing if needed
@@ -834,6 +846,9 @@ module SwarmSDK
           when "openai", "deepseek", "perplexity", "mistral", "openrouter"
             config.openai_api_base = base_url
             config.openai_api_key = ENV["OPENAI_API_KEY"] || "dummy-key-for-local"
+            # Use standard 'system' role instead of 'developer' for OpenAI-compatible proxies
+            # Most proxies don't support OpenAI's newer 'developer' role convention
+            config.openai_use_system_role = true
           when "ollama"
             config.ollama_api_base = base_url
           when "gpustack"

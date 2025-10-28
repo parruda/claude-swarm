@@ -10,6 +10,10 @@ module SwarmMemory
       description <<~DESC
         Store content in persistent memory with structured metadata for semantic search and retrieval.
 
+        IMPORTANT: Content must be 250 words or less. If content exceeds this limit, extract key entities: concepts, experiences, facts, skills,
+        then split into multiple focused memories (each under 250 words) that capture ALL important details.
+        Link related memories using the 'related' metadata field with memory:// URIs.
+
         CRITICAL: ALL 8 required parameters MUST be provided. Do NOT skip any. If you're missing information, ask the user or infer reasonable defaults.
 
         REQUIRED PARAMETERS (provide ALL 8):
@@ -136,6 +140,18 @@ module SwarmMemory
         tools: nil,
         permissions: nil
       )
+        # Validate content length (250 word limit)
+        word_count = content.split(/\s+/).size
+        if word_count > 250
+          return validation_error(
+            "Content exceeds 250-word limit (#{word_count} words). " \
+              "Please extract the key entities and concepts from this content, then split it into multiple smaller, " \
+              "focused memories (each under 250 words) that still capture ALL the important details. " \
+              "Link related memories together using the 'related' metadata field with memory:// URIs. " \
+              "Each memory should cover one specific aspect or concept while preserving completeness.",
+          )
+        end
+
         # Build metadata hash from params
         # Handle both JSON strings (from LLMs) and Ruby arrays (from tests/code)
         metadata = {}

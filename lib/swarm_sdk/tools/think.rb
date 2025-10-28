@@ -72,6 +72,8 @@ module SwarmSDK
         back to earlier thinking. Use clear formatting and organization to make it easy to reference
         later. Don't hesitate to think out loud - this tool is designed to augment your cognitive capabilities and help
         you deliver better solutions.
+
+        **CRITICAL:** The Think tool takes only one parameter: thoughts. Do not include any other parameters.
       DESC
 
       param :thoughts,
@@ -79,9 +81,7 @@ module SwarmSDK
         desc: "Your thoughts, plans, calculations, or any notes you want to record",
         required: true
 
-      def execute(thoughts:)
-        return validation_error("thoughts are required") if thoughts.nil? || thoughts.empty?
-
+      def execute(**kwargs)
         "Thought noted."
       end
 

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **OpenAI proxy compatibility**: New `openai_use_system_role` configuration
+  - Automatically enabled for OpenAI-compatible providers (OpenAI, DeepSeek, Perplexity, Mistral, OpenRouter)
+  - Uses standard 'system' role instead of OpenAI's newer 'developer' role
+  - Improves compatibility with proxy services that don't support 'developer' role
+  - Configured automatically based on provider type
+
+### Changed
+- **Think tool parameter handling**: Simplified to accept flexible parameters
+  - Changed signature from `execute(thoughts:)` to `execute(**kwargs)`
+  - Removes strict validation errors for parameter mismatches
+  - More flexible for LLM tool calling variations
+  - Added reminder in description: "The Think tool takes only one parameter: thoughts"
+
+### Fixed
+- **Nil response error handling**: Better error messages for malformed API responses
+  - Detects when provider returns nil response (unparseable API response)
+  - Provides detailed error message with provider info, API base, model ID
+  - Suggests enabling RubyLLM debug logging to inspect raw API response
+  - Prevents cryptic errors when API returns malformed/unparseable responses
+
 ## [2.1.0] - 2025-10-27
 
 ### Added

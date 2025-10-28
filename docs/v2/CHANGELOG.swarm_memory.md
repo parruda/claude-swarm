@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **250-word content limit**: MemoryWrite now validates content length
+  - Enforces 250-word maximum per memory entry
+  - Encourages focused, searchable entries instead of large documents
+  - Helpful error message guides users to split large content into multiple linked memories
+  - Promotes better organization through multiple focused entries with `related` field links
+
+### Changed
+- **Memory Assistant prompt improvements**: Updated examples and guidance
+  - Updated examples from 5000-word to 250-word entries
+  - Better illustrates recommended memory organization patterns
+  - Shows proper use of `related` field for linking split content
+
+- **Memory Researcher prompt enhancements**: Comprehensive updates for better knowledge extraction
+  - Clarified "learning" workflow: gather information → store thoroughly in memory
+  - Added CRITICAL reminders about available memory tools (only Memory* tools, no "MemorySearch")
+  - Emphasized mandatory `type` parameter in all MemoryWrite calls
+  - Expanded guidance on when to create skills vs concepts/facts/experiences
+  - Reinforced thoroughness: capture ALL details, don't summarize away important information
+  - Better guidance on splitting large content into multiple focused, linked memories (each <250 words)
+  - Clarified LoadSkill vs MemoryRead: LoadSkill for DOING tasks, MemoryRead for explaining
+  - Enhanced research-specific workflows and extraction patterns
+  - Improved quality standards and verification guidelines
+  - Stronger emphasis on building a knowledge graph through comprehensive tagging and linking
+
 ## [2.1.0] - 2025-10-27
 
 ### Changed
