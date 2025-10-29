@@ -5,7 +5,7 @@ module SwarmCLI
   #
   # Supports:
   # - YAML files (.yml, .yaml) - loaded via SwarmSDK::Swarm.load
-  # - Ruby DSL files (.rb) - executed and expected to return a SwarmSDK::Swarm instance
+  # - Ruby DSL files (.rb) - executed and expected to return a SwarmSDK::Swarm or SwarmSDK::NodeOrchestrator instance
   #
   # @example Load YAML config
   #   swarm = ConfigLoader.load("config.yml")
@@ -19,10 +19,10 @@ module SwarmCLI
       #
       # Detects file type by extension:
       # - .yml, .yaml -> Load as YAML using SwarmSDK::Swarm.load
-      # - .rb -> Execute as Ruby DSL and expect SwarmSDK::Swarm instance
+      # - .rb -> Execute as Ruby DSL and expect SwarmSDK::Swarm or SwarmSDK::NodeOrchestrator instance
       #
       # @param path [String, Pathname] Path to configuration file
-      # @return [SwarmSDK::Swarm] Configured swarm instance
+      # @return [SwarmSDK::Swarm, SwarmSDK::NodeOrchestrator] Configured swarm or orchestrator instance
       # @raise [SwarmCLI::ConfigurationError] If file not found or invalid format
       def load(path)
         path = Pathname.new(path).expand_path
@@ -59,12 +59,12 @@ module SwarmCLI
       # Load Ruby DSL configuration file
       #
       # Executes the Ruby file in a clean binding and expects it to return
-      # a SwarmSDK::Swarm instance. The file should use SwarmSDK.build or
-      # create a Swarm instance directly.
+      # a SwarmSDK::Swarm or SwarmSDK::NodeOrchestrator instance. The file should
+      # use SwarmSDK.build or create a Swarm/NodeOrchestrator instance directly.
       #
       # @param path [Pathname] Path to Ruby DSL file
-      # @return [SwarmSDK::Swarm] Configured swarm instance
-      # @raise [ConfigurationError] If file doesn't return a Swarm instance
+      # @return [SwarmSDK::Swarm, SwarmSDK::NodeOrchestrator] Configured swarm or orchestrator instance
+      # @raise [ConfigurationError] If file doesn't return a valid instance
       def load_ruby_dsl(path)
         # Read the file content
         content = path.read
@@ -73,10 +73,11 @@ module SwarmCLI
         # This allows the DSL file to use SwarmSDK.build directly
         result = eval(content, binding, path.to_s, 1) # rubocop:disable Security/Eval
 
-        # Validate result is a Swarm instance
-        unless result.is_a?(SwarmSDK::Swarm)
+        # Validate result is a Swarm or NodeOrchestrator instance
+        # Both have the same execute(prompt) interface
+        unless result.is_a?(SwarmSDK::Swarm) || result.is_a?(SwarmSDK::NodeOrchestrator)
           raise ConfigurationError,
-            "Ruby DSL file must return a SwarmSDK::Swarm instance. " \
+            "Ruby DSL file must return a SwarmSDK::Swarm or SwarmSDK::NodeOrchestrator instance. " \
               "Got: #{result.class}. " \
               "Use: SwarmSDK.build { ... } or Swarm.new(...)"
         end

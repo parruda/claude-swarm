@@ -415,7 +415,7 @@ module SwarmSDK
 
         # Handle nil response from provider (malformed API response)
         if response.nil?
-          raise RubyLLM::Error, "Provider returned nil response. This usually indicates a malformed API response " \
+          raise StandardError, "Provider returned nil response. This usually indicates a malformed API response " \
             "that couldn't be parsed.\n\n" \
             "Provider: #{@provider.class.name}\n" \
             "API Base: #{@provider.api_base}\n" \

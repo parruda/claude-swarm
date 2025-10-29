@@ -1889,7 +1889,119 @@ input do |ctx|
 end
 ```
 
-### 5.8 Complex Workflow Example
+**Control Flow Methods**:
+
+NodeContext provides three methods for dynamic workflow control:
+
+**1. goto_node - Jump to any node**:
+```ruby
+output do |ctx|
+  if needs_revision?(ctx.content)
+    # Jump back to revision node instead of continuing forward
+    ctx.goto_node(:revision, content: ctx.content)
+  else
+    ctx.content  # Continue to next node normally
+  end
+end
+```
+
+**2. halt_workflow - Stop entire workflow**:
+```ruby
+output do |ctx|
+  if converged?(ctx.content)
+    # Stop workflow early with final result
+    ctx.halt_workflow(content: ctx.content)
+  else
+    ctx.content  # Continue to next node
+  end
+end
+```
+
+**3. skip_execution - Skip node's LLM call** (input transformers only):
+```ruby
+input do |ctx|
+  cached = check_cache(ctx.content)
+  if cached
+    # Skip expensive LLM call and use cached result
+    ctx.skip_execution(content: cached)
+  else
+    ctx.content  # Execute node normally
+  end
+end
+```
+
+**Creating loops with goto_node**:
+```ruby
+node :reasoning do
+  agent(:thinker, reset_context: false)  # Preserve context across iterations
+
+  output do |ctx|
+    # Loop until convergence
+    if ctx.all_results.size > 10
+      ctx.halt_workflow(content: "Max iterations reached")
+    else
+      ctx.goto_node(:reflection, content: ctx.content)
+    end
+  end
+end
+
+node :reflection do
+  agent(:critic, reset_context: false)
+
+  output do |ctx|
+    # Loop back to reasoning
+    ctx.goto_node(:reasoning, content: ctx.content)
+  end
+end
+
+start_node :reasoning
+```
+
+**Note:** All control flow methods validate that `content` is not nil. If a node fails with an error, check for errors before calling goto_node:
+
+```ruby
+output do |ctx|
+  if ctx.error
+    ctx.halt_workflow(content: "Error: #{ctx.error.message}")
+  else
+    ctx.goto_node(:next_node, content: ctx.content)
+  end
+end
+```
+
+### 5.8 Context Preservation Across Nodes
+
+By default, agents get fresh conversation context in each node (`reset_context: true`). To preserve an agent's conversation history across nodes, use `reset_context: false`:
+
+```ruby
+agent :architect do
+  model "gpt-4"
+  system_prompt "You design systems"
+end
+
+node :planning do
+  agent(:architect, reset_context: false)  # Preserve context
+end
+
+node :revision do
+  agent(:architect, reset_context: false)  # Same instance - remembers planning!
+  depends_on :planning
+end
+```
+
+**When to preserve context:**
+- Iterative refinement workflows
+- Agent builds on its previous decisions
+- Chain of thought reasoning across stages
+- Self-reflection loops
+
+**When to reset context (default):**
+- Independent validation/review
+- Fresh perspective needed
+- Memory management in long workflows
+- Different roles for same agent in different stages
+
+### 5.9 Complex Workflow Example
 
 **Multi-stage development pipeline**:
 

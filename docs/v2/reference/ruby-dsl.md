@@ -1382,22 +1382,39 @@ Configure an agent for this node (returns fluent config object).
 
 **Signature:**
 ```ruby
-agent(name) → AgentConfig
+agent(name, reset_context: true) → AgentConfig
 ```
 
 **Parameters:**
 - `name` (Symbol, required): Agent name
+- `reset_context` (Boolean, keyword, optional): Whether to reset conversation context
+  - `true` (default): Fresh context for each node execution
+  - `false`: Preserve conversation history from previous nodes
 
 **Returns:** `AgentConfig` with `.delegates_to(*names)` method
 
 **Example:**
 ```ruby
-# With delegation
-agent(:backend).delegates_to(:tester, :database)
+# Fresh context (default)
+agent(:backend)
 
-# Without delegation
-agent(:planner)
+# Preserve context from previous nodes
+agent(:backend, reset_context: false).delegates_to(:tester)
+
+# Without delegation, preserving context
+agent(:planner, reset_context: false)
 ```
+
+**When to use `reset_context: false`:**
+- Iterative refinement workflows
+- Agent needs to remember previous node conversations
+- Chain of thought reasoning across stages
+- Self-reflection or debate loops
+
+**When to use `reset_context: true` (default):**
+- Independent validation or fresh perspective
+- Memory management in long workflows
+- Different roles for same agent in different stages
 
 ---
 
@@ -2041,6 +2058,122 @@ Error from previous_result or result.
 ctx.success? → Boolean | nil
 ```
 Success status from previous_result or result.
+
+---
+
+### Control Flow Methods
+
+Methods for dynamic workflow control (loops, conditional branching, early termination).
+
+**goto_node**
+```ruby
+ctx.goto_node(node_name, content:) → Hash
+```
+Jump to a different node with custom content, bypassing normal dependency order.
+
+**Parameters:**
+- `node_name` (Symbol, required): Target node name
+- `content` (String, required): Content to pass to target node (validated non-nil)
+
+**Returns:** Control hash (processed by NodeOrchestrator)
+
+**Valid in:** Both input and output transformers
+
+**Example:**
+```ruby
+output do |ctx|
+  if needs_revision?(ctx.content)
+    # Jump back to revision node
+    ctx.goto_node(:revision, content: ctx.content)
+  else
+    ctx.content  # Continue to next node normally
+  end
+end
+```
+
+**Use cases:**
+- Implementing loops in workflows
+- Conditional branching based on results
+- Dynamic workflow routing
+- Retry logic
+
+**halt_workflow**
+```ruby
+ctx.halt_workflow(content:) → Hash
+```
+Stop entire workflow execution immediately and return content as final result.
+
+**Parameters:**
+- `content` (String, required): Final content to return (validated non-nil)
+
+**Returns:** Control hash (processed by NodeOrchestrator)
+
+**Valid in:** Both input and output transformers
+
+**Example:**
+```ruby
+output do |ctx|
+  if converged?(ctx.content)
+    # Stop workflow early
+    ctx.halt_workflow(content: ctx.content)
+  else
+    ctx.content  # Continue to next node
+  end
+end
+```
+
+**Use cases:**
+- Early termination on success
+- Error handling and bailout
+- Loop termination conditions
+- Convergence checks
+
+**skip_execution**
+```ruby
+ctx.skip_execution(content:) → Hash
+```
+Skip LLM execution for current node and use provided content instead.
+
+**Parameters:**
+- `content` (String, required): Content to use instead of LLM execution (validated non-nil)
+
+**Returns:** Control hash (processed by NodeOrchestrator)
+
+**Valid in:** Input transformers only
+
+**Example:**
+```ruby
+input do |ctx|
+  cached = check_cache(ctx.content)
+  if cached
+    # Skip expensive LLM call
+    ctx.skip_execution(content: cached)
+  else
+    ctx.content  # Execute node normally
+  end
+end
+```
+
+**Use cases:**
+- Caching node results
+- Conditional execution
+- Performance optimization
+- Validation checks
+
+**Error Handling with Control Flow:**
+
+All control flow methods validate that content is not nil. If a node fails, check for errors:
+
+```ruby
+output do |ctx|
+  if ctx.error
+    # Don't try to continue with nil content
+    ctx.halt_workflow(content: "Error: #{ctx.error.message}")
+  else
+    ctx.goto_node(:next_node, content: ctx.content)
+  end
+end
+```
 
 ---
 

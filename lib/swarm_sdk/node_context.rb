@@ -166,5 +166,80 @@ module SwarmSDK
         @previous_result.success?
       end
     end
+
+    # Control flow methods for transformers
+    # These return special hashes that NodeOrchestrator recognizes
+
+    # Skip current node's LLM execution and return content immediately
+    #
+    # Only valid for input transformers.
+    #
+    # @param content [String] Content to return (skips LLM call)
+    # @return [Hash] Control hash for skip_execution
+    # @raise [ArgumentError] If content is nil
+    #
+    # @example
+    #   input do |ctx|
+    #     cached = check_cache(ctx.content)
+    #     return ctx.skip_execution(content: cached) if cached
+    #     ctx.content
+    #   end
+    def skip_execution(content:)
+      if content.nil?
+        raise ArgumentError,
+          "skip_execution requires content (got nil). " \
+            "Check that ctx.content or your content source is not nil. " \
+            "Node: #{@node_name}"
+      end
+      { skip_execution: true, content: content }
+    end
+
+    # Halt entire workflow and return content as final result
+    #
+    # Valid for both input and output transformers.
+    #
+    # @param content [String] Final content to return
+    # @return [Hash] Control hash for halt_workflow
+    # @raise [ArgumentError] If content is nil
+    #
+    # @example
+    #   output do |ctx|
+    #     return ctx.halt_workflow(content: ctx.content) if converged?(ctx.content)
+    #     ctx.content
+    #   end
+    def halt_workflow(content:)
+      if content.nil?
+        raise ArgumentError,
+          "halt_workflow requires content (got nil). " \
+            "Check that ctx.content or your content source is not nil. " \
+            "Node: #{@node_name}"
+      end
+      { halt_workflow: true, content: content }
+    end
+
+    # Jump to a different node with provided content as input
+    #
+    # Valid for both input and output transformers.
+    #
+    # @param node [Symbol] Node name to jump to
+    # @param content [String] Content to pass to target node
+    # @return [Hash] Control hash for goto_node
+    # @raise [ArgumentError] If content is nil
+    #
+    # @example
+    #   input do |ctx|
+    #     return ctx.goto_node(:review, content: ctx.content) if needs_review?(ctx.content)
+    #     ctx.content
+    #   end
+    def goto_node(node, content:)
+      if content.nil?
+        raise ArgumentError,
+          "goto_node requires content (got nil). " \
+            "Check that ctx.content or your content source is not nil. " \
+            "This often happens when the previous node failed with an error. " \
+            "Node: #{@node_name}, Target: #{node}"
+      end
+      { goto_node: node.to_sym, content: content }
+    end
   end
 end

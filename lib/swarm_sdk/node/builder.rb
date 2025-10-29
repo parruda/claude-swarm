@@ -46,7 +46,11 @@ module SwarmSDK
       # Returns an AgentConfig object that supports fluent delegation syntax.
       # If delegates_to is not called, the agent is registered with no delegation.
       #
+      # By default, agents get fresh context in each node (reset_context: true).
+      # Set reset_context: false to preserve conversation history across nodes.
+      #
       # @param name [Symbol] Agent name
+      # @param reset_context [Boolean] Whether to reset agent context (default: true)
       # @return [AgentConfig] Fluent configuration object
       #
       # @example With delegation
@@ -54,12 +58,15 @@ module SwarmSDK
       #
       # @example Without delegation
       #   agent(:planner)
-      def agent(name)
-        config = AgentConfig.new(name, self)
+      #
+      # @example Preserve context across nodes
+      #   agent(:architect, reset_context: false)
+      def agent(name, reset_context: true)
+        config = AgentConfig.new(name, self, reset_context: reset_context)
 
         # Register immediately with empty delegation
         # If delegates_to is called later, it will update this
-        register_agent(name, [])
+        register_agent(name, [], reset_context)
 
         config
       end
@@ -68,17 +75,19 @@ module SwarmSDK
       #
       # @param agent_name [Symbol] Agent name
       # @param delegates_to [Array<Symbol>] Delegation targets
+      # @param reset_context [Boolean] Whether to reset agent context
       # @return [void]
-      def register_agent(agent_name, delegates_to)
+      def register_agent(agent_name, delegates_to, reset_context = true)
         # Check if agent already registered
         existing = @agent_configs.find { |ac| ac[:agent] == agent_name }
 
         if existing
-          # Update delegation (happens when delegates_to is called after agent())
+          # Update delegation and reset_context (happens when delegates_to is called after agent())
           existing[:delegates_to] = delegates_to
+          existing[:reset_context] = reset_context
         else
           # Add new agent configuration
-          @agent_configs << { agent: agent_name, delegates_to: delegates_to }
+          @agent_configs << { agent: agent_name, delegates_to: delegates_to, reset_context: reset_context }
         end
       end
 
@@ -120,12 +129,13 @@ module SwarmSDK
       # Can also be used for side effects (logging, file I/O) since the block
       # runs at execution time, not declaration time.
       #
-      # **Skip Execution**: Return a hash with `skip_execution: true` to skip
-      # the node's swarm execution and immediately return the provided content.
-      # Useful for caching, validation, or conditional execution.
+      # **Control Flow**: Return a hash with special keys to control execution:
+      # - `skip_execution: true` - Skip node's LLM execution, return content immediately
+      # - `halt_workflow: true` - Halt entire workflow with content as final result
+      # - `goto_node: :node_name` - Jump to different node with content as input
       #
       # @yield [NodeContext] Context with previous results and metadata
-      # @return [String, Hash] Transformed input OR skip hash
+      # @return [String, Hash] Transformed input OR control hash
       #
       # @example Access previous result and original prompt
       #   input do |ctx|
@@ -147,22 +157,26 @@ module SwarmSDK
       # @example Skip execution (caching)
       #   input do |ctx|
       #     cached = check_cache(ctx.content)
-      #     if cached
-      #       # Skip LLM call, return cached result
-      #       { skip_execution: true, content: cached }
-      #     else
-      #       ctx.content
-      #     end
+      #     return ctx.skip_execution(content: cached) if cached
+      #     ctx.content
       #   end
       #
-      # @example Skip execution (validation)
+      # @example Halt workflow (validation)
       #   input do |ctx|
       #     if ctx.content.length > 10000
-      #       # Fail early without LLM call
-      #       { skip_execution: true, content: "ERROR: Input too long" }
-      #     else
-      #       ctx.content
+      #       # Halt entire workflow
+      #       return ctx.halt_workflow(content: "ERROR: Input too long")
       #     end
+      #     ctx.content
+      #   end
+      #
+      # @example Jump to different node (conditional routing)
+      #   input do |ctx|
+      #     if ctx.content.include?("NEEDS_REVIEW")
+      #       # Jump to review node instead
+      #       return ctx.goto_node(:review, content: ctx.content)
+      #     end
+      #     ctx.content
       #   end
       def input(&block)
         @input_transformer = block
@@ -198,8 +212,12 @@ module SwarmSDK
       # Can also be used for side effects (logging, file I/O) since the block
       # runs at execution time, not declaration time.
       #
+      # **Control Flow**: Return a hash with special keys to control execution:
+      # - `halt_workflow: true` - Halt entire workflow with content as final result
+      # - `goto_node: :node_name` - Jump to different node with content as input
+      #
       # @yield [NodeContext] Context with current result and metadata
-      # @return [String] Transformed output
+      # @return [String, Hash] Transformed output OR control hash
       #
       # @example Transform and save to file
       #   output do |ctx|
@@ -216,12 +234,19 @@ module SwarmSDK
       #     "Task: #{ctx.original_prompt}\nResult: #{ctx.content}"
       #   end
       #
-      # @example Access multiple node results
+      # @example Halt workflow (convergence check)
       #   output do |ctx|
-      #     plan = ctx.all_results[:planning].content
-      #     impl = ctx.content
+      #     return ctx.halt_workflow(content: ctx.content) if converged?(ctx.content)
+      #     ctx.content
+      #   end
       #
-      #     "Completed:\nPlan: #{plan}\nImpl: #{impl}"
+      # @example Jump to different node (conditional routing)
+      #   output do |ctx|
+      #     if needs_revision?(ctx.content)
+      #       # Go back to revision node
+      #       return ctx.goto_node(:revision, content: ctx.content)
+      #     end
+      #     ctx.content
       #   end
       def output(&block)
         @output_transformer = block
@@ -264,6 +289,12 @@ module SwarmSDK
       #
       # Executes either Ruby block or bash command transformer.
       #
+      # **Ruby block return values:**
+      # - String: Transformed content
+      # - Hash with `skip_execution: true`: Skip node execution
+      # - Hash with `halt_workflow: true`: Halt entire workflow
+      # - Hash with `goto_node: :name`: Jump to different node
+      #
       # **Exit code behavior (bash commands only):**
       # - Exit 0: Use STDOUT as transformed content
       # - Exit 1: Skip node execution, use current_input unchanged (STDOUT ignored)
@@ -271,16 +302,23 @@ module SwarmSDK
       #
       # @param context [NodeContext] Context with previous results and metadata
       # @param current_input [String] Fallback content for exit 1 (skip), also used for halt error context
-      # @return [String, Hash] Transformed input OR skip hash `{ skip_execution: true, content: "..." }`
+      # @return [String, Hash] Transformed input OR control hash (skip_execution, halt_workflow, goto_node)
       # @raise [ConfigurationError] If bash transformer halts workflow (exit 2)
       def transform_input(context, current_input:)
         # No transformer configured: return content as-is
         return context.content unless @input_transformer || @input_transformer_command
 
         # Ruby block transformer
-        # Ruby blocks can return String (transformed content) OR Hash (skip_execution)
+        # Ruby blocks can return String (transformed content) OR Hash (control flow)
         if @input_transformer
-          return @input_transformer.call(context)
+          result = @input_transformer.call(context)
+
+          # If hash, validate control flow keys
+          if result.is_a?(Hash)
+            validate_transformer_hash(result, :input)
+          end
+
+          return result
         end
 
         # Bash command transformer
@@ -318,22 +356,34 @@ module SwarmSDK
       #
       # Executes either Ruby block or bash command transformer.
       #
+      # **Ruby block return values:**
+      # - String: Transformed content
+      # - Hash with `halt_workflow: true`: Halt entire workflow
+      # - Hash with `goto_node: :name`: Jump to different node
+      #
       # **Exit code behavior (bash commands only):**
       # - Exit 0: Use STDOUT as transformed content
       # - Exit 1: Pass through unchanged, use result.content (STDOUT ignored)
       # - Exit 2: Halt workflow with error (STDOUT ignored)
       #
       # @param context [NodeContext] Context with current result and metadata
-      # @return [String] Transformed output
+      # @return [String, Hash] Transformed output OR control hash (halt_workflow, goto_node)
       # @raise [ConfigurationError] If bash transformer halts workflow (exit 2)
       def transform_output(context)
         # No transformer configured: return content as-is
         return context.content unless @output_transformer || @output_transformer_command
 
         # Ruby block transformer
-        # Simply calls the block with context and returns result
+        # Ruby blocks can return String (transformed content) OR Hash (control flow)
         if @output_transformer
-          return @output_transformer.call(context)
+          result = @output_transformer.call(context)
+
+          # If hash, validate control flow keys
+          if result.is_a?(Hash)
+            validate_transformer_hash(result, :output)
+          end
+
+          return result
         end
 
         # Bash command transformer
@@ -411,6 +461,50 @@ module SwarmSDK
 
       private
 
+      # Validate transformer hash return value
+      #
+      # Ensures hash has valid control flow keys and required content field.
+      #
+      # @param hash [Hash] Hash returned from transformer
+      # @param transformer_type [Symbol] :input or :output
+      # @return [void]
+      # @raise [ConfigurationError] If hash is invalid
+      def validate_transformer_hash(hash, transformer_type)
+        # Valid control keys
+        valid_keys = if transformer_type == :input
+          [:skip_execution, :halt_workflow, :goto_node, :content]
+        else
+          [:halt_workflow, :goto_node, :content]
+        end
+
+        # Check for invalid keys
+        invalid_keys = hash.keys - valid_keys
+        if invalid_keys.any?
+          raise ConfigurationError,
+            "Invalid #{transformer_type} transformer hash keys: #{invalid_keys.join(", ")}. " \
+              "Valid keys: #{valid_keys.join(", ")}"
+        end
+
+        # Ensure content is present
+        unless hash.key?(:content)
+          raise ConfigurationError,
+            "#{transformer_type.capitalize} transformer hash must include :content key"
+        end
+
+        # Ensure only one control key
+        control_keys = hash.keys & [:skip_execution, :halt_workflow, :goto_node]
+        if control_keys.size > 1
+          raise ConfigurationError,
+            "#{transformer_type.capitalize} transformer hash can only have one control key, got: #{control_keys.join(", ")}"
+        end
+
+        # Validate goto_node has valid node name
+        if hash[:goto_node] && !hash[:goto_node].is_a?(Symbol)
+          raise ConfigurationError,
+            "goto_node value must be a Symbol, got: #{hash[:goto_node].class}"
+        end
+      end
+
       # Auto-add agents that are mentioned in delegates_to but not explicitly declared
       #
       # This allows:
@@ -418,7 +512,8 @@ module SwarmSDK
       # Without needing:
       #   agent(:tester)
       #
-      # The tester agent is automatically added to the node with no delegation.
+      # The tester agent is automatically added to the node with no delegation
+      # and reset_context: true (fresh context by default).
       #
       # @return [void]
       def auto_add_delegate_agents
@@ -429,9 +524,9 @@ module SwarmSDK
         declared_agents = @agent_configs.map { |ac| ac[:agent] }
         missing_delegates = all_delegates - declared_agents
 
-        # Auto-add missing delegates with empty delegation
+        # Auto-add missing delegates with empty delegation and default reset_context
         missing_delegates.each do |delegate_name|
-          @agent_configs << { agent: delegate_name, delegates_to: [] }
+          @agent_configs << { agent: delegate_name, delegates_to: [], reset_context: true }
         end
       end
     end

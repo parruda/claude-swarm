@@ -380,6 +380,7 @@ module SwarmSDK
           agent_definitions: agent_definitions,
           nodes: @nodes,
           start_node: @start_node,
+          scratchpad_enabled: @scratchpad_enabled,
         )
       end
 

@@ -20,3 +20,4 @@ build/
 .DS_Store
 test/coverage/output.txt
 test/coverage/
+memory/

@@ -287,6 +287,7 @@ module SwarmMemory
       def on_user_message(agent_name:, prompt:, is_first_message:)
         storage = @storages[agent_name]
         return [] unless storage&.semantic_index
+        return [] if prompt.empty?
 
         # Adaptive threshold based on query length
         # Short queries use lower threshold as they have less semantic richness

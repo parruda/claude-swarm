@@ -162,6 +162,7 @@ module SwarmSDK
           name: @name,
           description: @description,
           model: SwarmSDK::Models.resolve_alias(@model), # Resolve model aliases
+          context_window: @context_window,
           directory: @directory,
           tools: @tools,
           delegates_to: @delegates_to,
@@ -179,6 +180,9 @@ module SwarmSDK
           assume_model_exists: @assume_model_exists,
           max_concurrent_tools: @max_concurrent_tools,
           hooks: @hooks,
+          memory: @memory, # Preserve memory configuration when cloning
+          default_permissions: @default_permissions, # Preserve permissions when cloning
+          permissions: @agent_permissions, # Preserve permissions when cloning
         }.compact
       end
 

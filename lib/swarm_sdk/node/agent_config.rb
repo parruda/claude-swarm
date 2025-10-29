@@ -6,19 +6,24 @@ module SwarmSDK
     #
     # This class enables the chainable syntax:
     #   agent(:backend).delegates_to(:tester, :database)
+    #   agent(:backend, reset_context: false)  # Preserve context across nodes
     #
     # @example Basic delegation
     #   agent(:backend).delegates_to(:tester)
     #
     # @example No delegation (solo agent)
     #   agent(:planner)
+    #
+    # @example Preserve agent context
+    #   agent(:architect, reset_context: false)
     class AgentConfig
       attr_reader :agent_name
 
-      def initialize(agent_name, node_builder)
+      def initialize(agent_name, node_builder, reset_context: true)
         @agent_name = agent_name
         @node_builder = node_builder
         @delegates_to = []
+        @reset_context = reset_context
         @finalized = false
       end
 
@@ -41,7 +46,7 @@ module SwarmSDK
       def finalize
         return if @finalized
 
-        @node_builder.register_agent(@agent_name, @delegates_to)
+        @node_builder.register_agent(@agent_name, @delegates_to, @reset_context)
         @finalized = true
       end
     end

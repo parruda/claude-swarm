@@ -20,14 +20,26 @@ module SwarmSDK
   class NodeOrchestrator
     attr_reader :swarm_name, :nodes, :start_node
 
-    def initialize(swarm_name:, agent_definitions:, nodes:, start_node:)
+    def initialize(swarm_name:, agent_definitions:, nodes:, start_node:, scratchpad_enabled: true)
       @swarm_name = swarm_name
       @agent_definitions = agent_definitions
       @nodes = nodes
       @start_node = start_node
+      @scratchpad_enabled = scratchpad_enabled
+      @agent_instance_cache = {} # Cache for preserving agent context across nodes
 
       validate!
       @execution_order = build_execution_order
+    end
+
+    # Alias for compatibility with Swarm interface
+    alias_method :name, :swarm_name
+
+    # Return the lead agent of the start node for CLI compatibility
+    #
+    # @return [Symbol] Lead agent of the start node
+    def lead_agent
+      @nodes[@start_node].lead_agent
     end
 
     # Execute the node workflow
@@ -56,7 +68,12 @@ module SwarmSDK
         LogStream.emitter = LogCollector
       end
 
-      @execution_order.each do |node_name|
+      # Dynamic execution with support for goto_node
+      execution_index = 0
+      last_result = nil
+
+      while execution_index < @execution_order.size
+        node_name = @execution_order[execution_index]
         node = @nodes[node_name]
         node_start_time = Time.now
 
@@ -102,13 +119,26 @@ module SwarmSDK
           # - Exit 2: Halt workflow with error from STDERR (STDOUT ignored)
           transformed = node.transform_input(input_context, current_input: current_input)
 
-          # Check if transformer requested skipping execution
-          # (from Ruby block returning hash OR bash command exit 1)
-          if transformed.is_a?(Hash) && transformed[:skip_execution]
+          # Check for control flow from transformer
+          control_result = handle_transformer_control_flow(
+            transformed: transformed,
+            node_name: node_name,
+            node: node,
+            node_start_time: node_start_time,
+          )
+
+          case control_result[:action]
+          when :halt
+            return control_result[:result]
+          when :goto
+            execution_index = find_node_index(control_result[:target])
+            current_input = control_result[:content]
+            next
+          when :skip
             skip_execution = true
-            skip_content = transformed[:content] || transformed["content"]
-          else
-            current_input = transformed
+            skip_content = control_result[:content]
+          when :continue
+            current_input = control_result[:content]
           end
         end
 
@@ -130,6 +160,9 @@ module SwarmSDK
           mini_swarm = build_swarm_for_node(node)
           result = mini_swarm.execute(current_input)
 
+          # Cache agent instances for context preservation
+          cache_agent_instances(mini_swarm, node)
+
           # If result has error, log it with backtrace
           if result.error
             RubyLLM.logger.error("NodeOrchestrator: Node '#{node_name}' failed: #{result.error.message}")
@@ -138,6 +171,7 @@ module SwarmSDK
         end
 
         results[node_name] = result
+        last_result = result
 
         # Transform output for next node using NodeContext
         output_context = NodeContext.for_output(
@@ -146,7 +180,29 @@ module SwarmSDK
           original_prompt: @original_prompt,
           node_name: node_name,
         )
-        current_input = node.transform_output(output_context)
+        transformed_output = node.transform_output(output_context)
+
+        # Check for control flow from output transformer
+        control_result = handle_output_transformer_control_flow(
+          transformed: transformed_output,
+          node_name: node_name,
+          node: node,
+          node_start_time: node_start_time,
+          skip_execution: skip_execution,
+          result: result,
+        )
+
+        case control_result[:action]
+        when :halt
+          return control_result[:result]
+        when :goto
+          execution_index = find_node_index(control_result[:target])
+          current_input = control_result[:content]
+          emit_node_stop(node_name, node, result, Time.now - node_start_time, skip_execution)
+          next
+        when :continue
+          current_input = control_result[:content]
+        end
 
         # For agent-less nodes, update the result with transformed content
         # This ensures all_results contains the actual output, not the input
@@ -158,14 +214,17 @@ module SwarmSDK
             duration: result.duration,
             error: result.error,
           )
+          last_result = results[node_name]
         end
 
         # Emit node_stop event
         node_duration = Time.now - node_start_time
         emit_node_stop(node_name, node, result, node_duration, skip_execution)
+
+        execution_index += 1
       end
 
-      results.values.last
+      last_result
     ensure
       # Reset logging state for next execution
       LogCollector.reset!
@@ -284,10 +343,18 @@ module SwarmSDK
     # Creates a new Swarm with only the agents specified in the node,
     # configured with the node's delegation topology.
     #
+    # For agents with reset_context: false, injects cached instances
+    # to preserve conversation history across nodes.
+    #
+    # Inherits scratchpad_enabled setting from NodeOrchestrator.
+    #
     # @param node [Node::Builder] Node configuration
     # @return [Swarm] Configured swarm instance
     def build_swarm_for_node(node)
-      swarm = Swarm.new(name: "#{@swarm_name}:#{node.name}")
+      swarm = Swarm.new(
+        name: "#{@swarm_name}:#{node.name}",
+        scratchpad_enabled: @scratchpad_enabled,
+      )
 
       # Add each agent specified in this node
       node.agent_configs.each do |config|
@@ -305,6 +372,9 @@ module SwarmSDK
 
       # Set lead agent
       swarm.lead = node.lead_agent
+
+      # Inject cached agent instances for context preservation
+      inject_cached_agents(swarm, node)
 
       swarm
     end
@@ -359,7 +429,8 @@ module SwarmSDK
       if order.size < @nodes.size
         unprocessed = @nodes.keys - order
         raise CircularDependencyError,
-          "Circular dependency detected. Unprocessed nodes: #{unprocessed.join(", ")}"
+          "Circular dependency detected. Unprocessed nodes: #{unprocessed.join(", ")}. " \
+            "Use goto_node in transformers to create loops instead of circular depends_on."
       end
 
       # Verify start_node is in the execution order
@@ -379,6 +450,142 @@ module SwarmSDK
       end
 
       order
+    end
+
+    # Handle control flow from input transformer
+    #
+    # @param transformed [String, Hash] Result from transformer
+    # @param node_name [Symbol] Current node name
+    # @param node [Node::Builder] Node configuration
+    # @param node_start_time [Time] Node execution start time
+    # @return [Hash] Control result with :action and relevant data
+    def handle_transformer_control_flow(transformed:, node_name:, node:, node_start_time:)
+      return { action: :continue, content: transformed } unless transformed.is_a?(Hash)
+
+      if transformed[:halt_workflow]
+        # Halt entire workflow
+        halt_result = Result.new(
+          content: transformed[:content],
+          agent: "halted:#{node_name}",
+          logs: [],
+          duration: Time.now - node_start_time,
+        )
+        emit_node_stop(node_name, node, halt_result, Time.now - node_start_time, false)
+        { action: :halt, result: halt_result }
+      elsif transformed[:goto_node]
+        # Jump to different node
+        { action: :goto, target: transformed[:goto_node], content: transformed[:content] }
+      elsif transformed[:skip_execution]
+        # Skip node execution
+        { action: :skip, content: transformed[:content] }
+      else
+        # No control flow - continue normally
+        { action: :continue, content: transformed[:content] }
+      end
+    end
+
+    # Handle control flow from output transformer
+    #
+    # @param transformed [String, Hash] Result from transformer
+    # @param node_name [Symbol] Current node name
+    # @param node [Node::Builder] Node configuration
+    # @param node_start_time [Time] Node execution start time
+    # @param skip_execution [Boolean] Whether node execution was skipped
+    # @param result [Result] Node execution result
+    # @return [Hash] Control result with :action and relevant data
+    def handle_output_transformer_control_flow(transformed:, node_name:, node:, node_start_time:, skip_execution:, result:)
+      # If not a hash, it's just transformed content - continue normally
+      return { action: :continue, content: transformed } unless transformed.is_a?(Hash)
+
+      if transformed[:halt_workflow]
+        # Halt entire workflow
+        halt_result = Result.new(
+          content: transformed[:content],
+          agent: result.agent,
+          logs: result.logs,
+          duration: result.duration,
+        )
+        emit_node_stop(node_name, node, halt_result, Time.now - node_start_time, skip_execution)
+        { action: :halt, result: halt_result }
+      elsif transformed[:goto_node]
+        # Jump to different node
+        { action: :goto, target: transformed[:goto_node], content: transformed[:content] }
+      else
+        # Hash without control flow keys - treat as regular hash with :content key
+        # This handles the case where transformer returns a hash that's not for control flow
+        { action: :continue, content: transformed[:content] || transformed }
+      end
+    end
+
+    # Find the index of a node in the execution order
+    #
+    # @param node_name [Symbol] Node name to find
+    # @return [Integer] Index in execution order
+    # @raise [ConfigurationError] If node not found
+    def find_node_index(node_name)
+      index = @execution_order.index(node_name)
+      unless index
+        raise ConfigurationError,
+          "goto_node target '#{node_name}' not found. Available nodes: #{@execution_order.join(", ")}"
+      end
+      index
+    end
+
+    # Cache agent instances from a swarm for potential reuse
+    #
+    # Only caches agents that have reset_context: false in this node.
+    # This allows preserving conversation history across nodes.
+    #
+    # @param swarm [Swarm] Swarm instance that just executed
+    # @param node [Node::Builder] Node configuration
+    # @return [void]
+    def cache_agent_instances(swarm, node)
+      return unless swarm.agents # Only cache if agents were initialized
+
+      node.agent_configs.each do |config|
+        agent_name = config[:agent]
+        reset_context = config[:reset_context]
+
+        # Only cache if reset_context is false
+        next if reset_context
+
+        # Cache the agent instance
+        agent_instance = swarm.agents[agent_name]
+        @agent_instance_cache[agent_name] = agent_instance if agent_instance
+      end
+    end
+
+    # Inject cached agent instances into a swarm
+    #
+    # For agents with reset_context: false, reuses cached instances to preserve context.
+    # Forces agent initialization first (by accessing .agents), then swaps in cached instances.
+    #
+    # @param swarm [Swarm] Swarm instance to inject into
+    # @param node [Node::Builder] Node configuration
+    # @return [void]
+    def inject_cached_agents(swarm, node)
+      # Check if any agents need context preservation
+      has_preserved_agents = node.agent_configs.any? { |c| !c[:reset_context] && @agent_instance_cache[c[:agent]] }
+      return unless has_preserved_agents
+
+      # Force agent initialization by accessing .agents (triggers lazy init)
+      # Then inject cached instances
+      agents_hash = swarm.agents
+
+      node.agent_configs.each do |config|
+        agent_name = config[:agent]
+        reset_context = config[:reset_context]
+
+        # Skip if reset_context is true (want fresh instance)
+        next if reset_context
+
+        # Check if we have a cached instance
+        cached_agent = @agent_instance_cache[agent_name]
+        next unless cached_agent
+
+        # Inject the cached instance (replace the freshly initialized one)
+        agents_hash[agent_name] = cached_agent
+      end
     end
   end
 end

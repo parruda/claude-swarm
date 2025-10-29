@@ -336,6 +336,114 @@ module SwarmSDK
       end
 
       assert_match(/Circular dependency/, error.message)
+      assert_match(/goto_node/, error.message)
+    end
+
+    def test_halt_workflow_from_input_transformer
+      swarm = SwarmSDK.build do
+        name("Halt Workflow")
+
+        # Use agent-less node to avoid LLM calls
+        node(:validation) do
+          input do |ctx|
+            # Halt if input too long
+            if ctx.content.length > 10
+              ctx.halt_workflow(content: "ERROR: Input too long")
+            else
+              ctx.content
+            end
+          end
+
+          output do |ctx|
+            "Validated: #{ctx.content}"
+          end
+        end
+
+        start_node(:validation)
+      end
+
+      # Execute with long input (should halt)
+      result = swarm.execute("This is a very long input that exceeds the limit")
+
+      assert_equal("ERROR: Input too long", result.content)
+      assert_match(/halted/, result.agent)
+    end
+
+    def test_goto_node_from_output_transformer
+      swarm = SwarmSDK.build do
+        name("Goto Node Workflow")
+
+        # Use agent-less nodes to avoid LLM calls
+        node(:step1) do
+          # Agent-less node with output transformer
+          output do |ctx|
+            # Jump to step3, skipping step2
+            ctx.goto_node(:step3, content: "Went to step3 from step1")
+          end
+        end
+
+        node(:step2) do
+          # This should be skipped
+          output do |ctx|
+            "Step 2: #{ctx.content}"
+          end
+          depends_on(:step1)
+        end
+
+        node(:step3) do
+          # Final node
+          output do |ctx|
+            "Step 3: #{ctx.content}"
+          end
+          depends_on(:step2)
+        end
+
+        start_node(:step1)
+      end
+
+      # Execute - should go step1 -> step3 (skipping step2)
+      result = swarm.execute("Start workflow")
+
+      # Result should contain the goto message
+      assert_match(/Step 3.*step3 from step1/, result.content)
+      refute_match(/Step 2/, result.content)
+    end
+
+    def test_skip_execution_with_context_method
+      swarm = SwarmSDK.build do
+        name("Skip Execution")
+
+        # Use node with agent but skip execution based on input
+        agent(:agent1) do
+          model(@model_id)
+          provider(@provider)
+          description("Agent 1")
+          system_prompt("You process data")
+          coding_agent(false)
+        end
+
+        node(:check_cache) do
+          agent(:agent1)
+
+          input do |ctx|
+            # Skip LLM call if input is "cached" - using context method
+            # This avoids the expensive LLM call when we have cached data
+            if ctx.content == "cached"
+              ctx.skip_execution(content: "Using cached result")
+            else
+              ctx.content
+            end
+          end
+        end
+
+        start_node(:check_cache)
+      end
+
+      # Execute with cached input - should skip LLM execution
+      result = swarm.execute("cached")
+
+      assert_equal("Using cached result", result.content)
+      assert_match(/skipped/, result.agent)
     end
 
     def test_node_without_agents_or_transformers_raises_error
@@ -869,6 +977,125 @@ module SwarmSDK
       c_config = test_node.agent_configs.find { |ac| ac[:agent] == :c }
 
       assert_empty(c_config[:delegates_to])
+    end
+
+    def test_reset_context_default_behavior
+      # Test that by default, agents get fresh context in each node
+      swarm = SwarmSDK.build do
+        name("Fresh Context Test")
+
+        agent(:agent1) do
+          model(@model_id)
+          provider(@provider)
+          description("Agent 1")
+          system_prompt("Agent 1")
+          coding_agent(false)
+        end
+
+        node(:node1) do
+          agent(:agent1)  # Default: reset_context = true
+        end
+
+        node(:node2) do
+          agent(:agent1)  # Should get fresh context
+          depends_on(:node1)
+        end
+
+        start_node(:node1)
+      end
+
+      # Verify agent configs have reset_context: true by default
+      node1 = swarm.nodes[:node1]
+      node2 = swarm.nodes[:node2]
+
+      assert(node1.agent_configs.first[:reset_context])
+      assert(node2.agent_configs.first[:reset_context])
+    end
+
+    def test_reset_context_false_preserves_config
+      # Test that reset_context: false is properly stored in config
+      swarm = SwarmSDK.build do
+        name("Preserve Context Test")
+
+        agent(:agent1) do
+          model(@model_id)
+          provider(@provider)
+          description("Agent 1")
+          system_prompt("Agent 1")
+          coding_agent(false)
+        end
+
+        node(:node1) do
+          agent(:agent1, reset_context: false)
+        end
+
+        node(:node2) do
+          agent(:agent1, reset_context: false)
+          depends_on(:node1)
+        end
+
+        start_node(:node1)
+      end
+
+      # Verify agent configs have reset_context: false
+      node1 = swarm.nodes[:node1]
+      node2 = swarm.nodes[:node2]
+
+      refute(node1.agent_configs.first[:reset_context])
+      refute(node2.agent_configs.first[:reset_context])
+    end
+
+    def test_reset_context_mixed_usage
+      # Test that some agents can preserve context while others get fresh context
+      swarm = SwarmSDK.build do
+        name("Mixed Context Test")
+
+        agent(:architect) do
+          model(@model_id)
+          provider(@provider)
+          description("Architect")
+          system_prompt("Architect")
+          coding_agent(false)
+        end
+
+        agent(:reviewer) do
+          model(@model_id)
+          provider(@provider)
+          description("Reviewer")
+          system_prompt("Reviewer")
+          coding_agent(false)
+        end
+
+        node(:node1) do
+          agent(:architect, reset_context: false) # Preserve context
+          agent(:reviewer) # Fresh context (default)
+        end
+
+        node(:node2) do
+          agent(:architect, reset_context: false) # Should reuse cached instance
+          agent(:reviewer) # Fresh instance
+          depends_on(:node1)
+        end
+
+        start_node(:node1)
+      end
+
+      node1 = swarm.nodes[:node1]
+      node2 = swarm.nodes[:node2]
+
+      # Verify architect preserves context
+      architect_config_1 = node1.agent_configs.find { |ac| ac[:agent] == :architect }
+      architect_config_2 = node2.agent_configs.find { |ac| ac[:agent] == :architect }
+
+      refute(architect_config_1[:reset_context])
+      refute(architect_config_2[:reset_context])
+
+      # Verify reviewer gets fresh context
+      reviewer_config_1 = node1.agent_configs.find { |ac| ac[:agent] == :reviewer }
+      reviewer_config_2 = node2.agent_configs.find { |ac| ac[:agent] == :reviewer }
+
+      assert(reviewer_config_1[:reset_context])
+      assert(reviewer_config_2[:reset_context])
     end
   end
 end

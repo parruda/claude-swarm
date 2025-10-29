@@ -5,6 +5,44 @@ All notable changes to SwarmSDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Node Workflow Control Flow**: Dynamic control methods in NodeContext
+  - `ctx.goto_node(:node_name, content:)` - Jump to any node with custom content
+  - `ctx.halt_workflow(content:)` - Stop entire workflow and return final result
+  - `ctx.skip_execution(content:)` - Skip node LLM execution and use provided content
+  - Enables loops, conditional branching, and dynamic routing in workflows
+  - All methods validate that content is not nil (raises ArgumentError with helpful message if nil)
+  - Use for implementing retry logic, convergence checks, caching, and iterative refinement
+
+- **Context Preservation Across Nodes**: `reset_context` parameter for node agents
+  - `agent(:name, reset_context: false)` preserves conversation history across nodes
+  - Default: `reset_context: true` (fresh context for each node - safe default)
+  - NodeOrchestrator caches and reuses agent instances when `reset_context: false`
+  - Enables stateful workflows where agents remember previous node conversations
+  - Perfect for iterative refinement, self-reflection loops, and chain-of-thought reasoning
+
+### Changed
+
+- **Agent::Definition.to_h**: Now includes additional fields for complete serialization
+  - Added: `memory`, `permissions`, `context_window`, `default_permissions`
+  - Fixes bug where memory and permissions were lost when cloning agents for nodes
+  - Improves inspection and debugging capabilities
+
+- **NodeOrchestrator**: Passes scratchpad configuration to mini-swarms
+  - Bug fix: `scratchpad_enabled` now correctly propagated to node-level swarms
+  - Ensures `use_scratchpad false` works properly in node workflows
+
+- **CLI ConfigLoader**: Accepts both Swarm and NodeOrchestrator instances
+  - Bug fix: CLI now correctly handles NodeOrchestrator execution
+  - Enables node workflows to work seamlessly with CLI commands
+
+- **Error handling in Agent::Chat**: More robust exception handling
+  - Changed nil response error from `RubyLLM::Error` to `StandardError`
+  - Prevents "undefined method 'body'" error when handling malformed API responses
+
 ## [2.1.1]
 
 ### Added
