@@ -140,10 +140,9 @@ class PsErrorHandlingTest < Minitest::Test
   end
 
   def test_shows_no_active_sessions_when_all_fail
-    # Clean only the specific entries we're about to create (not the whole directory!)
-    ["bad_yaml", "regular_file", "stale"].each do |entry|
-      path = File.join(@run_dir, entry)
-      FileUtils.rm_f(path) if File.exist?(path)
+    # Clean the entire run directory to ensure no leftover sessions from other tests
+    Dir.glob("#{@run_dir}/*").each do |entry|
+      FileUtils.rm_f(entry)
     end
 
     # Create only problematic sessions

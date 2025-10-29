@@ -28,6 +28,7 @@ require_relative "swarm_memory/version"
 # Setup Zeitwerk loader
 require "zeitwerk"
 loader = Zeitwerk::Loader.new
+loader.tag = File.basename(__FILE__, ".rb")
 loader.push_dir("#{__dir__}/swarm_memory", namespace: SwarmMemory)
 loader.setup
 
