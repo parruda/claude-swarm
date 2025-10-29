@@ -22,6 +22,7 @@ require_relative "swarm_cli/version"
 
 require "zeitwerk"
 loader = Zeitwerk::Loader.new
+loader.tag = File.basename(__FILE__, ".rb")
 loader.push_dir("#{__dir__}/swarm_cli", namespace: SwarmCLI)
 loader.inflector.inflect(
   "cli" => "CLI",

@@ -26,16 +26,19 @@ require "fast_mcp"
 require "mcp_client"
 require "thor"
 
+require_relative "claude_swarm/version"
+
 # Zeitwerk setup
 require "zeitwerk"
 loader = Zeitwerk::Loader.new
-loader.tag = "claude_swarm"
-
+loader.tag = File.basename(__FILE__, ".rb")
 loader.ignore("#{__dir__}/claude_swarm/templates")
+loader.push_dir("#{__dir__}/claude_swarm", namespace: ClaudeSwarm)
 loader.inflector.inflect(
   "cli" => "CLI",
   "openai" => "OpenAI",
 )
+loader.setup
 
 module ClaudeSwarm
   class Error < StandardError; end
@@ -66,6 +69,3 @@ module ClaudeSwarm
     end
   end
 end
-
-loader.push_dir("#{__dir__}/claude_swarm", namespace: ClaudeSwarm)
-loader.setup

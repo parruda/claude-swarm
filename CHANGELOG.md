@@ -1,3 +1,11 @@
+## [1.0.3]
+
+### Fixed
+- **Fixed uninitialized constant VERSION error**: Resolved an issue where the VERSION constant was not properly initialized in the Zeitwerk autoloader setup
+  - The gem version is now correctly loaded before Zeitwerk setup
+  - Prevents "uninitialized constant ClaudeSwarm::VERSION" errors during gem loading
+  - Ensures version information is available throughout the application
+
 ## [1.0.2]
 
 ### Changed
