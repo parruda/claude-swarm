@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Helpful error message guides users to split large content into multiple linked memories
   - Promotes better organization through multiple focused entries with `related` field links
 
+- **MemoryGlob result truncation**: Prevents overwhelming output from broad searches
+  - Maximum 1000 results per query (matches Glob tool behavior)
+  - System reminder added when results are truncated
+  - Encourages users to use more specific patterns
+  - Sorted by most recently modified (first 1000 shown)
+
 ### Changed
 - **Memory Assistant prompt improvements**: Updated examples and guidance
   - Updated examples from 5000-word to 250-word entries

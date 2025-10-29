@@ -45,8 +45,8 @@ module SwarmMemory
         TAGS ARE CRITICAL: Think "What would I search for in 6 months?" For skills especially, be VERY comprehensive with tags - they're your search index.
 
         EXAMPLES:
-        - For concept: tags: ['ruby', 'oop', 'classes', 'inheritance', 'methods']
-        - For skill: tags: ['debugging', 'api', 'http', 'errors', 'trace', 'network', 'rest']
+        - For concept: tags: (JSON) "['ruby', 'oop', 'classes', 'inheritance', 'methods']"
+        - For skill: tags: (JSON) "['debugging', 'api', 'http', 'errors', 'trace', 'network', 'rest']"
       DESC
 
       param :file_path,

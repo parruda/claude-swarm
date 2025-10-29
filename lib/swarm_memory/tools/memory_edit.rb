@@ -85,6 +85,7 @@ module SwarmMemory
 
       param :replace_all,
         desc: "Replace all occurrences of old_string (default false)",
+        type: :boolean,
         required: false
 
       # Initialize with storage instance and agent name

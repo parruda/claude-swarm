@@ -100,6 +100,8 @@ module SwarmMemory
         desc: "Glob pattern - target concept/, fact/, skill/, or experience/ only (e.g., 'skill/**', 'concept/ruby/*', 'fact/people/*.md')",
         required: true
 
+      MAX_RESULTS = 500 # Limit results to prevent overwhelming output
+
       # Initialize with storage instance
       #
       # @param storage [Core::Storage] Storage instance
@@ -124,6 +126,14 @@ module SwarmMemory
           return "No entries found matching pattern '#{pattern}'"
         end
 
+        # Limit results
+        if entries.count > MAX_RESULTS
+          entries = entries.take(MAX_RESULTS)
+          truncated = true
+        else
+          truncated = false
+        end
+
         result = []
         result << "Memory entries matching '#{pattern}' (#{entries.size} #{entries.size == 1 ? "entry" : "entries"}):"
 
@@ -131,7 +141,20 @@ module SwarmMemory
           result << "  memory://#{entry[:path]} - \"#{entry[:title]}\" (#{format_bytes(entry[:size])})"
         end
 
-        result.join("\n")
+        output = result.join("\n")
+
+        # Add system reminder if truncated
+        if truncated
+          output += <<~REMINDER
+
+            <system-reminder>
+            Results limited to first #{MAX_RESULTS} matches (sorted by most recently modified).
+            Consider using a more specific pattern to narrow your search.
+            </system-reminder>
+          REMINDER
+        end
+
+        output
       rescue ArgumentError => e
         validation_error(e.message)
       end
