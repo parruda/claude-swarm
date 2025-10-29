@@ -43,8 +43,8 @@ module SwarmSDK
         @delegate_target = delegate_name.to_s
       end
 
-      # Build description dynamically based on delegate
-      description do
+      # Override description to return dynamic string based on delegate
+      def description
         "Delegate tasks to #{@delegate_name}. #{@delegate_description}"
       end
 
