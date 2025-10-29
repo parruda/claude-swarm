@@ -41,13 +41,11 @@ class McpGeneratorVibeTest < Minitest::Test
     @config = ClaudeSwarm::Configuration.new(@config_path)
     generator = ClaudeSwarm::McpGenerator.new(@config)
 
-    Dir.chdir(@tmpdir) do
-      generator.generate_all
-      mcp_config = read_mcp_config("leader")
+    generator.generate_all
+    mcp_config = read_mcp_config("leader")
 
-      # Should have no MCPs when instance has vibe: true
-      assert_empty(mcp_config["mcpServers"])
-    end
+    # Should have no MCPs when instance has vibe: true
+    assert_empty(mcp_config["mcpServers"])
   end
 
   def test_global_vibe_no_mcps
@@ -66,13 +64,11 @@ class McpGeneratorVibeTest < Minitest::Test
     # Test with global vibe enabled
     generator = ClaudeSwarm::McpGenerator.new(@config, vibe: true)
 
-    Dir.chdir(@tmpdir) do
-      generator.generate_all
-      mcp_config = read_mcp_config("leader")
+    generator.generate_all
+    mcp_config = read_mcp_config("leader")
 
-      # Should have no MCPs when global vibe is true
-      assert_empty(mcp_config["mcpServers"])
-    end
+    # Should have no MCPs when global vibe is true
+    assert_empty(mcp_config["mcpServers"])
   end
 
   def test_mixed_vibe_instances
@@ -95,19 +91,17 @@ class McpGeneratorVibeTest < Minitest::Test
     @config = ClaudeSwarm::Configuration.new(@config_path)
     generator = ClaudeSwarm::McpGenerator.new(@config)
 
-    Dir.chdir(@tmpdir) do
-      generator.generate_all
+    generator.generate_all
 
-      # Leader should have worker MCP connection
-      leader_config = read_mcp_config("leader")
+    # Leader should have worker MCP connection
+    leader_config = read_mcp_config("leader")
 
-      assert(leader_config["mcpServers"].key?("worker"))
+    assert(leader_config["mcpServers"].key?("worker"))
 
-      # Worker should have no MCPs
-      worker_config = read_mcp_config("worker")
+    # Worker should have no MCPs
+    worker_config = read_mcp_config("worker")
 
-      assert_empty(worker_config["mcpServers"])
-    end
+    assert_empty(worker_config["mcpServers"])
   end
 
   def test_connection_args_include_vibe
@@ -128,14 +122,12 @@ class McpGeneratorVibeTest < Minitest::Test
     @config = ClaudeSwarm::Configuration.new(@config_path)
     generator = ClaudeSwarm::McpGenerator.new(@config)
 
-    Dir.chdir(@tmpdir) do
-      generator.generate_all
+    generator.generate_all
 
-      leader_config = read_mcp_config("leader")
-      worker_mcp = leader_config["mcpServers"]["worker"]
+    leader_config = read_mcp_config("leader")
+    worker_mcp = leader_config["mcpServers"]["worker"]
 
-      # Worker MCP should have --vibe flag
-      assert_includes(worker_mcp["args"], "--vibe")
-    end
+    # Worker MCP should have --vibe flag
+    assert_includes(worker_mcp["args"], "--vibe")
   end
 end

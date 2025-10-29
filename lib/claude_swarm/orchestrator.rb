@@ -38,7 +38,7 @@ module ClaudeSwarm
         @session_log_path = File.join(@session_path, "session.log")
       else
         # Generate new session path
-        session_params = { working_dir: ClaudeSwarm.root_dir }
+        session_params = { working_dir: @config.base_dir }
         session_params[:session_id] = @provided_session_id if @provided_session_id
         @session_path = SessionPath.generate(**session_params)
         SessionPath.ensure_directory(@session_path)
@@ -49,7 +49,6 @@ module ClaudeSwarm
 
       end
       ENV["CLAUDE_SWARM_SESSION_PATH"] = @session_path
-      ENV["CLAUDE_SWARM_ROOT_DIR"] = ClaudeSwarm.root_dir
 
       # Initialize components that depend on session path
       @process_tracker = ProcessTracker.new(@session_path)
@@ -235,13 +234,11 @@ module ClaudeSwarm
           before_commands_dir = parent_dir
         end
 
-        Dir.chdir(before_commands_dir) do
-          success = execute_before_commands?(before_commands)
-          unless success
-            non_interactive_output { print("❌ Before commands failed. Aborting swarm launch.") }
-            cleanup_all
-            exit(1)
-          end
+        success = execute_before_commands?(before_commands, chdir: before_commands_dir)
+        unless success
+          non_interactive_output { print("❌ Before commands failed. Aborting swarm launch.") }
+          cleanup_all
+          exit(1)
         end
 
         non_interactive_output do
@@ -262,19 +259,18 @@ module ClaudeSwarm
       end
 
       # Execute the main instance - this will cascade to other instances via MCP
-      Dir.chdir(main_instance[:directory]) do
-        # Execute main Claude instance with unbundled environment to avoid bundler conflicts
-        # This ensures the main instance runs in a clean environment without inheriting
-        # Claude Swarm's BUNDLE_* environment variables
-        Bundler.with_unbundled_env do
-          if @non_interactive_prompt
-            stream_to_session_log(*command)
-          else
-            system_with_pid!(*command) do |pid|
-              @process_tracker.track_pid(pid, "claude_#{@config.main_instance}")
-              non_interactive_output do
-                puts "✓ Claude instance started with PID: #{pid}"
-              end
+      # Execute main Claude instance with unbundled environment to avoid bundler conflicts
+      # This ensures the main instance runs in a clean environment without inheriting
+      # Claude Swarm's BUNDLE_* environment variables
+      main_dir = main_instance[:directory]
+      Bundler.with_unbundled_env do
+        if @non_interactive_prompt
+          stream_to_session_log(*command, chdir: main_dir)
+        else
+          system_with_pid!(*command, chdir: main_dir) do |pid|
+            @process_tracker.track_pid(pid, "claude_#{@config.main_instance}")
+            non_interactive_output do
+              puts "✓ Claude instance started with PID: #{pid}"
             end
           end
         end
@@ -306,12 +302,12 @@ module ClaudeSwarm
       puts
     end
 
-    def execute_before_commands?(commands)
-      execute_commands(commands, phase: "before", fail_fast: true)
+    def execute_before_commands?(commands, chdir:)
+      execute_commands(commands, phase: "before", fail_fast: true, chdir: chdir)
     end
 
-    def execute_after_commands?(commands)
-      execute_commands(commands, phase: "after", fail_fast: false)
+    def execute_after_commands?(commands, chdir:)
+      execute_commands(commands, phase: "after", fail_fast: false, chdir: chdir)
     end
 
     def execute_after_commands_once
@@ -336,16 +332,14 @@ module ClaudeSwarm
         after_commands_dir = parent_dir
       end
 
-      Dir.chdir(after_commands_dir) do
-        non_interactive_output do
-          print("⚙️  Executing after commands...")
-        end
+      non_interactive_output do
+        print("⚙️  Executing after commands...")
+      end
 
-        success = execute_after_commands?(after_commands)
-        unless success
-          non_interactive_output do
-            puts "⚠️  Some after commands failed"
-          end
+      success = execute_after_commands?(after_commands, chdir: after_commands_dir)
+      unless success
+        non_interactive_output do
+          puts "⚠️  Some after commands failed"
         end
       end
     end
@@ -357,7 +351,7 @@ module ClaudeSwarm
 
       # Save the root directory
       root_dir_file = File.join(session_path, "root_directory")
-      File.write(root_dir_file, ClaudeSwarm.root_dir)
+      File.write(root_dir_file, @config.base_dir)
 
       # Save session metadata
       metadata_file = File.join(session_path, "session_metadata.json")
@@ -366,7 +360,7 @@ module ClaudeSwarm
 
     def build_session_metadata
       {
-        "root_directory" => ClaudeSwarm.root_dir,
+        "root_directory" => @config.base_dir,
         "timestamp" => Time.now.utc.iso8601,
         "start_time" => @start_time.utc.iso8601,
         "swarm_name" => @config.swarm_name,
@@ -642,12 +636,12 @@ module ClaudeSwarm
       end
     end
 
-    def stream_to_session_log(*command)
+    def stream_to_session_log(*command, chdir:)
       # Setup logger for session logging
       logger = Logger.new(@session_log_path, level: :info, progname: @config.main_instance)
 
       # Use Open3.popen2e to capture stdout and stderr merged for formatting
-      Open3.popen2e(*command) do |stdin, stdout_and_stderr, wait_thr|
+      Open3.popen2e(*command, chdir: chdir) do |stdin, stdout_and_stderr, wait_thr|
         stdin.close
 
         # Read and process the merged output
@@ -819,7 +813,10 @@ module ClaudeSwarm
       @logger ||= Logger.new(File.join(@session_path, "session.log"), level: :info, progname: "orchestrator")
     end
 
-    def execute_commands(commands, phase:, fail_fast:)
+    def execute_commands(commands, phase:, fail_fast:, chdir:)
+      raise ArgumentError, "chdir parameter is required" if chdir.nil?
+      raise ArgumentError, "chdir must be a valid directory: #{chdir}" unless File.directory?(chdir)
+
       all_succeeded = true
 
       # Setup logger for session logging if we have a session path
@@ -839,13 +836,15 @@ module ClaudeSwarm
             end
           end
 
-          output = %x(#{command} 2>&1)
-          success = $CHILD_STATUS.success?
+          # Use Open3.capture2e with chdir option to execute the command
+          # This allows setting the working directory without changing the process directory
+          output, status = Open3.capture2e(command, chdir: chdir)
+          success = status.success?
           output_separator = "-" * 80
 
           logger.info { "Command output:" }
           logger.info { output }
-          logger.info { "Exit status: #{$CHILD_STATUS.exitstatus}" }
+          logger.info { "Exit status: #{status.exitstatus}" }
           logger.info { output_separator }
 
           # Show output if in debug mode or if command failed
@@ -854,7 +853,7 @@ module ClaudeSwarm
               output_prefix = phase == "after" ? "After command" : "Command"
               puts "#{output_prefix} #{index + 1} output:"
               puts output
-              print("Exit status: #{$CHILD_STATUS.exitstatus}")
+              print("Exit status: #{status.exitstatus}")
             end
           end
 

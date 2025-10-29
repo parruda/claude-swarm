@@ -43,9 +43,8 @@ module ClaudeSwarm
       type: :string,
       desc: "Root directory for resolving relative paths (defaults to current directory)"
     def start(config_file = nil)
-      # Set root directory early so it's available to all components
-      root_dir = options[:root_dir] || Dir.pwd
-      ENV["CLAUDE_SWARM_ROOT_DIR"] = File.expand_path(root_dir)
+      # Determine root directory for this session
+      root_dir = File.expand_path(options[:root_dir] || Dir.pwd)
 
       # Resolve config path relative to root directory
       config_path = config_file || "claude-swarm.yml"
@@ -71,7 +70,7 @@ module ClaudeSwarm
       end
 
       begin
-        config = Configuration.new(config_path, base_dir: ClaudeSwarm.root_dir, options: options)
+        config = Configuration.new(config_path, base_dir: root_dir, options: options)
         generator = McpGenerator.new(config, vibe: options[:vibe])
         orchestrator = Orchestrator.new(
           config,
@@ -547,24 +546,23 @@ module ClaudeSwarm
           exit(1)
         end
 
-        # Change to the original root directory if it exists
+        # Load the original root directory from session
         root_dir_file = File.join(session_path, "root_directory")
-        if File.exist?(root_dir_file)
+        root_dir = if File.exist?(root_dir_file)
           original_dir = File.read(root_dir_file).strip
           if Dir.exist?(original_dir)
-            Dir.chdir(original_dir)
-            ENV["CLAUDE_SWARM_ROOT_DIR"] = original_dir
-            say("Changed to original directory: #{original_dir}", :green) unless options[:prompt]
+            say("Using original directory: #{original_dir}", :green) unless options[:prompt]
+            original_dir
           else
             error("Original directory no longer exists: #{original_dir}")
             exit(1)
           end
         else
           # If no root_directory file, use current directory
-          ENV["CLAUDE_SWARM_ROOT_DIR"] = Dir.pwd
+          Dir.pwd
         end
 
-        config = Configuration.new(config_file, base_dir: ClaudeSwarm.root_dir)
+        config = Configuration.new(config_file, base_dir: root_dir)
 
         # Load session metadata if it exists to check for worktree info
         session_metadata_file = File.join(session_path, "session_metadata.json")

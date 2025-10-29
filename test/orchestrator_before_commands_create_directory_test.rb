@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "tmpdir"
-require "fileutils"
 
 class OrchestratorBeforeCommandsCreateDirectoryTest < Minitest::Test
   include TestHelpers
@@ -11,18 +9,14 @@ class OrchestratorBeforeCommandsCreateDirectoryTest < Minitest::Test
     @original_dir = Dir.pwd
     @tmpdir = Dir.mktmpdir("claude_swarm_test")
     @config_path = File.join(@tmpdir, "claude-swarm.yml")
-    Dir.chdir(@tmpdir)
 
     # Set environment variables for test
     ENV["CLAUDE_SWARM_SESSION_PATH"] = File.join(@tmpdir, ".claude-swarm", "sessions", "test")
-    ENV["CLAUDE_SWARM_ROOT_DIR"] = @tmpdir
   end
 
   def teardown
-    Dir.chdir(@original_dir) # Restore original directory
     FileUtils.rm_rf(@tmpdir)
     ENV.delete("CLAUDE_SWARM_SESSION_PATH")
-    ENV.delete("CLAUDE_SWARM_ROOT_DIR")
   end
 
   def test_before_commands_can_create_main_instance_directory
@@ -55,8 +49,8 @@ class OrchestratorBeforeCommandsCreateDirectoryTest < Minitest::Test
     generator = ClaudeSwarm::McpGenerator.new(config)
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
-    # Mock system_with_pid! to prevent actual Claude execution
-    orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+    # Mock system! to prevent actual Claude execution
+    orchestrator.stub(:system_with_pid!, lambda { |*_args, **_kwargs, &block|
       block&.call(12345)
       true
     }) do
@@ -100,7 +94,7 @@ class OrchestratorBeforeCommandsCreateDirectoryTest < Minitest::Test
     orchestrator = ClaudeSwarm::Orchestrator.new(config, generator)
 
     # Mock system_with_pid! to prevent actual Claude execution
-    orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+    orchestrator.stub(:system_with_pid!, lambda { |*_args, **_kwargs, &block|
       block&.call(12345)
       true
     }) do

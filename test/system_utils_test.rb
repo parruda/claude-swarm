@@ -87,29 +87,27 @@ class SystemUtilsTest < Minitest::Test
 
   def test_system_with_environment_variables
     # Test that environment variables are passed through to the command
-    with_temp_dir do
-      test_var = "TEST_VAR_#{Time.now.to_i}"
-      ENV[test_var] = "test_value"
+    test_var = "TEST_VAR_#{Time.now.to_i}"
+    ENV[test_var] = "test_value"
 
-      begin
-        output, = capture_subprocess_io do
-          result = @subject.system!("sh", "-c", "echo $#{test_var}")
+    begin
+      output, = capture_subprocess_io do
+        result = @subject.system!("sh", "-c", "echo $#{test_var}")
 
-          assert(result)
-        end
-
-        assert_match(/test_value/, output)
-      ensure
-        ENV.delete(test_var)
+        assert(result)
       end
+
+      assert_match(/test_value/, output)
+    ensure
+      ENV.delete(test_var)
     end
   end
 
   def test_system_with_shell_metacharacters
     # Test proper handling of commands with special characters
-    with_temp_dir do
+    Dir.mktmpdir do |tmpdir|
       # Create a file with spaces and special characters
-      filename = "test file with spaces & chars.txt"
+      filename = File.join(tmpdir, "test file with spaces & chars.txt")
       File.write(filename, "content")
 
       # Test that shell metacharacters are properly handled
@@ -164,18 +162,25 @@ class SystemUtilsTest < Minitest::Test
 
   def test_system_with_working_directory_change
     # Test that system commands run in the current working directory
-    with_temp_dir do |_tmpdir|
+    Dir.mktmpdir do |tmpdir|
       # Create a test file in temp dir
-      File.write("test.txt", "content")
+      test_file = File.join(tmpdir, "test.txt")
+      File.write(test_file, "content")
 
-      # Verify command runs in current directory
-      assert_system_command_succeeds(["ls", "test.txt"])
+      # Verify command runs in specified directory using chdir option
+      output, = capture_subprocess_io do
+        result = @subject.system!("ls", "test.txt", chdir: tmpdir)
+
+        assert(result)
+      end
+
+      assert_match(/test\.txt/, output)
 
       # Test that command fails when file doesn't exist
       # Note: ls returns exit status 1 on macOS but 2 on some Linux systems
       _output, _err = capture_subprocess_io do
         error = assert_raises(ClaudeSwarm::Error) do
-          @subject.system!("ls", "nonexistent_file_12345.txt")
+          @subject.system!("ls", "nonexistent_file_12345.txt", chdir: tmpdir)
         end
         assert_match(/Command failed with exit status [12]: ls nonexistent_file_12345.txt/, error.message)
       end

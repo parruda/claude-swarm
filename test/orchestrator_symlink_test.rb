@@ -187,12 +187,13 @@ module ClaudeSwarm
     end
 
     class MockConfiguration
-      attr_reader :swarm_name, :main_instance, :config_path
+      attr_reader :swarm_name, :main_instance, :config_path, :base_dir
 
       def initialize
         @swarm_name = "Test Swarm"
         @main_instance = "leader"
         @config_path = "claude-swarm.yml"
+        @base_dir = Dir.pwd
       end
 
       def main_instance_config

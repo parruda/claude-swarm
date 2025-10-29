@@ -2,14 +2,14 @@
 
 module ClaudeSwarm
   module SystemUtils
-    def system!(*args)
-      system(*args)
+    def system!(*args, **options)
+      system(*args, **options)
       handle_command_failure(last_status, args)
     end
 
-    def system_with_pid!(*args)
+    def system_with_pid!(*args, **options)
       # Spawn the process - by default, inherits the parent's I/O
-      pid = Process.spawn(*args)
+      pid = Process.spawn(*args, **options)
 
       # Yield the PID to the block if given
       yield(pid) if block_given?

@@ -9,7 +9,6 @@ class OrchestratorTranscriptTest < Minitest::Test
     @session_path = File.join(@tmpdir, "session")
     FileUtils.mkdir_p(@session_path)
     ENV["CLAUDE_SWARM_SESSION_PATH"] = @session_path
-    ENV["CLAUDE_SWARM_ROOT_DIR"] = @tmpdir
 
     # Create mock config
     @config = mock_config
@@ -20,7 +19,6 @@ class OrchestratorTranscriptTest < Minitest::Test
   def teardown
     FileUtils.rm_rf(@tmpdir)
     ENV.delete("CLAUDE_SWARM_SESSION_PATH")
-    ENV.delete("CLAUDE_SWARM_ROOT_DIR")
   end
 
   def test_transcript_tailing_waits_for_path_file
@@ -364,6 +362,8 @@ class OrchestratorTranscriptTest < Minitest::Test
     8.times { config.expect(:main_instance, "lead") }
     # Expect instances to be called multiple times for orchestrator initialization
     7.times { config.expect(:instances, {}) }
+    # Expect base_dir to be called for session path generation
+    7.times { config.expect(:base_dir, Dir.pwd) }
     config
   end
 

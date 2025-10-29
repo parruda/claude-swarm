@@ -44,10 +44,6 @@ module ClaudeSwarm
   class Error < StandardError; end
 
   class << self
-    def root_dir
-      ENV.fetch("CLAUDE_SWARM_ROOT_DIR") { Dir.pwd }
-    end
-
     def home_dir
       ENV.fetch("CLAUDE_SWARM_HOME") { File.expand_path("~/.claude-swarm") }
     end
