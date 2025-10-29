@@ -2,17 +2,17 @@
 
 module SwarmSDK
   class Result
-    attr_reader :content, :agent, :cost, :tokens, :duration, :logs, :error, :metadata
+    attr_reader :content, :agent, :duration, :logs, :error, :metadata
 
-    def initialize(content: nil, agent:, cost: 0.0, tokens: {}, duration: 0.0, logs: [], error: nil, metadata: {})
+    def initialize(content: nil, agent:, cost: nil, tokens: nil, duration: 0.0, logs: [], error: nil, metadata: {})
       @content = content
       @agent = agent
-      @cost = cost
-      @tokens = tokens
       @duration = duration
       @logs = logs
       @error = error
       @metadata = metadata
+      # Legacy parameters kept for backward compatibility but not stored
+      # Use total_cost and tokens methods instead which calculate from logs
     end
 
     def success?
@@ -23,12 +23,38 @@ module SwarmSDK
       !success?
     end
 
+    # Calculate total cost from logs
+    #
+    # Delegates to total_cost for consistency. This attribute is calculated
+    # dynamically rather than stored.
+    #
+    # @return [Float] Total cost in dollars
+    def cost
+      total_cost
+    end
+
+    # Get token breakdown from logs
+    #
+    # Returns input and output tokens from the last log entry with usage data.
+    # This attribute is calculated dynamically rather than stored.
+    #
+    # @return [Hash] Token breakdown with :input and :output keys, or empty hash if no usage data
+    def tokens
+      last_entry = @logs.reverse.find { |entry| entry.dig(:usage, :cumulative_input_tokens) }
+      return {} unless last_entry
+
+      {
+        input: last_entry.dig(:usage, :cumulative_input_tokens) || 0,
+        output: last_entry.dig(:usage, :cumulative_output_tokens) || 0,
+      }
+    end
+
     def to_h
       {
         content: @content,
         agent: @agent,
-        cost: @cost,
-        tokens: @tokens,
+        cost: cost,
+        tokens: tokens,
         duration: @duration,
         success: success?,
         error: @error&.message,

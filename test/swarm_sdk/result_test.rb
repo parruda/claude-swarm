@@ -5,21 +5,33 @@ require "test_helper"
 module SwarmSDK
   class ResultTest < Minitest::Test
     def test_initialization_with_all_parameters
+      # NOTE: cost and tokens are calculated from logs, not from initialization parameters
+      logs = [
+        {
+          type: "agent_stop",
+          usage: {
+            total_cost: 0.05,
+            input_cost: 0.03,
+            output_cost: 0.02,
+            cumulative_input_tokens: 100,
+            cumulative_output_tokens: 50,
+            cumulative_total_tokens: 150,
+          },
+        },
+      ]
       result = Result.new(
         content: "Task completed",
         agent: "backend",
-        cost: 0.05,
-        tokens: { input: 100, output: 50 },
         duration: 2.5,
-        logs: [{ type: "test" }],
+        logs: logs,
         error: StandardError.new("Test error"),
         metadata: { session_id: "123" },
       )
 
       assert_equal("Task completed", result.content)
       assert_equal("backend", result.agent)
-      assert_in_delta(0.05, result.cost)
-      assert_equal({ input: 100, output: 50 }, result.tokens)
+      assert_in_delta(0.05, result.cost) # Calculated from logs
+      assert_equal({ input: 100, output: 50 }, result.tokens) # Calculated from logs
       assert_in_delta(2.5, result.duration)
       assert_equal(1, result.logs.size)
       assert_instance_of(StandardError, result.error)
@@ -77,12 +89,24 @@ module SwarmSDK
     end
 
     def test_to_h_with_success
+      logs = [
+        {
+          type: "agent_stop",
+          usage: {
+            total_cost: 0.02,
+            input_cost: 0.012,
+            output_cost: 0.008,
+            cumulative_input_tokens: 50,
+            cumulative_output_tokens: 25,
+            cumulative_total_tokens: 75,
+          },
+        },
+      ]
       result = Result.new(
         content: "Response",
         agent: "backend",
-        cost: 0.02,
-        tokens: { input: 50, output: 25 },
         duration: 1.2,
+        logs: logs,
         metadata: { key: "value" },
       )
 
@@ -115,8 +139,6 @@ module SwarmSDK
       result = Result.new(
         content: nil,
         agent: "test",
-        cost: 0.0,
-        tokens: {},
         duration: 0.0,
         logs: [],
         error: nil,
@@ -127,8 +149,8 @@ module SwarmSDK
 
       # Has non-nil values
       assert(hash.key?(:agent))
-      assert(hash.key?(:cost))
-      assert(hash.key?(:tokens))
+      assert(hash.key?(:cost)) # Will be 0.0 from empty logs
+      assert(hash.key?(:tokens)) # Will be {} from empty logs
       assert(hash.key?(:duration))
       assert(hash.key?(:success))
       assert(hash.key?(:metadata))
@@ -139,10 +161,23 @@ module SwarmSDK
     end
 
     def test_to_json
+      logs = [
+        {
+          type: "agent_stop",
+          usage: {
+            total_cost: 0.01,
+            input_cost: 0.006,
+            output_cost: 0.004,
+            cumulative_input_tokens: 30,
+            cumulative_output_tokens: 20,
+            cumulative_total_tokens: 50,
+          },
+        },
+      ]
       result = Result.new(
         content: "Test response",
         agent: "backend",
-        cost: 0.01,
+        logs: logs,
       )
 
       json_string = result.to_json
