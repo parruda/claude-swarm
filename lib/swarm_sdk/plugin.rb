@@ -7,7 +7,32 @@ module SwarmSDK
   # Plugins are self-registering - they call SwarmSDK::PluginRegistry.register
   # when the gem is loaded.
   #
-  # @example Implementing a plugin
+  # ## Adding Custom Attributes to Agents
+  #
+  # Plugins can add custom attributes to Agent::Definition that are preserved
+  # when agents are cloned (e.g., in NodeOrchestrator). To do this:
+  #
+  # 1. Add attr_reader to Agent::Definition for your attribute
+  # 2. Parse the attribute in Agent::Definition#initialize
+  # 3. Implement serialize_config to preserve it during serialization
+  #
+  # @example Plugin with custom agent attributes
+  #   # 1. Extend Agent::Definition (in your plugin gem)
+  #   module SwarmSDK
+  #     module Agent
+  #       class Definition
+  #         attr_reader :my_custom_config
+  #
+  #         alias_method :original_initialize, :initialize
+  #         def initialize(name, config = {})
+  #           @my_custom_config = config[:my_custom_config]
+  #           original_initialize(name, config)
+  #         end
+  #       end
+  #     end
+  #   end
+  #
+  #   # 2. Implement plugin with serialize_config
   #   class MyPlugin < SwarmSDK::Plugin
   #     def name
   #       :my_plugin
@@ -20,9 +45,34 @@ module SwarmSDK
   #     def create_tool(tool_name, context)
   #       # Create and return tool instance
   #     end
+  #
+  #     # Preserve custom config when agents are cloned
+  #     def serialize_config(agent_definition:)
+  #       return {} unless agent_definition.my_custom_config
+  #
+  #       { my_custom_config: agent_definition.my_custom_config }
+  #     end
   #   end
   #
   #   SwarmSDK::PluginRegistry.register(MyPlugin.new)
+  #
+  # Now agents can use your custom config:
+  #
+  #   agent :researcher do
+  #     my_custom_config { option: "value" }
+  #   end
+  #
+  # And it will be preserved when NodeOrchestrator clones the agent!
+  #
+  # @example Real-world: SwarmMemory plugin
+  #   # SwarmMemory adds 'memory' attribute to agents
+  #   class SDKPlugin < SwarmSDK::Plugin
+  #     def serialize_config(agent_definition:)
+  #       return {} unless agent_definition.memory
+  #       { memory: agent_definition.memory }
+  #     end
+  #   end
+  #
   class Plugin
     # Plugin name (must be unique)
     #
@@ -142,6 +192,28 @@ module SwarmSDK
     #   end
     def on_user_message(agent_name:, prompt:, is_first_message:)
       []
+    end
+
+    # Contribute to agent serialization (optional)
+    #
+    # Called when Agent::Definition.to_h is invoked (e.g., for cloning agents
+    # in NodeOrchestrator). Plugins can return config keys that should be
+    # included in the serialized hash to preserve their state.
+    #
+    # This allows plugins to maintain their configuration when agents are
+    # cloned or serialized, without SwarmSDK needing to know about plugin-specific fields.
+    #
+    # @param agent_definition [Agent::Definition] Agent definition
+    # @return [Hash] Config keys to include in to_h (e.g., { memory: config })
+    #
+    # @example Memory plugin serialization
+    #   def serialize_config(agent_definition:)
+    #     return {} unless agent_definition.memory
+    #
+    #     { memory: agent_definition.memory }
+    #   end
+    def serialize_config(agent_definition:)
+      {}
     end
   end
 end

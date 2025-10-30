@@ -5,6 +5,15 @@ All notable changes to SwarmCLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **`swarm mcp tools` command initialization** - Fixed crash on startup
+  - Bug: Used non-existent `SwarmSDK::Scratchpad` class
+  - Fix: Changed to `SwarmSDK::Tools::Stores::ScratchpadStorage` (correct class)
+  - Added comprehensive test suite to prevent similar initialization bugs
+  - Tests verify command initializes without errors
+
 ## [2.1.0]
 - Bump gem version with the rest of the gems.
 

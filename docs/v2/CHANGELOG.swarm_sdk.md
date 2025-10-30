@@ -26,10 +26,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Agent::Definition.to_h**: Now includes additional fields for complete serialization
-  - Added: `memory`, `permissions`, `context_window`, `default_permissions`
-  - Fixes bug where memory and permissions were lost when cloning agents for nodes
-  - Improves inspection and debugging capabilities
+- **Result object**: Cost and tokens now calculated dynamically from logs
+  - `result.cost` and `result.tokens` now properly populated after swarm execution
+  - Values are calculated from usage data in logs, not stored during initialization
+  - Fixed issue where these attributes were always 0/empty
+
+- **Plugin serialization**: New `serialize_config` hook for plugin extensibility
+  - Plugins can now contribute to `Agent::Definition.to_h` via `serialize_config` hook
+  - Removes memory-specific code from SwarmSDK core (moved to SwarmMemory plugin)
+  - Maintains backward compatibility - permissions remain in core SDK (not plugin-specific)
+  - Enables clean separation between core SDK and plugin features (memory, skills, etc.)
+  - Plugins can preserve their configuration when agents are cloned in NodeOrchestrator
 
 - **NodeOrchestrator**: Passes scratchpad configuration to mini-swarms
   - Bug fix: `scratchpad_enabled` now correctly propagated to node-level swarms

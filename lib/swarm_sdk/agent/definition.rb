@@ -158,7 +158,8 @@ module SwarmSDK
       end
 
       def to_h
-        {
+        # Core SDK configuration (always serialized)
+        base_config = {
           name: @name,
           description: @description,
           model: SwarmSDK::Models.resolve_alias(@model), # Resolve model aliases
@@ -180,10 +181,21 @@ module SwarmSDK
           assume_model_exists: @assume_model_exists,
           max_concurrent_tools: @max_concurrent_tools,
           hooks: @hooks,
-          memory: @memory, # Preserve memory configuration when cloning
-          default_permissions: @default_permissions, # Preserve permissions when cloning
-          permissions: @agent_permissions, # Preserve permissions when cloning
+          # Permissions are core SDK functionality (not plugin-specific)
+          default_permissions: @default_permissions,
+          permissions: @agent_permissions,
         }.compact
+
+        # Allow plugins to contribute their config for serialization
+        # This enables plugin features (memory, skills, etc.) to be preserved
+        # when cloning agents without SwarmSDK knowing about plugin-specific fields
+        plugin_configs = SwarmSDK::PluginRegistry.all.map do |plugin|
+          plugin.serialize_config(agent_definition: self)
+        end
+
+        # Merge plugin configs into base config
+        # Later plugins override earlier ones if they have conflicting keys
+        plugin_configs.reduce(base_config) { |acc, config| acc.merge(config) }
       end
 
       # Validate agent configuration and return warnings (non-fatal issues)

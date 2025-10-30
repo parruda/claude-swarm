@@ -207,6 +207,19 @@ module SwarmMemory
         agent_definition.memory_enabled?
       end
 
+      # Contribute to agent serialization
+      #
+      # Preserves memory configuration when agents are cloned (e.g., in NodeOrchestrator).
+      # This allows memory configuration to persist across node transitions.
+      #
+      # @param agent_definition [Agent::Definition] Agent definition
+      # @return [Hash] Memory config to include in to_h
+      def serialize_config(agent_definition:)
+        return {} unless agent_definition.memory
+
+        { memory: agent_definition.memory }
+      end
+
       # Lifecycle: Agent initialized
       #
       # Filters tools by mode (removing non-mode tools), registers LoadSkill,
