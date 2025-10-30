@@ -30,6 +30,7 @@ require "zeitwerk"
 loader = Zeitwerk::Loader.new
 loader.tag = File.basename(__FILE__, ".rb")
 loader.push_dir("#{__dir__}/swarm_memory", namespace: SwarmMemory)
+loader.inflector = Zeitwerk::GemInflector.new(__FILE__)
 loader.setup
 
 # Explicitly load DSL components and extensions to inject into SwarmSDK

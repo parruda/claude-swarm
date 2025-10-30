@@ -23,17 +23,12 @@ require "zeitwerk"
 loader = Zeitwerk::Loader.new
 loader.tag = File.basename(__FILE__, ".rb")
 loader.push_dir("#{__dir__}/swarm_sdk", namespace: SwarmSDK)
+loader.inflector = Zeitwerk::GemInflector.new(__FILE__)
 loader.inflector.inflect(
   "cli" => "CLI",
+  "openai_with_responses" => "OpenAIWithResponses",
 )
 loader.setup
-
-# Load plugin system explicitly (core infrastructure)
-require_relative "swarm_sdk/plugin"
-require_relative "swarm_sdk/plugin_registry"
-
-# Load custom providers explicitly (Zeitwerk doesn't eager load by default)
-require_relative "swarm_sdk/providers/openai_with_responses"
 
 module SwarmSDK
   class Error < StandardError; end
