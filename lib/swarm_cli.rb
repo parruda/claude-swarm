@@ -24,6 +24,7 @@ require "zeitwerk"
 loader = Zeitwerk::Loader.new
 loader.tag = File.basename(__FILE__, ".rb")
 loader.push_dir("#{__dir__}/swarm_cli", namespace: SwarmCLI)
+loader.inflector = Zeitwerk::GemInflector.new(__FILE__)
 loader.inflector.inflect(
   "cli" => "CLI",
   "ui" => "UI",

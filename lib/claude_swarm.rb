@@ -34,6 +34,7 @@ loader = Zeitwerk::Loader.new
 loader.tag = File.basename(__FILE__, ".rb")
 loader.ignore("#{__dir__}/claude_swarm/templates")
 loader.push_dir("#{__dir__}/claude_swarm", namespace: ClaudeSwarm)
+loader.inflector = Zeitwerk::GemInflector.new(__FILE__)
 loader.inflector.inflect(
   "cli" => "CLI",
   "openai" => "OpenAI",
