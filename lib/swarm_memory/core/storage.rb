@@ -95,27 +95,30 @@ module SwarmMemory
         )
       end
 
-      # Read content from storage
+      # Read content from storage, automatically following stub redirects
       #
       # @param file_path [String] Path to read from
       # @return [String] Content at the path
       def read(file_path:)
-        normalized_path = PathNormalizer.normalize(file_path)
-        @adapter.read(file_path: normalized_path)
+        entry = read_entry(file_path: file_path)
+        entry.content
       end
 
       # Read full entry with metadata, automatically following stub redirects
       #
+      # Stub redirects are created by MemoryDefrag when merging/moving entries.
+      # This method transparently follows redirect chains up to 5 levels deep.
+      #
       # @param file_path [String] Path to read from
-      # @param _visited [Array<String>] Internal: tracks visited paths to detect circular redirects
+      # @param visited [Array<String>] Internal: tracks visited paths to detect circular redirects
       # @return [Entry] Full entry object
       # @raise [ArgumentError] If path not found, circular redirect detected, or too many redirects
-      def read_entry(file_path:, _visited: [])
+      def read_entry(file_path:, visited: [])
         normalized_path = PathNormalizer.normalize(file_path)
 
         # Detect circular redirects immediately
-        if _visited.include?(normalized_path)
-          cycle = _visited + [normalized_path]
+        if visited.include?(normalized_path)
+          cycle = visited + [normalized_path]
           raise ArgumentError,
             "Circular redirect detected in memory storage: #{cycle.join(" → ")}\n\n" \
               "This indicates corrupted stub files. Please run MemoryDefrag to repair:\n  " \
@@ -123,8 +126,8 @@ module SwarmMemory
         end
 
         # Check depth limit (prevent infinite chains)
-        if _visited.size >= 5
-          chain = _visited + [normalized_path]
+        if visited.size >= 5
+          chain = visited + [normalized_path]
           raise ArgumentError,
             "Memory redirect chain too deep (>5 redirects): #{chain.join(" → ")}\n\n" \
               "This indicates fragmented memory storage. Please run maintenance:\n  " \
@@ -137,11 +140,11 @@ module SwarmMemory
           entry = @adapter.read_entry(file_path: normalized_path)
         rescue ArgumentError
           # If this is a redirect target that doesn't exist, provide helpful error
-          if _visited.empty?
+          if visited.empty?
             # Not a redirect, just re-raise original error
             raise
           else
-            original_path = _visited.first
+            original_path = visited.first
             raise ArgumentError,
               "memory://#{original_path} was redirected to memory://#{normalized_path}, but the target was not found.\n\n" \
                 "The original entry may have been merged or moved incorrectly. " \
@@ -163,7 +166,7 @@ module SwarmMemory
           end
 
           # Follow redirect recursively, tracking visited paths
-          return read_entry(file_path: redirect_target, _visited: _visited + [normalized_path])
+          return read_entry(file_path: redirect_target, visited: visited + [normalized_path])
         end
 
         # Not a stub, return the entry

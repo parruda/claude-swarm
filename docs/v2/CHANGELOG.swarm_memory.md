@@ -5,6 +5,19 @@ All notable changes to SwarmMemory will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **Stub redirect logic moved to Storage layer** - Architectural improvement for adapter-agnostic redirects
+  - Redirect following moved from `FilesystemAdapter` to `Storage#read_entry`
+  - Uses metadata-based detection (`stub: true`, `redirect_to`) instead of content parsing
+  - All future adapters (PostgreSQL, Redis, S3) get redirect support for free
+  - Improved error handling with helpful diagnostic messages
+  - Detects circular redirects immediately with full cycle path
+  - Enforces depth limit (5 redirects) to prevent infinite chains
+  - Added comprehensive test suite with 10 tests covering all edge cases
+  - Added validation to `Defragmenter#create_stub` to prevent malformed stubs
+
 ## [2.1.1]
 
 ### Added

@@ -171,12 +171,6 @@ module SwarmMemory
 
         content = File.read(md_file)
 
-        # Check if it's a stub (redirect)
-        if stub_content?(content)
-          target_path = extract_redirect_target(content)
-          return read(file_path: target_path) if target_path
-        end
-
         # Increment hit counter
         increment_hits(file_path)
 
@@ -204,12 +198,6 @@ module SwarmMemory
         raise ArgumentError, "memory://#{file_path} not found" unless File.exist?(md_file)
 
         content = File.read(md_file)
-
-        # Follow stub redirect if applicable
-        if stub_content?(content)
-          target_path = extract_redirect_target(content)
-          return read_entry(file_path: target_path) if target_path
-        end
 
         # Read metadata
         yaml_data = File.exist?(yaml_file) ? YAML.load_file(yaml_file, permitted_classes: [Time, Date, Symbol]) : {}
