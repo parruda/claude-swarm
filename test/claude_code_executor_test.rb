@@ -5,8 +5,6 @@ require "test_helper"
 class ClaudeCodeExecutorTest < Minitest::Test
   def setup
     @tmpdir = Dir.mktmpdir
-    @original_dir = Dir.pwd
-    Dir.chdir(@tmpdir)
 
     # Set up session path for tests
     @session_path = File.join(@tmpdir, "test_session")
@@ -20,7 +18,6 @@ class ClaudeCodeExecutorTest < Minitest::Test
   end
 
   def teardown
-    Dir.chdir(@original_dir)
     FileUtils.rm_rf(@tmpdir)
     ENV.delete("CLAUDE_SWARM_SESSION_PATH")
   end

@@ -5,18 +5,17 @@ require "test_helper"
 class CLITest < Minitest::Test
   def setup
     @tmpdir = Dir.mktmpdir
-    @original_dir = Dir.pwd
-    Dir.chdir(@tmpdir)
     @cli = ClaudeSwarm::CLI.new
   end
 
   def teardown
-    Dir.chdir(@original_dir)
     FileUtils.rm_rf(@tmpdir)
   end
 
   def write_config(filename, content)
-    File.write(filename, content)
+    path = File.join(@tmpdir, filename)
+    File.write(path, content)
+    path
   end
 
   def capture_cli_output(&)
@@ -44,15 +43,15 @@ class CLITest < Minitest::Test
   end
 
   def test_start_with_invalid_yaml
-    write_config("invalid.yml", "invalid: yaml: syntax:")
+    config_path = write_config("invalid.yml", "invalid: yaml: syntax:")
 
     assert_raises(SystemExit) do
-      capture_cli_output { @cli.start("invalid.yml") }
+      capture_cli_output { @cli.start(config_path) }
     end
   end
 
   def test_start_with_configuration_error
-    write_config("bad-config.yml", <<~YAML)
+    config_path = write_config("bad-config.yml", <<~YAML)
       version: 2
       swarm:
         name: "Test"
@@ -64,14 +63,14 @@ class CLITest < Minitest::Test
     YAML
 
     _, err = capture_cli_output do
-      assert_raises(SystemExit) { @cli.start("bad-config.yml") }
+      assert_raises(SystemExit) { @cli.start(config_path) }
     end
 
     assert_match(/Unsupported version/, err)
   end
 
   def test_start_with_valid_config
-    write_config("valid.yml", <<~YAML)
+    config_path = write_config("valid.yml", <<~YAML)
       version: 1
       swarm:
         name: "Test"
@@ -87,14 +86,14 @@ class CLITest < Minitest::Test
     orchestrator_mock.expect(:start, nil)
 
     ClaudeSwarm::Orchestrator.stub(:new, orchestrator_mock) do
-      capture_cli_output { @cli.start("valid.yml") }
+      capture_cli_output { @cli.start(config_path) }
     end
 
     orchestrator_mock.verify
   end
 
   def test_start_with_options
-    write_config("custom.yml", <<~YAML)
+    config_path = write_config("custom.yml", <<~YAML)
       version: 1
       swarm:
         name: "Test"
@@ -111,14 +110,14 @@ class CLITest < Minitest::Test
     orchestrator_mock.expect(:start, nil)
 
     ClaudeSwarm::Orchestrator.stub(:new, orchestrator_mock) do
-      capture_cli_output { @cli.start("custom.yml") }
+      capture_cli_output { @cli.start(config_path) }
     end
 
     orchestrator_mock.verify
   end
 
   def test_start_with_prompt_option
-    write_config("valid.yml", <<~YAML)
+    config_path = write_config("valid.yml", <<~YAML)
       version: 1
       swarm:
         name: "Test"
@@ -143,7 +142,7 @@ class CLITest < Minitest::Test
         assert_nil(options[:vibe])
         orchestrator_mock
       }) do
-        output, = capture_cli_output { @cli.start("valid.yml") }
+        output, = capture_cli_output { @cli.start(config_path) }
         # Verify that startup message is suppressed when prompt is provided
         refute_match(/Starting Claude Swarm/, output)
       end
@@ -153,7 +152,7 @@ class CLITest < Minitest::Test
   end
 
   def test_start_without_prompt_shows_message
-    write_config("valid.yml", <<~YAML)
+    config_path = write_config("valid.yml", <<~YAML)
       version: 1
       swarm:
         name: "Test"
@@ -170,7 +169,7 @@ class CLITest < Minitest::Test
     orchestrator_mock.expect(:start, nil)
 
     ClaudeSwarm::Orchestrator.stub(:new, orchestrator_mock) do
-      output, = capture_cli_output { @cli.start("valid.yml") }
+      output, = capture_cli_output { @cli.start(config_path) }
       # Verify that startup message is shown when prompt is not provided
       # The path is now expanded to absolute path
       assert_match(/Starting Claude Swarm from.*valid\.yml\.\.\./, output)
@@ -228,128 +227,118 @@ class CLITest < Minitest::Test
   end
 
   def test_start_with_root_dir_resolves_relative_paths
-    Dir.mktmpdir do |tmpdir|
-      # Create a project structure
-      project_dir = File.join(tmpdir, "my-project")
-      config_dir = File.join(project_dir, "configs")
-      FileUtils.mkdir_p(config_dir)
+    # Create a project structure
+    project_dir = File.join(@tmpdir, "my-project")
+    config_dir = File.join(project_dir, "configs")
+    FileUtils.mkdir_p(config_dir)
 
-      # Create a valid config file
-      config_file = File.join(config_dir, "swarm.yml")
-      File.write(config_file, valid_test_config)
+    # Create a valid config file
+    config_file = File.join(config_dir, "swarm.yml")
+    File.write(config_file, valid_test_config)
 
-      # Create another directory to run from
-      run_dir = File.join(tmpdir, "run-from-here")
-      FileUtils.mkdir_p(run_dir)
+    # Create another directory to run from
+    run_dir = File.join(@tmpdir, "run-from-here")
+    FileUtils.mkdir_p(run_dir)
 
-      Dir.chdir(run_dir) do
-        # Set root_dir to the project directory
-        @cli.options = {
-          root_dir: project_dir,
-          prompt: "test", # Non-interactive mode to avoid exec
-        }
+    # Set root_dir to the project directory
+    @cli.options = {
+      root_dir: project_dir,
+      prompt: "test", # Non-interactive mode to avoid exec
+    }
 
-        # Mock only the Orchestrator to prevent actual execution
-        orchestrator_mock = Minitest::Mock.new
-        orchestrator_mock.expect(:start, nil)
+    # Mock only the Orchestrator to prevent actual execution
+    orchestrator_mock = Minitest::Mock.new
+    orchestrator_mock.expect(:start, nil)
 
-        # Let Configuration and McpGenerator run for real
-        ClaudeSwarm::Orchestrator.stub(:new, lambda { |config, generator, **_opts|
-          # Verify that config was loaded from the correct path
-          assert_instance_of(ClaudeSwarm::Configuration, config)
-          assert_equal("Test Swarm", config.swarm["name"])
-          assert_equal("lead", config.swarm["main"])
+    # Let Configuration and McpGenerator run for real
+    ClaudeSwarm::Orchestrator.stub(:new, lambda { |config, generator, **_opts|
+      # Verify that config was loaded from the correct path
+      assert_instance_of(ClaudeSwarm::Configuration, config)
+      assert_equal("Test Swarm", config.swarm["name"])
+      assert_equal("lead", config.swarm["main"])
 
-          # Verify the generator received the real config
-          assert_instance_of(ClaudeSwarm::McpGenerator, generator)
+      # Verify the generator received the real config
+      assert_instance_of(ClaudeSwarm::McpGenerator, generator)
 
-          orchestrator_mock
-        }) do
-          # This should successfully find and load configs/swarm.yml relative to project_dir
-          output, = capture_cli_output { @cli.start("configs/swarm.yml") }
+      orchestrator_mock
+    }) do
+      # This should successfully find and load configs/swarm.yml relative to project_dir
+      output, = capture_cli_output { @cli.start("configs/swarm.yml") }
 
-          # The file should be found and loaded
-          refute_match(/Configuration file not found/, output)
-        end
-      end
+      # The file should be found and loaded
+      refute_match(/Configuration file not found/, output)
     end
   end
 
   def test_start_with_root_dir_file_not_found
-    Dir.mktmpdir do |tmpdir|
-      @cli.options = { root_dir: tmpdir }
+    @cli.options = { root_dir: @tmpdir }
 
-      # Should exit with error when file doesn't exist
-      # Error messages now go to stderr
-      _, err = capture_io do
-        assert_raises(SystemExit) { @cli.start("nonexistent.yml") }
-      end
-      # Check that error message contains the expected text
-      assert_match(/Configuration file not found/, err)
+    # Should exit with error when file doesn't exist
+    # Error messages now go to stderr
+    _, err = capture_io do
+      assert_raises(SystemExit) { @cli.start("nonexistent.yml") }
     end
+    # Check that error message contains the expected text
+    assert_match(/Configuration file not found/, err)
   end
 
   def test_start_with_absolute_path_ignores_root_dir
-    Dir.mktmpdir do |tmpdir|
-      # Create config in one location
-      config_file = File.join(tmpdir, "config.yml")
-      File.write(config_file, valid_test_config)
+    # Create config in one location
+    config_file = File.join(@tmpdir, "config.yml")
+    File.write(config_file, valid_test_config)
 
-      # Set root_dir to a different location
-      other_dir = File.join(tmpdir, "other")
-      FileUtils.mkdir_p(other_dir)
+    # Set root_dir to a different location
+    other_dir = File.join(@tmpdir, "other")
+    FileUtils.mkdir_p(other_dir)
 
-      @cli.options = {
-        root_dir: other_dir,
-        prompt: "test",
-      }
+    @cli.options = {
+      root_dir: other_dir,
+      prompt: "test",
+    }
 
-      orchestrator_mock = Minitest::Mock.new
-      orchestrator_mock.expect(:start, nil)
+    orchestrator_mock = Minitest::Mock.new
+    orchestrator_mock.expect(:start, nil)
 
-      ClaudeSwarm::Orchestrator.stub(:new, lambda { |config, _generator, **_opts|
-        # Should load config from the absolute path, not from other_dir
-        assert_instance_of(ClaudeSwarm::Configuration, config)
-        assert_equal("Test Swarm", config.swarm["name"])
-        orchestrator_mock
-      }) do
-        # Absolute path should work regardless of root_dir
-        output, = capture_cli_output { @cli.start(config_file) }
+    ClaudeSwarm::Orchestrator.stub(:new, lambda { |config, _generator, **_opts|
+      # Should load config from the absolute path, not from other_dir
+      assert_instance_of(ClaudeSwarm::Configuration, config)
+      assert_equal("Test Swarm", config.swarm["name"])
+      orchestrator_mock
+    }) do
+      # Absolute path should work regardless of root_dir
+      output, = capture_cli_output { @cli.start(config_file) }
 
-        refute_match(/Configuration file not found/, output)
-      end
+      refute_match(/Configuration file not found/, output)
     end
   end
 
   def test_start_without_root_dir_uses_current_directory
-    Dir.mktmpdir do |tmpdir|
-      config_file = "relative/path/config.yml"
-      full_config_path = File.join(tmpdir, config_file)
+    config_file = "relative/path/config.yml"
+    full_config_path = File.join(@tmpdir, config_file)
 
-      # Create the directory structure
-      FileUtils.mkdir_p(File.dirname(full_config_path))
+    # Create the directory structure
+    FileUtils.mkdir_p(File.dirname(full_config_path))
 
-      # Write valid config
-      File.write(full_config_path, valid_test_config)
+    # Write valid config
+    File.write(full_config_path, valid_test_config)
 
-      # No root_dir option set - should use current directory
-      @cli.options = { prompt: "test" }
+    # No root_dir option set - should use current directory
+    @cli.options = { prompt: "test" }
 
-      orchestrator_mock = Minitest::Mock.new
-      orchestrator_mock.expect(:start, nil)
+    orchestrator_mock = Minitest::Mock.new
+    orchestrator_mock.expect(:start, nil)
 
-      # Change to tmpdir to simulate current directory
-      Dir.chdir(tmpdir) do
-        ClaudeSwarm::Orchestrator.stub(:new, lambda { |config, _generator, **_opts|
-          # Verify config was loaded from current directory
-          assert_instance_of(ClaudeSwarm::Configuration, config)
-          assert_equal("Test Swarm", config.swarm["name"])
-          orchestrator_mock
-        }) do
-          output, = capture_cli_output { @cli.start(config_file) }
+    # Mock Dir.pwd to return @tmpdir
+    Dir.stub(:pwd, @tmpdir) do
+      ClaudeSwarm::Orchestrator.stub(:new, lambda { |config, _generator, **_opts|
+        # Verify config was loaded from current directory
+        assert_instance_of(ClaudeSwarm::Configuration, config)
+        assert_equal("Test Swarm", config.swarm["name"])
+        orchestrator_mock
+      }) do
+        output, = capture_cli_output { @cli.start(config_file) }
 
-          refute_match(/Configuration file not found/, output)
-        end
+        refute_match(/Configuration file not found/, output)
       end
     end
   end
@@ -608,7 +597,7 @@ class CLITest < Minitest::Test
   end
 
   def test_start_unexpected_error_without_verbose
-    write_config("valid.yml", <<~YAML)
+    config_path = write_config("valid.yml", <<~YAML)
       version: 1
       swarm:
         name: "Test"
@@ -625,7 +614,7 @@ class CLITest < Minitest::Test
       raise StandardError, "Unexpected test error"
     }) do
       _, err = capture_cli_output do
-        assert_raises(SystemExit) { @cli.start("valid.yml") }
+        assert_raises(SystemExit) { @cli.start(config_path) }
       end
 
       assert_match(/Unexpected error: Unexpected test error/, err)
@@ -634,7 +623,7 @@ class CLITest < Minitest::Test
   end
 
   def test_start_unexpected_error_with_verbose
-    write_config("valid.yml", <<~YAML)
+    config_path = write_config("valid.yml", <<~YAML)
       version: 1
       swarm:
         name: "Test"
@@ -651,7 +640,7 @@ class CLITest < Minitest::Test
       raise StandardError, "Unexpected test error"
     }) do
       _, err = capture_cli_output do
-        assert_raises(SystemExit) { @cli.start("valid.yml") }
+        assert_raises(SystemExit) { @cli.start(config_path) }
       end
 
       assert_match(/Unexpected error: Unexpected test error/, err)
@@ -893,7 +882,7 @@ class CLITest < Minitest::Test
   end
 
   def test_start_with_session_id_option
-    write_config("valid.yml", <<~YAML)
+    config_path = write_config("valid.yml", <<~YAML)
       version: 1
       swarm:
         name: "Test"
@@ -916,7 +905,7 @@ class CLITest < Minitest::Test
         assert_equal("custom-session-456", options[:session_id])
         orchestrator_mock
       }) do
-        capture_cli_output { @cli.start("valid.yml") }
+        capture_cli_output { @cli.start(config_path) }
       end
     end
 
@@ -924,7 +913,7 @@ class CLITest < Minitest::Test
   end
 
   def test_start_with_multiple_options_including_session_id
-    write_config("valid.yml", <<~YAML)
+    config_path = write_config("valid.yml", <<~YAML)
       version: 1
       swarm:
         name: "Test"
@@ -955,7 +944,7 @@ class CLITest < Minitest::Test
         assert(options[:debug])
         orchestrator_mock
       }) do
-        capture_cli_output { @cli.start("valid.yml") }
+        capture_cli_output { @cli.start(config_path) }
       end
     end
 

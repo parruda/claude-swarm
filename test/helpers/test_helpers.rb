@@ -1,80 +1,6 @@
 # frozen_string_literal: true
 
 module TestHelpers
-  module FileHelpers
-    def with_temp_dir
-      Dir.mktmpdir do |tmpdir|
-        original_dir = Dir.pwd
-        begin
-          Dir.chdir(tmpdir)
-          yield tmpdir
-        ensure
-          Dir.chdir(original_dir)
-        end
-      end
-    end
-
-    def write_config_file(filename, content)
-      File.write(filename, content)
-    end
-
-    def create_directories(*dirs)
-      dirs.each { |dir| FileUtils.mkdir_p(dir) }
-    end
-
-    def assert_file_exists(path, message = nil)
-      assert_path_exists(path, message || "Expected file #{path} to exist")
-    end
-
-    def assert_directory_exists(path, message = nil)
-      assert_predicate(Pathname.new(path), :directory?, message || "Expected directory #{path} to exist")
-    end
-
-    def read_json_file(path)
-      JSON.parse(File.read(path))
-    end
-  end
-
-  module MockHelpers
-    def mock_executor(responses = {})
-      mock = Minitest::Mock.new
-
-      # Default responses
-      mock.expect(:session_id, responses[:session_id] || "test-session-1")
-      mock.expect(:has_session?, responses[:has_session] || true)
-      mock.expect(:working_directory, responses[:working_directory] || Dir.pwd)
-
-      mock.expect(:execute, responses[:execute], [String, Hash]) if responses[:execute]
-
-      mock.expect(:reset_session, nil) if responses[:reset_session]
-
-      mock
-    end
-
-    def mock_orchestrator
-      mock = Minitest::Mock.new
-      mock.expect(:start, nil)
-      mock
-    end
-
-    def mock_mcp_server
-      mock = Minitest::Mock.new
-      mock.expect(:register_tool, nil, [Class])
-      mock.expect(:register_tool, nil, [Class])
-      mock.expect(:register_tool, nil, [Class])
-      mock.expect(:start, nil)
-      mock
-    end
-
-    def with_mocked_exec
-      captured_command = nil
-      Object.any_instance.stub(:exec, ->(cmd) { captured_command = cmd }) do
-        yield captured_command
-      end
-      captured_command
-    end
-  end
-
   module AssertionHelpers
     def assert_includes_all(collection, items, message = nil)
       items.each do |item|
@@ -387,11 +313,8 @@ end
 # Include all helpers in test classes
 module Minitest
   class Test
-    include TestHelpers::FileHelpers
-    include TestHelpers::MockHelpers
     include TestHelpers::AssertionHelpers
     include TestHelpers::CLIHelpers
-    include TestHelpers::SwarmHelpers
     include TestHelpers::LogHelpers
     include TestHelpers::McpHelpers
     include TestHelpers::SystemUtilsHelpers

@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "tmpdir"
-require "fileutils"
 
 class OrchestratorWorktreeErrorCleanupTest < Minitest::Test
   include TestHelpers
@@ -34,13 +32,9 @@ class OrchestratorWorktreeErrorCleanupTest < Minitest::Test
             directory: ./frontend
             model: sonnet
     YAML
-
-    # Change to repo directory
-    Dir.chdir(@repo_dir)
   end
 
   def teardown
-    Dir.chdir(@original_dir) # Restore original directory
     FileUtils.rm_rf(@temp_dir)
   end
 
@@ -71,7 +65,7 @@ class OrchestratorWorktreeErrorCleanupTest < Minitest::Test
     )
 
     # Mock the system_with_pid! method to prevent actual Claude execution
-    orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+    orchestrator.stub(:system_with_pid!, lambda { |*_args, **_kwargs, &block|
       block&.call(12345)
       nil
     }) do
@@ -122,13 +116,10 @@ class OrchestratorWorktreeErrorCleanupTest < Minitest::Test
       worktree: "test-branch",
     )
 
-    # Mock the system_with_pid! method to prevent actual Claude execution
-    orchestrator.stub(:system_with_pid!, lambda { |*_args, &block|
+    orchestrator.stub(:system_with_pid!, lambda { |*_args, **_kwargs, &block|
       block&.call(12345)
-      nil
     }) do
-      orchestrator.stub(:stream_to_session_log, nil) do
-        # Capture output to avoid test noise
+      orchestrator.stub(:stream_to_session_log, lambda { |*_args, **_kwargs| nil }) do
         capture_io do
           # The orchestrator should exit(1) when directory validation fails
           assert_raises(SystemExit) do
@@ -148,13 +139,12 @@ class OrchestratorWorktreeErrorCleanupTest < Minitest::Test
 
   def setup_git_repo(path)
     FileUtils.mkdir_p(path)
-    Dir.chdir(path) do
-      system("git init", out: File::NULL, err: File::NULL)
-      system("git config user.name 'Test User'", out: File::NULL, err: File::NULL)
-      system("git config user.email 'test@example.com'", out: File::NULL, err: File::NULL)
-      File.write("README.md", "Test repo")
-      system("git add README.md", out: File::NULL, err: File::NULL)
-      system("git commit -m 'Initial commit'", out: File::NULL, err: File::NULL)
-    end
+    system_options = { out: File::NULL, err: File::NULL, chdir: path }
+    system("git init", **system_options)
+    system("git config user.name 'Test User'", **system_options)
+    system("git config user.email 'test@example.com'", **system_options)
+    File.write(File.join(path, "README.md"), "Test repo")
+    system("git add README.md", **system_options)
+    system("git commit -m 'Initial commit'", **system_options)
   end
 end

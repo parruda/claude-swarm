@@ -6,6 +6,13 @@
   - Prevents "uninitialized constant ClaudeSwarm::VERSION" errors during gem loading
   - Ensures version information is available throughout the application
 
+### Changed
+- **Process spawning now uses chdir option**: Replaced `Dir.chdir` blocks with the `chdir:` option when spawning processes
+  - Commands are now executed with explicit working directory using `Open3.capture2e`, `Open3.popen2e`, and `system` with `chdir:` parameter
+  - Avoids changing the process's working directory which could cause issues in concurrent operations
+  - More explicit and safer approach for executing commands in specific directories
+  - Removed `CLAUDE_SWARM_ROOT_DIR` environment variable in favor of passing root directory explicitly
+
 ## [1.0.2]
 
 ### Changed
