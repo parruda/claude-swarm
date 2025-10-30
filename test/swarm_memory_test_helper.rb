@@ -5,9 +5,44 @@ $LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
 require "minitest/autorun"
 require "tmpdir"
 require "fileutils"
+require "webmock/minitest"
 
 # Load swarm_memory (will load swarm_sdk and ruby_llm)
 require "swarm_memory"
+
+# Mock embedder for tests to avoid downloading models
+class MockEmbedder
+  def embed(text)
+    # Return a simple fixed-size vector for testing
+    Array.new(384) { rand }
+  end
+
+  def embed_batch(texts)
+    texts.map { |_text| embed("") }
+  end
+end
+
+# Monkey-patch InformersEmbedder to return mock in tests
+# This prevents model downloads while keeping production code clean
+module SwarmMemory
+  module Embeddings
+    class InformersEmbedder
+      alias_method :original_initialize, :initialize
+
+      def initialize
+        # In tests, just set up a mock - don't download model
+        @model = :mock
+      end
+
+      alias_method :original_embed, :embed
+
+      def embed(text)
+        # Return fixed-size vector for testing
+        Array.new(384) { rand }
+      end
+    end
+  end
+end
 
 module SwarmMemoryTestHelper
   # Create a temporary storage for testing
