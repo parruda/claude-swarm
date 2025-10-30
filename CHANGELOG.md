@@ -1,3 +1,12 @@
+## [Unreleased]
+
+### Fixed
+- **Fixed Ruby environment variable conflicts in MCP servers**: Removed RUBYOPT and RUBYLIB from MCP server configurations to prevent Bundler interference
+  - MCP servers no longer inherit RUBYOPT and RUBYLIB environment variables from the parent process
+  - Also removed BUNDLE_* environment variables to ensure MCP servers use the system-installed gem
+  - Prevents conflicts when Claude Swarm is run from within a bundled Ruby project
+  - Ensures MCP servers run with clean Ruby environments without unexpected gem loading behavior
+
 ## [1.0.3]
 
 ### Fixed
