@@ -30,10 +30,6 @@ loader.inflector.inflect(
 )
 loader.setup
 
-# Load plugin system explicitly (core infrastructure)
-require_relative "swarm_sdk/plugin"
-require_relative "swarm_sdk/plugin_registry"
-
 module SwarmSDK
   class Error < StandardError; end
   class ConfigurationError < Error; end
