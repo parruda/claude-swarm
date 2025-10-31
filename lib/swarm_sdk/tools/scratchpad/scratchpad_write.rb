@@ -13,12 +13,29 @@ module SwarmSDK
 
         description <<~DESC
           Store content in scratchpad for temporary cross-agent communication.
-          Use this for quick notes, intermediate results, or coordination messages.
-          Any agent can read this content. Data is lost when the swarm ends.
 
-          For persistent storage that survives across sessions, use MemoryWrite instead.
+          ## When to Use Scratchpad
 
-          Choose a simple, descriptive path. Examples: 'status', 'result', 'notes/agent_x'
+          Use ScratchpadWrite to:
+          - Store detailed outputs, analysis, or results that are too long for direct responses
+          - Share information that would otherwise clutter your responses
+          - Store intermediate results during multi-step tasks
+          - Leave coordination messages for other agents
+          - Cache computed data for quick retrieval
+
+          ## Best Practices
+
+          - Choose simple, descriptive paths: 'status', 'result', 'notes/agent_x'
+          - Use hierarchical paths for organization: 'analysis/step1', 'analysis/step2'
+          - Keep entries focused - one piece of information per entry
+          - Any agent can read scratchpad content
+          - Data is lost when the swarm ends (use MemoryWrite for persistent storage)
+          - Maximum 1MB per entry
+
+          ## Examples
+
+          Good paths: 'status', 'api_analysis', 'test_results', 'notes/backend'
+          Bad paths: 'scratch/temp/file123.txt', 'output.log'
         DESC
 
         param :file_path,

@@ -12,8 +12,29 @@ module SwarmSDK
 
         description <<~DESC
           List all entries in scratchpad with their metadata.
-          Shows path, title, size, and last updated time for each entry.
-          Use this to discover what's stored in the scratchpad.
+
+          ## When to Use ScratchpadList
+
+          Use ScratchpadList to:
+          - Discover what content is available in the scratchpad
+          - Check what other agents have stored
+          - Find relevant entries before reading them
+          - Review all stored outputs and analysis
+          - Check entry sizes and last update times
+
+          ## Best Practices
+
+          - Use this before ScratchpadRead if you don't know what's stored
+          - Filter by prefix to narrow down results (e.g., 'notes/' lists all notes)
+          - Shows path, title, size, and last updated time for each entry
+          - Any agent can see all scratchpad entries
+          - Helps coordinate multi-agent workflows
+
+          ## Examples
+
+          - List all entries: (no prefix parameter)
+          - List notes only: prefix='notes/'
+          - List analysis results: prefix='analysis/'
         DESC
 
         param :prefix,

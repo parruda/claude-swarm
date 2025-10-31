@@ -12,8 +12,29 @@ module SwarmSDK
 
         description <<~DESC
           Read content from scratchpad.
-          Use this to retrieve temporary notes, results, or messages stored by any agent.
-          Any agent can read any scratchpad content.
+
+          ## When to Use ScratchpadRead
+
+          Use ScratchpadRead to:
+          - Retrieve previously stored content and outputs
+          - Access detailed analysis or results from earlier steps
+          - Read messages or notes left by other agents
+          - Access cached computed data
+          - Retrieve content that was too long for direct responses
+
+          ## Best Practices
+
+          - Any agent can read any scratchpad content
+          - Content is returned with line numbers for easy reference
+          - Use ScratchpadList first if you don't know what's stored
+          - Scratchpad data is temporary and lost when swarm ends
+          - For persistent data, use MemoryRead instead
+
+          ## Examples
+
+          - Read status: file_path='status'
+          - Read analysis: file_path='api_analysis'
+          - Read agent notes: file_path='notes/backend'
         DESC
 
         param :file_path,

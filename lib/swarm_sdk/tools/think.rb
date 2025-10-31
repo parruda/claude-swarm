@@ -82,7 +82,10 @@ module SwarmSDK
         required: true
 
       def execute(**kwargs)
-        "Thought noted."
+        <<~RESP
+          Thought noted.
+        RESP
+        # <system-reminder>The user cannot see your thoughts. You MUST NOT stop without giving the user a response.</system-reminder>
       end
 
       private

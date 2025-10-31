@@ -358,7 +358,7 @@ module SwarmSDK
 
       def render_non_coding_base_prompt
         # Simplified base prompt for non-coding agents
-        # Includes environment info, TODO, and Scratchpad tool information
+        # Includes environment info only
         # Does not steer towards coding tasks
         cwd = @directory || Dir.pwd
         platform = RUBY_PLATFORM
@@ -383,25 +383,6 @@ module SwarmSDK
           Platform: #{platform}
           OS Version: #{os_version}
           </env>
-
-          # Task Management
-
-          You have access to the TodoWrite tool to help you manage and plan tasks. Use this tool to track your progress and give visibility into your work.
-
-          When working on multi-step tasks:
-          1. Create a todo list with all known tasks before starting work
-          2. Mark each task as in_progress when you start it
-          3. Mark each task as completed IMMEDIATELY after finishing it
-          4. Complete ALL pending todos before finishing your response
-
-          # Scratchpad Storage
-
-          You have access to Scratchpad tools for storing and retrieving information:
-          - **ScratchpadWrite**: Store detailed outputs, analysis, or results that are too long for direct responses
-          - **ScratchpadRead**: Retrieve previously stored content
-          - **ScratchpadList**: List available scratchpad entries
-
-          Use the scratchpad to share information that would otherwise clutter your responses.
         PROMPT
       end
 

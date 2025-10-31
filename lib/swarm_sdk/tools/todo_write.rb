@@ -8,17 +8,17 @@ module SwarmSDK
     # Each agent maintains its own independent todo list.
     class TodoWrite < RubyLLM::Tool
       description <<~DESC
-        Use this tool to create and manage a structured task list for your current coding session. This helps you track progress, organize complex tasks, and demonstrate thoroughness to the user.
+        Use this tool to create and manage a structured task list for your current work session. This helps you track progress, organize complex tasks, and demonstrate thoroughness to the user.
         It also helps the user understand the progress of the task and overall progress of their requests.
 
         ## When to Use This Tool
         Use this tool proactively in these scenarios:
 
         **CRITICAL**: Follow this workflow for multi-step tasks:
-        1. FIRST: Analyze the task scope (search files, read code, understand requirements)
-        2. SECOND: Create a COMPLETE todo list with ALL known tasks BEFORE starting implementation
+        1. FIRST: Analyze the task scope (gather information, understand requirements)
+        2. SECOND: Create a COMPLETE todo list with ALL known tasks BEFORE starting work
         3. THIRD: Execute tasks, marking in_progress → completed as you work
-        4. ONLY add new todos if unexpected work is discovered during implementation
+        4. ONLY add new todos if unexpected work is discovered during execution
 
         Use the todo list when:
         1. Complex multi-step tasks - When a task requires 3 or more distinct steps or actions
@@ -27,7 +27,7 @@ module SwarmSDK
         4. User provides multiple tasks - When users provide a list of things to be done (numbered or comma-separated)
         5. After receiving new instructions - After analyzing scope, create complete todo list before starting work
         6. When you start working on a task - Mark it as in_progress BEFORE beginning work. Ideally you should only have one todo as in_progress at a time
-        7. After completing a task - Mark it as completed and add any new follow-up tasks discovered during implementation
+        7. After completing a task - Mark it as completed and add any new follow-up tasks discovered during execution
 
         ## When NOT to Use This Tool
 
@@ -73,9 +73,21 @@ module SwarmSDK
           - Create specific, actionable items
           - Break complex tasks into smaller, manageable steps
           - Use clear, descriptive task names
-          - Always provide both forms:
-            - content: "Fix authentication bug"
-            - activeForm: "Fixing authentication bug"
+          - Always provide both forms (content and activeForm)
+
+        ## Examples
+
+        **Coding Tasks**:
+        - content: "Fix authentication bug in login handler"
+        - activeForm: "Fixing authentication bug in login handler"
+
+        **Non-Coding Tasks**:
+        - content: "Analyze customer feedback from Q4 survey"
+        - activeForm: "Analyzing customer feedback from Q4 survey"
+
+        **Research Tasks**:
+        - content: "Research best practices for API rate limiting"
+        - activeForm: "Researching best practices for API rate limiting"
 
         When in doubt, use this tool. Being proactive with task management demonstrates attentiveness and ensures you complete all requirements successfully.
       DESC
