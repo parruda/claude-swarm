@@ -183,21 +183,17 @@ module ClaudeSwarm
         args.push("--claude-session-id", claude_session_id) if claude_session_id
       end
 
-      # Capture environment variables needed for Ruby and Bundler to work properly
-      # This includes both BUNDLE_* variables and Ruby-specific variables
+      # Capture environment variables needed for running claude-swarm
+      # We intentionally exclude Bundler variables to ensure we use the system-installed gem
       required_env = {}
 
-      # Bundle-specific variables
-      ENV.each do |k, v|
-        required_env[k] = v if k.start_with?("BUNDLE_")
-      end
-
-      # Claude Swarm-specific variables
+      # Claude Swarm-specific variables (always needed)
       ENV.each do |k, v|
         required_env[k] = v if k.start_with?("CLAUDE_SWARM_")
       end
 
       # Ruby-specific variables that MCP servers need
+      # Exclude RUBYOPT and RUBYLIB to avoid Bundler interference
       [
         "RUBY_ROOT",
         "RUBY_ENGINE",
@@ -205,8 +201,6 @@ module ClaudeSwarm
         "GEM_ROOT",
         "GEM_HOME",
         "GEM_PATH",
-        "RUBYOPT",
-        "RUBYLIB",
         "PATH",
       ].each do |key|
         required_env[key] = ENV[key] if ENV[key]
