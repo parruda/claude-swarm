@@ -10,7 +10,7 @@
 # Run: swarm run lib/swarm_sdk/examples/swarm_with_hooks.yml -p "your prompt"
 #
 # Or programmatically:
-#   swarm = SwarmSDK::Swarm.load("lib/swarm_sdk/examples/swarm_with_hooks.yml")
+#   swarm = SwarmSDK.load_file("lib/swarm_sdk/examples/swarm_with_hooks.yml")
 #   result = swarm.execute("your prompt")
 
 version: 2

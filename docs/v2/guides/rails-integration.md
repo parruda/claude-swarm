@@ -125,7 +125,7 @@ swarm:
 class SwarmLoader
   def self.load(name)
     config_path = Rails.root.join('config', 'swarms', "#{name}.yml")
-    SwarmSDK::Swarm.load(config_path)
+    SwarmSDK.load_file(config_path)
   end
 end
 
@@ -161,7 +161,7 @@ class CodeReviewJob < ApplicationJob
     pr = PullRequest.find(pull_request_id)
 
     # Load swarm configuration
-    swarm = SwarmSDK::Swarm.load(
+    swarm = SwarmSDK.load_file(
       Rails.root.join('config', 'swarms', 'code_reviewer.yml')
     )
 
@@ -489,7 +489,7 @@ end
 namespace :content do
   desc "Batch update product descriptions"
   task update_descriptions: :environment do
-    swarm = SwarmSDK::Swarm.load(
+    swarm = SwarmSDK.load_file(
       Rails.root.join('config', 'swarms', 'product_writer.yml')
     )
 
@@ -710,7 +710,7 @@ class SwarmLoader
     # Fallback to base config if env-specific doesn't exist
     config_path = Rails.root.join('config', 'swarms', "#{name}.yml") unless File.exist?(config_path)
 
-    SwarmSDK::Swarm.load(config_path)
+    SwarmSDK.load_file(config_path)
   end
 end
 ```
@@ -1077,7 +1077,7 @@ RSpec.configure do |config|
   config.before(:each, type: :swarm) do
     # Use test swarm configs
     allow(SwarmLoader).to receive(:load) do |name|
-      SwarmSDK::Swarm.load(
+      SwarmSDK.load_file(
         Rails.root.join('spec', 'fixtures', 'swarms', "#{name}.yml")
       )
     end
@@ -1637,7 +1637,7 @@ class CodeReviewJob < ApplicationJob
     pr = PullRequest.find(pr_id)
     pr.update!(status: :reviewing)
 
-    swarm = SwarmSDK::Swarm.load(
+    swarm = SwarmSDK.load_file(
       Rails.root.join('config', 'swarms', 'code_reviewer.yml')
     )
 

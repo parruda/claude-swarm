@@ -303,7 +303,7 @@ agents:
 require 'swarm_sdk'
 
 # Load swarm from YAML (which references the Markdown file)
-swarm = SwarmSDK::Swarm.load('swarm.yml')
+swarm = SwarmSDK.load_file('swarm.yml')
 result = swarm.execute("Your task here")
 ```
 
@@ -359,7 +359,7 @@ Create a file called `run.rb`:
 require 'swarm_sdk'
 
 # Load swarm from YAML
-swarm = SwarmSDK::Swarm.load('swarm.yml')
+swarm = SwarmSDK.load_file('swarm.yml')
 
 # Execute a task
 result = swarm.execute("What is 2 + 2?")
@@ -433,7 +433,7 @@ Create `run.rb`:
 require 'swarm_sdk'
 
 # Load swarm from YAML (which references the Markdown file)
-swarm = SwarmSDK::Swarm.load('swarm.yml')
+swarm = SwarmSDK.load_file('swarm.yml')
 
 # Execute a task
 result = swarm.execute("What is 2 + 2?")
@@ -705,7 +705,7 @@ swarm:
 
 Then load and use:
 ```ruby
-swarm = SwarmSDK::Swarm.load('swarm.yml')
+swarm = SwarmSDK.load_file('swarm.yml')
 result = swarm.execute("Write a function to validate email addresses and get it reviewed")
 ```
 
@@ -1292,7 +1292,7 @@ swarm:
 ```ruby
 # run.rb
 require 'swarm_sdk'
-swarm = SwarmSDK::Swarm.load('swarm.yml')
+swarm = SwarmSDK.load_file('swarm.yml')
 result = swarm.execute("Your task here")
 puts result.content if result.success?
 ```
@@ -1327,7 +1327,7 @@ swarm:
 ```ruby
 # run.rb
 require 'swarm_sdk'
-swarm = SwarmSDK::Swarm.load('swarm.yml')
+swarm = SwarmSDK.load_file('swarm.yml')
 result = swarm.execute("Your task here")
 ```
 

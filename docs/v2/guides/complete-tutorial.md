@@ -2635,7 +2635,7 @@ end
 SwarmSDK validates configurations and emits warnings:
 
 ```ruby
-swarm = SwarmSDK::Swarm.load("config.yml")
+swarm = SwarmSDK.load_file("config.yml")
 
 # Check for warnings
 warnings = swarm.validate
@@ -2835,7 +2835,7 @@ end
 **Integration test workflows**:
 ```ruby
 RSpec.describe "Development Pipeline" do
-  let(:swarm) { SwarmSDK::Swarm.load("swarm.yml") }
+  let(:swarm) { SwarmSDK.load_file("swarm.yml") }
 
   it "completes full workflow" do
     result = swarm.execute("Build auth system")
