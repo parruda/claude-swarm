@@ -331,26 +331,6 @@ Found an issue or want to improve the documentation?
 
 ---
 
-## 📄 Version History
-
-### v2.1 (October 2025)
-- Added architecture flow diagram (system components and dependencies)
-- Added execution flow diagram (runtime behavior and lifecycle)
-- Added SwarmMemory guides (memory, defragmentation, adapters, technical details)
-- Added Plugin system guide
-- Added event payload structures reference
-- Updated all examples to use new API (SwarmSDK.load_file)
-
-### v2.0 (January 2025)
-- Complete documentation rewrite
-- Consolidated from 261 files to 7 focused documents
-- 100% feature coverage
-- Added Rails integration guide
-- Added comprehensive tutorial
-- Complete CLI, Ruby DSL, and YAML references
-
----
-
 ## 📚 Additional Resources
 
 - **GitHub Repository**: [parruda/claude-swarm](https://github.com/parruda/claude-swarm)
