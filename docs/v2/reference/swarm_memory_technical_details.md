@@ -439,8 +439,8 @@ end
 
 **Size Limits:**
 ```ruby
-MAX_ENTRY_SIZE = 1_000_000   # 1MB per entry
-MAX_TOTAL_SIZE = 100_000_000 # 100MB total
+MAX_ENTRY_SIZE = 3_000_000   # 3MB per entry
+MAX_TOTAL_SIZE = 100_000_000_000 # 100GB total
 ```
 
 ---

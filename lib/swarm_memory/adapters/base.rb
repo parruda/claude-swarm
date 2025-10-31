@@ -7,11 +7,11 @@ module SwarmMemory
     # Subclasses must implement all public methods to provide
     # different storage backends (filesystem, Redis, SQLite, etc.)
     class Base
-      # Maximum size per entry (1MB)
-      MAX_ENTRY_SIZE = 1_000_000
+      # Maximum size per entry (3MB)
+      MAX_ENTRY_SIZE = 3_000_000
 
-      # Maximum total storage size (100MB)
-      MAX_TOTAL_SIZE = 100_000_000
+      # Maximum total storage size (100GB)
+      MAX_TOTAL_SIZE = 100_000_000_000
 
       # Write content to storage
       #
