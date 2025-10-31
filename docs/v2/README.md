@@ -1,8 +1,8 @@
-# SwarmSDK & SwarmCLI Documentation
+# SwarmSDK, SwarmCLI & SwarmMemory Documentation
 
-**Version 2.0**
+**Version 2.1**
 
-Welcome to the official documentation for SwarmSDK and SwarmCLI - a Ruby framework for orchestrating multiple AI agents as a collaborative team.
+Welcome to the official documentation for SwarmSDK, SwarmCLI, and SwarmMemory - a Ruby framework for orchestrating multiple AI agents as a collaborative team with persistent memory.
 
 ---
 
@@ -41,17 +41,31 @@ Welcome to the official documentation for SwarmSDK and SwarmCLI - a Ruby framewo
 
 **Quick lookups and complete API reference:**
 
+### Architecture & Execution
+- **[Architecture Flow Diagram](reference/architecture-flow.md)** ⭐ NEW
+  Complete system architecture: components, dependencies, and relationships across SwarmSDK, SwarmCLI, and SwarmMemory
+
+- **[Execution Flow Diagram](reference/execution-flow.md)** ⭐ NEW
+  Runtime execution journey: what happens when you execute a prompt (21 detailed steps across 6 phases)
+
+- **[Event Payload Structures](reference/event_payload_structures.md)**
+  Complete reference for all log event types and their payloads
+
 ### Command-Line Interface
 - **[CLI Reference](reference/cli.md)**
   Complete reference for all swarm commands: `run`, `migrate`, `mcp serve`, `mcp tools`
 
 ### Ruby DSL API
 - **[Ruby DSL Reference](reference/ruby-dsl.md)**
-  Complete programmatic API: `SwarmSDK.build`, agent DSL, permissions DSL, node DSL, hooks
+  Complete programmatic API: `SwarmSDK.build`, `SwarmSDK.load`, agent DSL, permissions DSL, node DSL, hooks
 
 ### YAML Configuration
 - **[YAML Configuration Reference](reference/yaml.md)**
   Complete YAML structure: agents, tools, permissions, hooks, MCP servers
+
+### SwarmMemory
+- **[SwarmMemory Technical Details](reference/swarm_memory_technical_details.md)**
+  Deep dive: storage architecture, semantic search, FAISS indexing, adapter interface
 
 ---
 
@@ -172,6 +186,12 @@ Welcome to the official documentation for SwarmSDK and SwarmCLI - a Ruby framewo
 **Build a custom storage adapter**
 → [Memory Adapter Guide](guides/memory-adapters.md)
 
+**Understand the system architecture**
+→ [Architecture Flow Diagram](reference/architecture-flow.md)
+
+**Understand how execution works**
+→ [Execution Flow Diagram](reference/execution-flow.md)
+
 ---
 
 ## 📊 Documentation Structure
@@ -184,20 +204,25 @@ docs/v2/
 │   ├── getting-started.md             # SDK quick start (YAML + Ruby DSL)
 │   ├── quick-start-cli.md             # CLI quick start
 │   ├── complete-tutorial.md           # 100% feature coverage tutorial
-│   ├── swarm-memory.md                # SwarmMemory guide ⭐ NEW
-│   ├── plugins.md                     # Plugin system guide ⭐ NEW
-│   ├── memory-adapters.md             # Adapter development ⭐ NEW
+│   ├── swarm-memory.md                # SwarmMemory guide ⭐
+│   ├── plugins.md                     # Plugin system guide ⭐
+│   ├── memory-adapters.md             # Adapter development ⭐
 │   ├── rails-integration.md           # Rails integration guide
-│   └── claude-code-agents.md          # Claude Code compatibility
+│   ├── claude-code-agents.md          # Claude Code compatibility
+│   └── MEMORY_DEFRAG_GUIDE.md         # Memory defragmentation guide
 │
 ├── reference/                          # Complete API references
+│   ├── architecture-flow.md            # System architecture diagram ⭐ NEW
+│   ├── execution-flow.md               # Runtime execution flow ⭐ NEW
+│   ├── event_payload_structures.md     # Log event payloads
+│   ├── swarm_memory_technical_details.md  # SwarmMemory deep dive
 │   ├── cli.md                          # CLI command reference
 │   ├── ruby-dsl.md                     # Ruby DSL API reference
 │   └── yaml.md                         # YAML configuration reference
 │
 └── CHANGELOG.swarm_sdk.md              # SwarmSDK version history
     CHANGELOG.swarm_cli.md              # SwarmCLI version history
-    CHANGELOG.swarm_memory.md           # SwarmMemory version history ⭐ NEW
+    CHANGELOG.swarm_memory.md           # SwarmMemory version history ⭐
 ```
 
 ---
@@ -214,10 +239,18 @@ docs/v2/
 2. [Rails Integration](guides/rails-integration.md) - Production integration patterns
 3. [Complete Tutorial Parts 7-8](guides/complete-tutorial.md) - Production features and best practices
 
-### Path 3: Reference & API
+### Path 3: SwarmMemory Deep Dive
+1. [SwarmMemory Guide](guides/swarm-memory.md) - Installation, memory tools, usage patterns
+2. [Memory Defragmentation](guides/MEMORY_DEFRAG_GUIDE.md) - Relationship discovery and knowledge graphs
+3. [SwarmMemory Technical Details](reference/swarm_memory_technical_details.md) - Architecture and internals
+4. [Memory Adapter Development](guides/memory-adapters.md) - Build custom storage backends
+
+### Path 4: Reference & API
 1. [Ruby DSL Reference](reference/ruby-dsl.md) - Complete programmatic API
 2. [YAML Reference](reference/yaml.md) - Complete configuration format
 3. [CLI Reference](reference/cli.md) - All command-line options
+4. [Architecture Flow](reference/architecture-flow.md) - System architecture diagram
+5. [Execution Flow](reference/execution-flow.md) - Runtime execution journey
 
 ---
 
@@ -235,6 +268,14 @@ A command-line interface for running SwarmSDK swarms with two modes:
 - **Interactive (REPL)**: Conversational interface for exploration and iteration
 - **Non-Interactive**: One-shot execution perfect for automation and scripting
 
+### SwarmMemory
+A persistent memory system for agents with semantic search capabilities:
+- **Storage**: Hierarchical knowledge organization (concept, fact, skill, experience)
+- **Semantic Search**: FAISS-based vector similarity with local ONNX embeddings
+- **Memory Tools**: 9 tools for writing, reading, editing, and searching knowledge
+- **LoadSkill**: Dynamic tool swapping based on semantic skill discovery
+- **Plugin Architecture**: Integrates seamlessly via SwarmSDK plugin system
+
 ### Configuration Formats
 - **YAML**: Declarative, easy to read, great for shell-based hooks
 - **Ruby DSL**: Programmatic, dynamic, full Ruby power, IDE support
@@ -247,6 +288,8 @@ A command-line interface for running SwarmSDK swarms with two modes:
 |-------|-------|-----------|
 | **Installation** | [SDK Guide](guides/getting-started.md#installation) | - |
 | **First Swarm** | [SDK Guide](guides/getting-started.md#your-first-swarm) | - |
+| **Architecture** | - | [Architecture Flow](reference/architecture-flow.md) |
+| **Execution Flow** | - | [Execution Flow](reference/execution-flow.md) |
 | **CLI Commands** | [CLI Guide](guides/quick-start-cli.md#commands-overview) | [CLI Ref](reference/cli.md) |
 | **REPL Mode** | [CLI Guide](guides/quick-start-cli.md#interactive-mode-repl) | [CLI Ref](reference/cli.md#interactive-mode) |
 | **Tools** | [Tutorial Part 2](guides/complete-tutorial.md#part-2-tools-and-permissions) | [YAML Ref](reference/yaml.md#tools) |
@@ -255,6 +298,9 @@ A command-line interface for running SwarmSDK swarms with two modes:
 | **Hooks** | [Tutorial Part 4](guides/complete-tutorial.md#part-4-hooks-system) | [YAML Ref](reference/yaml.md#hooks-configuration) |
 | **Workflows** | [Tutorial Part 5](guides/complete-tutorial.md#part-5-node-workflows) | [Ruby DSL Ref](reference/ruby-dsl.md#node-builder-dsl) |
 | **MCP Servers** | [Tutorial Part 6](guides/complete-tutorial.md#mcp-server-integration) | [YAML Ref](reference/yaml.md#mcp_servers) |
+| **Memory** | [SwarmMemory Guide](guides/swarm-memory.md) | [Technical Details](reference/swarm_memory_technical_details.md) |
+| **Memory Adapters** | [Adapter Guide](guides/memory-adapters.md) | [Technical Details](reference/swarm_memory_technical_details.md) |
+| **Plugins** | [Plugin Guide](guides/plugins.md) | - |
 | **Rails** | [Rails Guide](guides/rails-integration.md) | - |
 | **Testing** | [Tutorial Part 8](guides/complete-tutorial.md#testing-strategies) | - |
 
@@ -286,6 +332,14 @@ Found an issue or want to improve the documentation?
 ---
 
 ## 📄 Version History
+
+### v2.1 (October 2025)
+- Added architecture flow diagram (system components and dependencies)
+- Added execution flow diagram (runtime behavior and lifecycle)
+- Added SwarmMemory guides (memory, defragmentation, adapters, technical details)
+- Added Plugin system guide
+- Added event payload structures reference
+- Updated all examples to use new API (SwarmSDK.load_file)
 
 ### v2.0 (January 2025)
 - Complete documentation rewrite
