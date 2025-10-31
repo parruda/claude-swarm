@@ -4,25 +4,10 @@ module SwarmSDK
   # Swarm orchestrates multiple AI agents with shared rate limiting and coordination.
   #
   # This is the main user-facing API for SwarmSDK. Users create swarms using:
-  # - Direct API: Create Agent::Definition objects and add to swarm
-  # - Ruby DSL: Use Swarm::Builder for fluent configuration
-  # - YAML: Load from configuration files
-  #
-  # ## Direct API
-  #
-  #   swarm = Swarm.new(name: "Development Team")
-  #
-  #   backend_agent = Agent::Definition.new(:backend, {
-  #     description: "Backend developer",
-  #     model: "gpt-5",
-  #     system_prompt: "You build APIs and databases...",
-  #     tools: [:Read, :Edit, :Bash],
-  #     delegates_to: [:database]
-  #   })
-  #   swarm.add_agent(backend_agent)
-  #
-  #   swarm.lead = :backend
-  #   result = swarm.execute("Build authentication")
+  # - Ruby DSL: SwarmSDK.build { ... } (Recommended)
+  # - YAML String: SwarmSDK.load(yaml, base_dir:)
+  # - YAML File: SwarmSDK.load_file(path)
+  # - Direct API: Swarm.new + add_agent (Advanced)
   #
   # ## Ruby DSL (Recommended)
   #
@@ -39,14 +24,36 @@ module SwarmSDK
   #   end
   #   result = swarm.execute("Build authentication")
   #
-  # ## YAML API
+  # ## YAML String API
   #
-  #   swarm = Swarm.load("swarm.yml")
+  #   yaml = File.read("swarm.yml")
+  #   swarm = SwarmSDK.load(yaml, base_dir: "/path/to/project")
+  #   result = swarm.execute("Build authentication")
+  #
+  # ## YAML File API (Convenience)
+  #
+  #   swarm = SwarmSDK.load_file("swarm.yml")
+  #   result = swarm.execute("Build authentication")
+  #
+  # ## Direct API (Advanced)
+  #
+  #   swarm = Swarm.new(name: "Development Team")
+  #
+  #   backend_agent = Agent::Definition.new(:backend, {
+  #     description: "Backend developer",
+  #     model: "gpt-5",
+  #     system_prompt: "You build APIs and databases...",
+  #     tools: [:Read, :Edit, :Bash],
+  #     delegates_to: [:database]
+  #   })
+  #   swarm.add_agent(backend_agent)
+  #
+  #   swarm.lead = :backend
   #   result = swarm.execute("Build authentication")
   #
   # ## Architecture
   #
-  # All three APIs converge on Agent::Definition for validation.
+  # All APIs converge on Agent::Definition for validation.
   # Swarm delegates to specialized concerns:
   # - Agent::Definition: Validates configuration, builds system prompts
   # - AgentInitializer: Complex 5-pass agent setup
@@ -101,33 +108,6 @@ module SwarmSDK
         end
 
         @mcp_logging_configured = true
-      end
-
-      # Load swarm from YAML configuration file
-      #
-      # @param config_path [String] Path to YAML configuration file
-      # @return [Swarm] Configured swarm instance
-      def load(config_path)
-        config = Configuration.load(config_path)
-        swarm = config.to_swarm
-
-        # Apply hooks if any are configured (YAML-only feature)
-        if hooks_configured?(config)
-          Hooks::Adapter.apply_hooks(swarm, config)
-        end
-
-        # Store config reference for agent hooks (applied during initialize_agents)
-        swarm.config_for_hooks = config
-
-        swarm
-      end
-
-      private
-
-      def hooks_configured?(config)
-        config.swarm_hooks.any? ||
-          config.all_agents_hooks.any? ||
-          config.agents.any? { |_, agent_def| agent_def.hooks&.any? }
       end
     end
 
@@ -433,7 +413,7 @@ module SwarmSDK
     # @return [Array<Hash>] Array of warning hashes from all agent definitions
     #
     # @example
-    #   swarm = Swarm.load("config.yml")
+    #   swarm = SwarmSDK.load_file("config.yml")
     #   warnings = swarm.validate
     #   warnings.each do |warning|
     #     puts "⚠️  #{warning[:agent]}: #{warning[:model]} not found"

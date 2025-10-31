@@ -208,7 +208,7 @@ module SwarmSDK
       config = valid_yaml_config
 
       with_yaml_file(config) do |path|
-        swarm = Swarm.load(path)
+        swarm = SwarmSDK.load_file(path)
 
         assert_instance_of(Swarm, swarm)
         assert_equal("Test Swarm", swarm.name)
@@ -845,7 +845,7 @@ module SwarmSDK
       config = valid_yaml_config
 
       with_yaml_file(config) do |path|
-        swarm = Swarm.load(path)
+        swarm = SwarmSDK.load_file(path)
 
         assert_instance_of(Swarm, swarm)
         assert_equal("Test Swarm", swarm.name)

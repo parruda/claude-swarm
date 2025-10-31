@@ -4,17 +4,43 @@ module SwarmSDK
   class Configuration
     ENV_VAR_WITH_DEFAULT_PATTERN = /\$\{([^:}]+)(:=([^}]*))?\}/
 
-    attr_reader :config_path, :swarm_name, :lead_agent, :agents, :all_agents_config, :swarm_hooks, :all_agents_hooks, :scratchpad_enabled
+    attr_reader :swarm_name, :lead_agent, :agents, :all_agents_config, :swarm_hooks, :all_agents_hooks, :scratchpad_enabled
 
     class << self
-      def load(path)
-        new(path).tap(&:load_and_validate)
+      # Load configuration from YAML file
+      #
+      # Convenience method that reads the file and uses the file's directory
+      # as the base directory for resolving agent file paths.
+      #
+      # @param path [String, Pathname] Path to YAML configuration file
+      # @return [Configuration] Validated configuration instance
+      # @raise [ConfigurationError] If file not found or invalid
+      def load_file(path)
+        path = Pathname.new(path).expand_path
+
+        unless path.exist?
+          raise ConfigurationError, "Configuration file not found: #{path}"
+        end
+
+        yaml_content = File.read(path)
+        base_dir = path.dirname
+
+        new(yaml_content, base_dir: base_dir).tap(&:load_and_validate)
+      rescue Errno::ENOENT
+        raise ConfigurationError, "Configuration file not found: #{path}"
       end
     end
 
-    def initialize(config_path)
-      @config_path = Pathname.new(config_path).expand_path
-      @config_dir = @config_path.dirname
+    # Initialize configuration from YAML string
+    #
+    # @param yaml_content [String] YAML configuration content
+    # @param base_dir [String, Pathname] Base directory for resolving agent file paths (default: Dir.pwd)
+    def initialize(yaml_content, base_dir: Dir.pwd)
+      raise ArgumentError, "yaml_content cannot be nil" if yaml_content.nil?
+      raise ArgumentError, "base_dir cannot be nil" if base_dir.nil?
+
+      @yaml_content = yaml_content
+      @base_dir = Pathname.new(base_dir).expand_path
       @agents = {}
       @all_agents_config = {} # Settings applied to all agents
       @swarm_hooks = {} # Swarm-level hooks (swarm_start, swarm_stop)
@@ -22,7 +48,7 @@ module SwarmSDK
     end
 
     def load_and_validate
-      @config = YAML.load_file(@config_path, aliases: true)
+      @config = YAML.safe_load(@yaml_content, permitted_classes: [Symbol], aliases: true)
 
       unless @config.is_a?(Hash)
         raise ConfigurationError, "Invalid YAML syntax: configuration must be a Hash"
@@ -37,8 +63,6 @@ module SwarmSDK
       load_agents
       detect_circular_dependencies
       self
-    rescue Errno::ENOENT
-      raise ConfigurationError, "Configuration file not found: #{@config_path}"
     rescue Psych::SyntaxError => e
       raise ConfigurationError, "Invalid YAML syntax: #{e.message}"
     end
@@ -260,7 +284,7 @@ module SwarmSDK
     def resolve_agent_file_path(file_path)
       return file_path if Pathname.new(file_path).absolute?
 
-      @config_dir.join(file_path).to_s
+      @base_dir.join(file_path).to_s
     end
 
     def detect_circular_dependencies

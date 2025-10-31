@@ -8,7 +8,7 @@ module SwarmSDK
   class ConfigurationTest < Minitest::Test
     def test_load_valid_configuration
       with_config_file(valid_config) do |path|
-        config = Configuration.load(path)
+        config = Configuration.load_file(path)
 
         assert_instance_of(Configuration, config)
         assert_equal("Test Swarm", config.swarm_name)
@@ -19,7 +19,7 @@ module SwarmSDK
 
     def test_missing_configuration_file_raises_error
       error = assert_raises(ConfigurationError) do
-        Configuration.load("/nonexistent/path.yml")
+        Configuration.load_file("/nonexistent/path.yml")
       end
 
       assert_match(/configuration file not found/i, error.message)
@@ -28,7 +28,7 @@ module SwarmSDK
     def test_invalid_yaml_syntax_raises_error
       with_config_file("invalid: yaml: syntax: [") do |path|
         error = assert_raises(ConfigurationError) do
-          Configuration.load(path)
+          Configuration.load_file(path)
         end
 
         assert_match(/invalid yaml syntax/i, error.message)
@@ -41,7 +41,7 @@ module SwarmSDK
 
       with_config_file(config) do |path|
         error = assert_raises(ConfigurationError) do
-          Configuration.load(path)
+          Configuration.load_file(path)
         end
 
         assert_match(/missing 'version' field/i, error.message)
@@ -54,7 +54,7 @@ module SwarmSDK
 
       with_config_file(config) do |path|
         error = assert_raises(ConfigurationError) do
-          Configuration.load(path)
+          Configuration.load_file(path)
         end
 
         assert_match(/version: 2/i, error.message)
@@ -66,7 +66,7 @@ module SwarmSDK
 
       with_config_file(config) do |path|
         error = assert_raises(ConfigurationError) do
-          Configuration.load(path)
+          Configuration.load_file(path)
         end
 
         assert_match(/missing 'swarm' field/i, error.message)
@@ -79,7 +79,7 @@ module SwarmSDK
 
       with_config_file(config) do |path|
         error = assert_raises(ConfigurationError) do
-          Configuration.load(path)
+          Configuration.load_file(path)
         end
 
         assert_match(/missing 'name' field/i, error.message)
@@ -92,7 +92,7 @@ module SwarmSDK
 
       with_config_file(config) do |path|
         error = assert_raises(ConfigurationError) do
-          Configuration.load(path)
+          Configuration.load_file(path)
         end
 
         assert_match(/missing 'lead' field/i, error.message)
@@ -105,7 +105,7 @@ module SwarmSDK
 
       with_config_file(config) do |path|
         error = assert_raises(ConfigurationError) do
-          Configuration.load(path)
+          Configuration.load_file(path)
         end
 
         assert_match(/missing 'agents' field/i, error.message)
@@ -118,7 +118,7 @@ module SwarmSDK
 
       with_config_file(config) do |path|
         error = assert_raises(ConfigurationError) do
-          Configuration.load(path)
+          Configuration.load_file(path)
         end
 
         assert_match(/no agents defined/i, error.message)
@@ -131,7 +131,7 @@ module SwarmSDK
 
       with_config_file(config) do |path|
         error = assert_raises(ConfigurationError) do
-          Configuration.load(path)
+          Configuration.load_file(path)
         end
 
         assert_match(/lead agent.*not found/i, error.message)
@@ -169,7 +169,7 @@ module SwarmSDK
 
       with_config_file(config) do |path|
         error = assert_raises(CircularDependencyError) do
-          Configuration.load(path)
+          Configuration.load_file(path)
         end
 
         assert_match(/circular dependency detected/i, error.message)
@@ -182,7 +182,7 @@ module SwarmSDK
 
       with_config_file(config) do |path|
         error = assert_raises(ConfigurationError) do
-          Configuration.load(path)
+          Configuration.load_file(path)
         end
 
         assert_match(/connection to unknown agent/i, error.message)
@@ -191,7 +191,7 @@ module SwarmSDK
 
     def test_deep_symbolization_of_yaml_keys
       with_config_file(valid_config) do |path|
-        configuration = Configuration.load(path)
+        configuration = Configuration.load_file(path)
 
         # Test symbolization through public API - agent names should be symbols
         assert(configuration.agent_names.all? { |k| k.is_a?(Symbol) })
@@ -213,7 +213,7 @@ module SwarmSDK
       ]
 
       with_config_file(config) do |path|
-        configuration = Configuration.load(path)
+        configuration = Configuration.load_file(path)
 
         # Test symbolization through public API
         lead_agent = configuration.agents[:lead]
@@ -226,7 +226,7 @@ module SwarmSDK
 
     def test_agent_names_returns_all_agent_names
       with_config_file(valid_config) do |path|
-        config = Configuration.load(path)
+        config = Configuration.load_file(path)
 
         names = config.agent_names
 
@@ -238,7 +238,7 @@ module SwarmSDK
 
     def test_connections_for_returns_delegates_to
       with_config_file(valid_config) do |path|
-        config = Configuration.load(path)
+        config = Configuration.load_file(path)
 
         connections = config.connections_for(:lead)
 
@@ -248,7 +248,7 @@ module SwarmSDK
 
     def test_connections_for_nonexistent_agent_returns_empty
       with_config_file(valid_config) do |path|
-        config = Configuration.load(path)
+        config = Configuration.load_file(path)
 
         connections = config.connections_for(:nonexistent)
 
@@ -258,7 +258,7 @@ module SwarmSDK
 
     def test_to_swarm_creates_swarm_instance
       with_config_file(valid_config) do |path|
-        config = Configuration.load(path)
+        config = Configuration.load_file(path)
         swarm = config.to_swarm
 
         assert_instance_of(Swarm, swarm)
@@ -275,7 +275,7 @@ module SwarmSDK
       config["swarm"]["agents"]["lead"]["model"] = "${TEST_MODEL}"
 
       with_config_file(config) do |path|
-        configuration = Configuration.load(path)
+        configuration = Configuration.load_file(path)
         lead_agent = configuration.agents[:lead]
 
         assert_equal("gpt-5-turbo", lead_agent.model)
@@ -289,7 +289,7 @@ module SwarmSDK
       config["swarm"]["agents"]["lead"]["model"] = "${MISSING_VAR:=default-model}"
 
       with_config_file(config) do |path|
-        configuration = Configuration.load(path)
+        configuration = Configuration.load_file(path)
         lead_agent = configuration.agents[:lead]
 
         assert_equal("default-model", lead_agent.model)
@@ -302,7 +302,7 @@ module SwarmSDK
 
       with_config_file(config) do |path|
         error = assert_raises(ConfigurationError) do
-          Configuration.load(path)
+          Configuration.load_file(path)
         end
 
         assert_match(/environment variable.*not set/i, error.message)
@@ -335,7 +335,7 @@ module SwarmSDK
           }
 
           with_config_file(config) do |path|
-            configuration = Configuration.load(path)
+            configuration = Configuration.load_file(path)
 
             backend = configuration.agents[:backend]
 
@@ -374,7 +374,7 @@ module SwarmSDK
         config_path = File.join(dir, "swarm.yml")
         File.write(config_path, YAML.dump(config))
 
-        configuration = Configuration.load(config_path)
+        configuration = Configuration.load_file(config_path)
         backend = configuration.agents[:backend]
 
         assert_equal(:backend, backend.name)
@@ -402,7 +402,7 @@ module SwarmSDK
         }
 
         with_config_file(config) do |config_path|
-          configuration = Configuration.load(config_path)
+          configuration = Configuration.load_file(config_path)
           backend = configuration.agents[:backend]
 
           assert_equal(:backend, backend.name)
@@ -418,7 +418,7 @@ module SwarmSDK
 
       with_config_file(config) do |path|
         error = assert_raises(ConfigurationError) do
-          Configuration.load(path)
+          Configuration.load_file(path)
         end
 
         assert_match(/agent file not found/i, error.message)
@@ -439,7 +439,7 @@ module SwarmSDK
 
         with_config_file(config) do |path|
           error = assert_raises(ConfigurationError) do
-            Configuration.load(path)
+            Configuration.load_file(path)
           end
 
           assert_match(/error loading agent/i, error.message)
@@ -468,7 +468,7 @@ module SwarmSDK
         }
 
         with_config_file(config) do |path|
-          configuration = Configuration.load(path)
+          configuration = Configuration.load_file(path)
 
           # lead is inline, backend is from file
           assert_equal(2, configuration.agents.size)
@@ -489,7 +489,7 @@ module SwarmSDK
       }
 
       with_config_file(config) do |path|
-        configuration = Configuration.load(path)
+        configuration = Configuration.load_file(path)
         lead_agent = configuration.agents[:lead]
 
         assert_equal("0.8", lead_agent.parameters[:temperature])
@@ -505,7 +505,7 @@ module SwarmSDK
       config["swarm"]["agents"]["lead"]["base_url"] = "${MISSING_VAR:=}"
 
       with_config_file(config) do |path|
-        configuration = Configuration.load(path)
+        configuration = Configuration.load_file(path)
         lead_agent = configuration.agents[:lead]
 
         assert_equal("", lead_agent.base_url)
@@ -518,7 +518,7 @@ module SwarmSDK
 
       with_config_file(config) do |path|
         error = assert_raises(ConfigurationError) do
-          Configuration.load(path)
+          Configuration.load_file(path)
         end
 
         # Should fail validation since description is required
@@ -526,24 +526,9 @@ module SwarmSDK
       end
     end
 
-    def test_configuration_path_is_expanded
-      Dir.mktmpdir do |dir|
-        config_path = File.join(dir, "config.yml")
-        File.write(config_path, YAML.dump(valid_config))
-
-        # Use relative path
-        relative_path = File.join(".", File.basename(dir), "config.yml")
-
-        configuration = Configuration.new(relative_path)
-
-        # Config path should be expanded to absolute path
-        assert_predicate(configuration.config_path, :absolute?)
-      end
-    end
-
     def test_load_class_method_returns_loaded_configuration
       with_config_file(valid_config) do |path|
-        configuration = Configuration.load(path)
+        configuration = Configuration.load_file(path)
 
         assert_instance_of(Configuration, configuration)
         assert_equal("Test Swarm", configuration.swarm_name)
@@ -556,7 +541,7 @@ module SwarmSDK
       config["swarm"]["agents"]["lead"]["delegates_to"] = ["backend", "frontend"]
 
       with_config_file(config) do |path|
-        Configuration.load(path)
+        Configuration.load_file(path)
 
         # Should error because frontend doesn't exist
         assert_raises(ConfigurationError) do
@@ -571,7 +556,7 @@ module SwarmSDK
     def test_non_hash_yaml_raises_error
       with_config_file("not a hash") do |path|
         error = assert_raises(ConfigurationError) do
-          Configuration.load(path)
+          Configuration.load_file(path)
         end
 
         assert_match(/invalid yaml syntax.*must be a hash/i, error.message)
@@ -586,7 +571,7 @@ module SwarmSDK
       ]
 
       with_config_file(config) do |path|
-        configuration = Configuration.load(path)
+        configuration = Configuration.load_file(path)
         lead = configuration.agents[:lead]
 
         assert_equal(2, lead.mcp_servers.size)
@@ -601,7 +586,7 @@ module SwarmSDK
       config["swarm"]["agents"]["backend"]["delegates_to"] = []
 
       with_config_file(config) do |path|
-        configuration = Configuration.load(path)
+        configuration = Configuration.load_file(path)
 
         connections = configuration.connections_for(:backend)
 
@@ -611,7 +596,7 @@ module SwarmSDK
 
     def test_agent_names_returns_symbols
       with_config_file(valid_config) do |path|
-        config = Configuration.load(path)
+        config = Configuration.load_file(path)
 
         names = config.agent_names
 
@@ -624,7 +609,7 @@ module SwarmSDK
       config["swarm"]["agents"]["backend"]["delegates_to"] = []
 
       with_config_file(config) do |path|
-        configuration = Configuration.load(path)
+        configuration = Configuration.load_file(path)
         backend = configuration.agents[:backend]
 
         assert_empty(backend.delegates_to)
@@ -636,24 +621,16 @@ module SwarmSDK
       config["swarm"]["agents"]["lead"]["mcp_servers"] = nil
 
       with_config_file(config) do |path|
-        configuration = Configuration.load(path)
+        configuration = Configuration.load_file(path)
         lead = configuration.agents[:lead]
 
         assert_empty(lead.mcp_servers)
       end
     end
 
-    def test_configuration_path_attribute
-      with_config_file(valid_config) do |path|
-        configuration = Configuration.load(path)
-
-        assert_equal(File.expand_path(path), configuration.config_path.to_s)
-      end
-    end
-
     def test_agents_attribute_returns_hash
       with_config_file(valid_config) do |path|
-        configuration = Configuration.load(path)
+        configuration = Configuration.load_file(path)
 
         assert_instance_of(Hash, configuration.agents)
         assert_equal(2, configuration.agents.size)
@@ -682,7 +659,7 @@ module SwarmSDK
         config["swarm"]["agents"]["backend"] = agent_file # String, not Hash
 
         with_config_file(config) do |path|
-          configuration = Configuration.load(path)
+          configuration = Configuration.load_file(path)
 
           backend = configuration.agents[:backend]
 
@@ -718,7 +695,7 @@ module SwarmSDK
         config_path = File.join(dir, "swarm.yml")
         File.write(config_path, YAML.dump(config))
 
-        configuration = Configuration.load(config_path)
+        configuration = Configuration.load_file(config_path)
         backend = configuration.agents[:backend]
 
         assert_equal(:backend, backend.name)
@@ -732,7 +709,7 @@ module SwarmSDK
 
       with_config_file(config) do |path|
         error = assert_raises(ConfigurationError) do
-          Configuration.load(path)
+          Configuration.load_file(path)
         end
 
         assert_match(/agent file not found/i, error.message)
@@ -758,7 +735,7 @@ module SwarmSDK
         config["swarm"]["agents"]["backend"] = agent_file
 
         with_config_file(config) do |path|
-          configuration = Configuration.load(path)
+          configuration = Configuration.load_file(path)
 
           assert_equal(2, configuration.agents.size)
           assert_equal("Lead agent", configuration.agents[:lead].description)

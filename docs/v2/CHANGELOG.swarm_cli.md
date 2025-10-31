@@ -5,6 +5,16 @@ All notable changes to SwarmCLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Internal: Updated to use new SwarmSDK loading API**
+  - `ConfigLoader` now uses `SwarmSDK.load_file` instead of `SwarmSDK::Swarm.load`
+  - `mcp serve` command updated to use `SwarmSDK.load_file`
+  - No user-facing changes - all CLI commands work identically
+  - Benefits from improved SDK separation (SDK handles strings, CLI handles files)
+
 ## [2.1.1]
 
 ### Fixed

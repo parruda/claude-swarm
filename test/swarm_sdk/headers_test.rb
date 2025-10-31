@@ -77,7 +77,7 @@ module SwarmSDK
       YAML
 
       with_temp_config(yaml_content) do |config_path|
-        swarm = Configuration.load(config_path).to_swarm
+        swarm = Configuration.load_file(config_path).to_swarm
 
         agent_def = swarm.agent_definition(:backend)
 

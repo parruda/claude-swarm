@@ -29,7 +29,7 @@ module SwarmCLI
 
         # Validate the swarm configuration
         begin
-          SwarmSDK::Swarm.load(config_path)
+          SwarmSDK.load_file(config_path)
         rescue SwarmSDK::ConfigurationError => e
           $stderr.puts "Error: Invalid swarm configuration: #{e.message}"
           exit(1)
@@ -92,7 +92,7 @@ module SwarmCLI
 
           define_method(:call) do |task:, description: nil, thinking_budget: nil|
             # Load swarm for each execution (ensures fresh state)
-            swarm = SwarmSDK::Swarm.load(self.class.config_path)
+            swarm = SwarmSDK.load_file(self.class.config_path)
 
             # Build prompt with thinking budget if provided
             prompt = task

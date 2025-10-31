@@ -5,6 +5,53 @@ All notable changes to SwarmSDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Validation API**: New methods to validate YAML configurations without creating swarms
+  - `SwarmSDK.validate(yaml_content, base_dir:)` - Validate YAML string and return structured errors
+  - `SwarmSDK.validate_file(path)` - Validate YAML file (convenience method)
+  - Returns array of error hashes with type, field path, message, and optional agent name
+  - Error types: `:syntax_error`, `:missing_field`, `:invalid_value`, `:invalid_reference`, `:directory_not_found`, `:file_not_found`, `:file_load_error`, `:circular_dependency`, `:validation_error`, `:unknown_error`
+  - Field paths use JSON-style notation: `"swarm.agents.backend.description"`
+  - Enables pre-flight validation for UIs, tools, and programmatic usage
+  - Comprehensive test coverage with 19 tests covering all error scenarios
+
+- **String-based Configuration Loading**: Load YAML from strings, not just files
+  - `SwarmSDK.load(yaml_content, base_dir:)` - Load swarm from YAML string (primary API)
+  - `SwarmSDK.load_file(path)` - Load swarm from YAML file (convenience method)
+  - `base_dir` parameter for resolving agent file paths (defaults to `Dir.pwd`)
+  - Enables loading YAML from databases, APIs, environment variables, or any string source
+  - Cleaner separation: SDK works with strings, CLI handles file I/O
+
+### Changed
+
+- **BREAKING: Removed `Swarm.load` class method**
+  - Old: `swarm = SwarmSDK::Swarm.load("config.yml")`
+  - New: `swarm = SwarmSDK.load_file("config.yml")`
+  - Cleaner API: All creation methods now at module level (`SwarmSDK.build`, `SwarmSDK.load`, `SwarmSDK.load_file`)
+
+- **BREAKING: `Configuration` class refactored for string-based loading**
+  - Old: `Configuration.load(path)` → New: `Configuration.load_file(path)`
+  - Old: `Configuration.new(path)` → New: `Configuration.new(yaml_content, base_dir: Dir.pwd)`
+  - Removed `config_path` attribute (no longer stored)
+  - Internal: `@config_dir` renamed to `@base_dir`
+  - Core SDK now works with YAML strings, not file paths
+  - File I/O isolated to convenience methods (`load_file`)
+
+- **Agent file path resolution**: Paths resolved relative to `base_dir`
+  - When loading from file: `base_dir` = file's directory (unchanged behavior)
+  - When loading from string: `base_dir` = `Dir.pwd` (default) or explicit parameter
+  - Example: `agent_file: "agents/backend.md"` resolves to `#{base_dir}/agents/backend.md`
+
+### Fixed
+
+- **Configuration validation**: Better error messages with file context
+  - YAML syntax errors now include parser details
+  - File not found errors include absolute paths
+  - Agent file load errors include agent name and field path
+
 ## [2.1.2]
 
 ### Added

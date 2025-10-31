@@ -185,7 +185,7 @@ module SwarmSDK
       file.close
 
       begin
-        config = Configuration.load(file.path)
+        config = Configuration.load_file(file.path)
         swarm = config.to_swarm
 
         agent_def = swarm.agent_definition(:custom_agent)
@@ -221,7 +221,7 @@ module SwarmSDK
       file.close
 
       begin
-        config = Configuration.load(file.path)
+        config = Configuration.load_file(file.path)
         swarm = config.to_swarm
 
         agent_def = swarm.agent_definition(:coding_agent)

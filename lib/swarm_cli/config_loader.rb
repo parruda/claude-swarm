@@ -4,7 +4,7 @@ module SwarmCLI
   # ConfigLoader handles loading swarm configurations from both YAML and Ruby DSL files.
   #
   # Supports:
-  # - YAML files (.yml, .yaml) - loaded via SwarmSDK::Swarm.load
+  # - YAML files (.yml, .yaml) - loaded via SwarmSDK.load_file
   # - Ruby DSL files (.rb) - executed and expected to return a SwarmSDK::Swarm or SwarmSDK::NodeOrchestrator instance
   #
   # @example Load YAML config
@@ -18,7 +18,7 @@ module SwarmCLI
       # Load a swarm configuration from file (YAML or Ruby DSL)
       #
       # Detects file type by extension:
-      # - .yml, .yaml -> Load as YAML using SwarmSDK::Swarm.load
+      # - .yml, .yaml -> Load as YAML using SwarmSDK.load_file
       # - .rb -> Execute as Ruby DSL and expect SwarmSDK::Swarm or SwarmSDK::NodeOrchestrator instance
       #
       # @param path [String, Pathname] Path to configuration file
@@ -50,7 +50,7 @@ module SwarmCLI
       # @param path [Pathname] Path to YAML file
       # @return [SwarmSDK::Swarm] Configured swarm instance
       def load_yaml(path)
-        SwarmSDK::Swarm.load(path.to_s)
+        SwarmSDK.load_file(path.to_s)
       rescue SwarmSDK::ConfigurationError => e
         # Re-raise with CLI context
         raise ConfigurationError, "Configuration error in #{path}: #{e.message}"

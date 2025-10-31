@@ -51,7 +51,7 @@ module SwarmSDK
       YAML
 
       with_temp_config(yaml_content) do |config_path|
-        swarm = Configuration.load(config_path).to_swarm
+        swarm = Configuration.load_file(config_path).to_swarm
 
         agent = swarm.agent(:developer)
 
@@ -83,7 +83,7 @@ module SwarmSDK
       YAML
 
       with_temp_config(yaml_content) do |config_path|
-        swarm = Configuration.load(config_path).to_swarm
+        swarm = Configuration.load_file(config_path).to_swarm
 
         agent = swarm.agent(:developer)
 
@@ -123,7 +123,7 @@ module SwarmSDK
       YAML
 
       with_temp_config(yaml_content) do |config_path|
-        swarm = Configuration.load(config_path).to_swarm
+        swarm = Configuration.load_file(config_path).to_swarm
 
         developer = swarm.agent(:developer)
         minimal = swarm.agent(:minimal)
@@ -162,7 +162,7 @@ module SwarmSDK
       YAML
 
       with_temp_config(yaml_content) do |config_path|
-        config = Configuration.load(config_path)
+        config = Configuration.load_file(config_path)
 
         # Verify permissions were loaded into all_agents_config
         assert_equal(["src/**/*"], config.all_agents_config[:permissions][:Read][:allowed_paths])
@@ -190,7 +190,7 @@ module SwarmSDK
       YAML
 
       with_temp_config(yaml_content) do |config_path|
-        config = Configuration.load(config_path)
+        config = Configuration.load_file(config_path)
 
         developer_def = config.agents[:developer]
         override_def = config.agents[:override]
@@ -222,7 +222,7 @@ module SwarmSDK
       YAML
 
       with_temp_config(yaml_content) do |config_path|
-        swarm = Configuration.load(config_path).to_swarm
+        swarm = Configuration.load_file(config_path).to_swarm
 
         developer = swarm.agent(:developer)
 
@@ -266,7 +266,7 @@ module SwarmSDK
       YAML
 
       with_temp_config(yaml_content) do |config_path|
-        config = Configuration.load(config_path)
+        config = Configuration.load_file(config_path)
 
         inherits_def = config.agents[:inherits]
         overrides_def = config.agents[:overrides]
@@ -315,7 +315,7 @@ module SwarmSDK
 
       begin
         with_temp_config(yaml_content) do |config_path|
-          swarm = Configuration.load(config_path).to_swarm
+          swarm = Configuration.load_file(config_path).to_swarm
           developer = swarm.agent(:developer)
 
           # Developer should have default Read tool
@@ -366,7 +366,7 @@ module SwarmSDK
       YAML
 
       with_temp_config(yaml_content) do |config_path|
-        config = Configuration.load(config_path)
+        config = Configuration.load_file(config_path)
 
         agent1_def = config.agents[:agent1]
         agent2_def = config.agents[:agent2]
@@ -405,7 +405,7 @@ module SwarmSDK
       YAML
 
       with_temp_config(yaml_content) do |config_path|
-        config = Configuration.load(config_path)
+        config = Configuration.load_file(config_path)
 
         agent1_def = config.agents[:agent1]
         agent2_def = config.agents[:agent2]
