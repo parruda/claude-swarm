@@ -36,6 +36,6 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency("async", "~> 2.0")
   spec.add_dependency("ruby_llm", "~> 1.8")
-  spec.add_dependency("ruby_llm-mcp", "~> 0.6.2")
+  spec.add_dependency("ruby_llm-mcp", "~> 0.6.3")
   spec.add_dependency("zeitwerk", "~> 2.6")
 end
