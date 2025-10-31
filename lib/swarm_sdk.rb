@@ -15,7 +15,6 @@ require "yaml"
 require "async"
 require "async/semaphore"
 require "ruby_llm"
-require "ruby_llm/mcp"
 
 require_relative "swarm_sdk/version"
 
@@ -460,23 +459,4 @@ RubyLLM.configure do |config|
   # GPUStack (local)
   config.gpustack_api_base ||= ENV["GPUSTACK_API_BASE"]
   config.gpustack_api_key ||= ENV["GPUSTACK_API_KEY"]
-end
-
-# monkey patches
-# ruby_llm/mcp
-# - add `id` when sending "notifications/initialized" message: https://github.com/patvice/ruby_llm-mcp/issues/65
-# - remove `to_sym` on MCP parameter type: https://github.com/patvice/ruby_llm-mcp/issues/62#issuecomment-3421488406
-require "ruby_llm/mcp/notifications/initialize"
-require "ruby_llm/mcp/parameter"
-
-module RubyLLM
-  module MCP
-    module Notifications
-      class Initialize
-        def call
-          @coordinator.request(notification_body, add_id: true, wait_for_response: false)
-        end
-      end
-    end
-  end
 end

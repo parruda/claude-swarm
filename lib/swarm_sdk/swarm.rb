@@ -103,6 +103,8 @@ module SwarmSDK
       def apply_mcp_logging_configuration
         return if @mcp_logging_configured
 
+        SwarmSDK::MCP.lazy_load
+
         RubyLLM::MCP.configure do |config|
           config.log_level = @mcp_log_level
         end
