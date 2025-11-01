@@ -166,11 +166,13 @@ module SwarmSDK
 
       agent_def = MarkdownParser.parse(content)
 
-      # With coding_agent: false, # All default tools enabled (default), and empty prompt
-      # Should get TODO/Scratchpad info
+      # With coding_agent: false, default tools enabled, and empty prompt
+      # Should get environment info only (TodoWrite/Scratchpad info is in tool descriptions)
       refute_empty(agent_def.system_prompt)
-      assert_includes(agent_def.system_prompt, "TodoWrite")
-      assert_includes(agent_def.system_prompt, "Scratchpad")
+      assert_includes(agent_def.system_prompt, "Today's date")
+      assert_includes(agent_def.system_prompt, "Current Environment")
+      refute_includes(agent_def.system_prompt, "TodoWrite")
+      refute_includes(agent_def.system_prompt, "Scratchpad")
     end
 
     def test_parse_empty_prompt_no_default_tools_empty_string

@@ -22,10 +22,12 @@ module SwarmSDK
       refute(agent_def.coding_agent)
       assert_nil(agent_def.disable_default_tools)
 
-      # Should include TODO/Scratchpad info + custom prompt
+      # Should include environment info + custom prompt
+      # TodoWrite/Scratchpad instructions are now in tool descriptions, not system prompt
       assert_includes(agent_def.system_prompt, "Custom prompt")
-      assert_includes(agent_def.system_prompt, "TodoWrite")
-      assert_includes(agent_def.system_prompt, "Scratchpad")
+      assert_includes(agent_def.system_prompt, "Today's date")
+      refute_includes(agent_def.system_prompt, "TodoWrite")
+      refute_includes(agent_def.system_prompt, "Scratchpad")
       # Should NOT include full coding base prompt
       refute_includes(agent_def.system_prompt, "You are an AI agent designed to help users")
     end
@@ -96,10 +98,12 @@ module SwarmSDK
       )
 
       # With coding_agent=false, default tools enabled, and nil custom_prompt
-      # Should get TODO/Scratchpad info only
+      # Should get environment info only (TodoWrite/Scratchpad info is in tool descriptions)
       refute_empty(agent_def.system_prompt)
-      assert_includes(agent_def.system_prompt, "TodoWrite")
-      assert_includes(agent_def.system_prompt, "Scratchpad")
+      assert_includes(agent_def.system_prompt, "Today's date")
+      assert_includes(agent_def.system_prompt, "Current Environment")
+      refute_includes(agent_def.system_prompt, "TodoWrite")
+      refute_includes(agent_def.system_prompt, "Scratchpad")
     end
 
     def test_coding_agent_false_with_nil_custom_prompt_no_default_tools

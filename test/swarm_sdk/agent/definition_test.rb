@@ -16,10 +16,12 @@ module SwarmSDK
 
       assert_equal(:test_agent, agent_def.name)
       assert_equal("Test agent", agent_def.description)
-      # Default is coding_agent: false, # All default tools enabled
-      # So it includes TODO/Scratchpad + custom prompt
+      # Default is coding_agent: false, default tools enabled
+      # So it includes environment info + custom prompt
+      # TodoWrite/Scratchpad instructions are now in tool descriptions, not system prompt
       assert_includes(agent_def.system_prompt, "You are a test agent")
-      assert_includes(agent_def.system_prompt, "TodoWrite")
+      assert_includes(agent_def.system_prompt, "Today's date")
+      refute_includes(agent_def.system_prompt, "TodoWrite")
       assert_equal(File.expand_path("."), agent_def.directory)
     end
 
@@ -98,11 +100,13 @@ module SwarmSDK
         },
       )
 
-      # With coding_agent: false, # All default tools enabled, and no custom prompt
-      # Should get TODO/Scratchpad info only
+      # With coding_agent: false, default tools enabled, and no custom prompt
+      # Should get environment info only (TodoWrite/Scratchpad info is in tool descriptions)
       refute_empty(agent_def.system_prompt)
-      assert_includes(agent_def.system_prompt, "TodoWrite")
-      assert_includes(agent_def.system_prompt, "Scratchpad")
+      assert_includes(agent_def.system_prompt, "Today's date")
+      assert_includes(agent_def.system_prompt, "Current Environment")
+      refute_includes(agent_def.system_prompt, "TodoWrite")
+      refute_includes(agent_def.system_prompt, "Scratchpad")
     end
 
     def test_missing_system_prompt_with_coding_agent_false_no_default_tools
