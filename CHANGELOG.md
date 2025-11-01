@@ -1,4 +1,4 @@
-## [Unreleased]
+## [1.0.6]
 
 ### Fixed
 - **Fixed Ruby environment variable conflicts in MCP servers**: Removed RUBYOPT and RUBYLIB from MCP server configurations to prevent Bundler interference

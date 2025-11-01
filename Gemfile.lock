@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    claude_swarm (1.0.5)
+    claude_swarm (1.0.6)
       claude-code-sdk-ruby (~> 0.1.6)
       faraday-net_http_persistent (~> 2.0)
       faraday-retry (~> 2.0)
@@ -10,7 +10,7 @@ PATH
       ruby-openai (>= 7.0, < 9.0)
       thor (~> 1.3)
       zeitwerk (~> 2.6)
-    swarm_cli (2.1.1)
+    swarm_cli (2.1.2)
       csv
       docx (~> 0.10)
       fast-mcp (~> 1.6)
@@ -34,7 +34,7 @@ PATH
       ruby_llm (~> 1.8)
       swarm_sdk (~> 2.1)
       zeitwerk (~> 2.6)
-    swarm_sdk (2.1.2)
+    swarm_sdk (2.1.3)
       async (~> 2.0)
       ruby_llm (~> 1.8)
       ruby_llm-mcp (~> 0.6.3)
