@@ -69,17 +69,41 @@ module ClaudeSwarm
       validate_directories unless has_before_commands?
     end
 
-    def interpolate_env_vars!(obj)
+    def interpolate_env_vars!(obj, path = [])
       case obj
       when String
-        interpolate_env_string(obj)
+        # Skip interpolation for any values inside MCP configurations
+        # Check if we're inside an mcps array element (path like: [..., "instances", <name>, "mcps", <index>, ...])
+        if in_mcp_config?(path)
+          obj
+        else
+          interpolate_env_string(obj)
+        end
       when Hash
-        obj.transform_values! { |v| interpolate_env_vars!(v) }
+        obj.each do |key, value|
+          obj[key] = interpolate_env_vars!(value, path + [key])
+        end
+        obj
       when Array
-        obj.map! { |v| interpolate_env_vars!(v) }
+        obj.map!.with_index { |v, i| interpolate_env_vars!(v, path + [i]) }
       else
         obj
       end
+    end
+
+    def in_mcp_config?(path)
+      # Check if we're inside an MCP configuration
+      # Pattern: [..., "instances", instance_name, "mcps", index, ...]
+      return false if path.size < 4
+
+      # Find the position of "mcps" in the path
+      mcps_index = path.rindex("mcps")
+      return false unless mcps_index
+
+      # Check if this is under instances and followed by an array index
+      return false if mcps_index < 2
+
+      path[mcps_index - 2] == "instances" && path[mcps_index + 1].is_a?(Integer)
     end
 
     def interpolate_env_string(str)

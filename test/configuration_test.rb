@@ -1573,8 +1573,9 @@ class ConfigurationTest < Minitest::Test
     config = ClaudeSwarm::Configuration.new(@config_path)
     mcp = config.main_instance_config[:mcps].first
 
-    assert_equal("github-expert", mcp["name"])
-    assert_equal("mcp-server-github", mcp["command"])
+    # MCP configurations should preserve environment variables
+    assert_equal("${TEST_ENV_MCP_NAME}", mcp["name"])
+    assert_equal("${TEST_ENV_MCP_COMMAND}", mcp["command"])
   end
 
   def test_env_var_interpolation_multiple_in_same_string
@@ -1653,8 +1654,9 @@ class ConfigurationTest < Minitest::Test
     config = ClaudeSwarm::Configuration.new(@config_path)
     mcp = config.main_instance_config[:mcps].first
 
-    assert_equal("https://api.example.com", mcp["url"])
-    assert_equal(["--verbose", "--port=8080"], mcp["args"])
+    # MCP configurations should preserve environment variables
+    assert_equal("${TEST_ENV_URL}", mcp["url"])
+    assert_equal(["${TEST_ENV_ARG}", "--port=8080"], mcp["args"])
   end
 
   def test_env_var_interpolation_in_before_commands
@@ -2073,8 +2075,9 @@ class ConfigurationTest < Minitest::Test
     config = ClaudeSwarm::Configuration.new(@config_path)
     mcps = config.main_instance_config[:mcps]
 
-    assert_equal("default-mcp-server", mcps[0]["command"])
-    assert_equal("http://localhost:8080", mcps[1]["url"])
+    # MCP configurations should preserve environment variables even with defaults
+    assert_equal("${TEST_ENV_MCP_CMD:=default-mcp-server}", mcps[0]["command"])
+    assert_equal("${TEST_ENV_MCP_URL:=http://localhost:8080}", mcps[1]["url"])
   end
 
   def test_env_var_default_in_worktree_string
